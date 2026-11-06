@@ -1,0 +1,761 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/5nwvik",
+    "id": "5nwvik",
+    "slide": 6,
+    "layoutId": "f7c1fbe9-350a-4171-882d-20870a70b8bf",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "f7c1fbe9-350a-4171-882d-20870a70b8bf",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kb6xkf6d",
+      "id": "1",
+      "bbox": [
+        590,
+        -120,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.028)",
+      "lineColor": "rgba(255, 255, 255, 0.02)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rqd4vmtw",
+      "id": "2",
+      "bbox": [
+        -170,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.04)",
+      "lineColor": "rgba(0, 174, 239, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/25kb6xkf",
+      "id": "3",
+      "bbox": [
+        34,
+        20,
+        110,
+        24
+      ],
+      "geometry": "rect",
+      "text": "VChat",
+      "textPreview": "VChat",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#59D8FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#59D8FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#59D8FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9knih4by",
+      "id": "4",
+      "bbox": [
+        875,
+        22,
+        42,
+        20
+      ],
+      "geometry": "rect",
+      "text": "06",
+      "textPreview": "06",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "06"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "06",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "06",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kzupwb2h",
+      "id": "5",
+      "bbox": [
+        70,
+        62,
+        790,
+        48
+      ],
+      "geometry": "rect",
+      "text": "当前程序结构",
+      "textPreview": "当前程序结构",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 36,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "当前程序结构"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "当前程序结构",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "当前程序结构",
+              "fontSize": 36,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/re1w7mp0",
+      "id": "6",
+      "bbox": [
+        70,
+        118,
+        100,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2t83itgf",
+      "id": "7",
+      "bbox": [
+        70,
+        132,
+        790,
+        30
+      ],
+      "geometry": "rect",
+      "text": "程序可以按两个核心界面来理解。",
+      "textPreview": "程序可以按两个核心界面来理解。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "程序可以按两个核心界面来理解。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "程序可以按两个核心界面来理解。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "程序可以按两个核心界面来理解。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9gr2p8nq",
+      "id": "8",
+      "bbox": [
+        105,
+        188,
+        310,
+        150
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 43, 54, 0.92)",
+      "lineColor": "#275A6E",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gvy90je9",
+      "id": "9",
+      "bbox": [
+        123,
+        204,
+        274,
+        28
+      ],
+      "geometry": "rect",
+      "text": "LoginDialog",
+      "textPreview": "LoginDialog",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Microsoft YaHei",
+        "color": "#59D8FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "LoginDialog"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "LoginDialog",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Microsoft YaHei",
+            "color": "#59D8FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "LoginDialog",
+              "fontSize": 23,
+              "typeface": "Microsoft YaHei",
+              "color": "#59D8FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yd0z6103",
+      "id": "10",
+      "bbox": [
+        123,
+        244,
+        274,
+        86
+      ],
+      "geometry": "rect",
+      "text": "登录窗口：服务器地址、账号密码、验证码刷新、登录结果提示。",
+      "textPreview": "登录窗口：服务器地址、账号密码、验证码刷新、登录结果提示。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "登录窗口：服务器地址、账号密码"
+          },
+          {
+            "index": 2,
+            "text": "、验证码刷新、登录结果提示。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "登录窗口：服务器地址、账号密码、验证码刷新、登录结果提示。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "登录窗口：服务器地址、账号密码、验证码刷新、登录结果提示。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rytsvu9k",
+      "id": "11",
+      "bbox": [
+        545,
+        188,
+        310,
+        150
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 43, 54, 0.92)",
+      "lineColor": "#275A6E",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gfmlkjm1",
+      "id": "12",
+      "bbox": [
+        563,
+        204,
+        274,
+        28
+      ],
+      "geometry": "rect",
+      "text": "MainWindow",
+      "textPreview": "MainWindow",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Microsoft YaHei",
+        "color": "#46D07E",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MainWindow"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MainWindow",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Microsoft YaHei",
+            "color": "#46D07E",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MainWindow",
+              "fontSize": 23,
+              "typeface": "Microsoft YaHei",
+              "color": "#46D07E",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/90je9cvi",
+      "id": "13",
+      "bbox": [
+        563,
+        244,
+        274,
+        86
+      ],
+      "geometry": "rect",
+      "text": "聊天主界面：连接状态、消息输入、聊天记录、在线用户列表。",
+      "textPreview": "聊天主界面：连接状态、消息输入、聊天记录、在线用户列表。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "聊天主界面：连接状态、消息输入"
+          },
+          {
+            "index": 2,
+            "text": "、聊天记录、在线用户列表。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "聊天主界面：连接状态、消息输入、聊天记录、在线用户列表。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "聊天主界面：连接状态、消息输入、聊天记录、在线用户列表。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1kre1w7",
+      "id": "14",
+      "bbox": [
+        420,
+        263,
+        120,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#59D8FF",
+      "lineWidth": 2
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rmhk3q5o",
+      "id": "15",
+      "bbox": [
+        335,
+        312,
+        300,
+        28
+      ],
+      "geometry": "rect",
+      "text": "登录成功后传递昵称和服务器地址",
+      "textPreview": "登录成功后传递昵称和服务器地址",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "登录成功后传递昵称和服务器地址"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "登录成功后传递昵称和服务器地址",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "登录成功后传递昵称和服务器地址",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

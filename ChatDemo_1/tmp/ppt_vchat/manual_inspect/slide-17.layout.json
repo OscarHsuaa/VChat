@@ -1,0 +1,843 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/54zidony",
+    "id": "54zidony",
+    "slide": 17,
+    "layoutId": "/ppt/slideLayouts/slideLayout2.xml",
+    "layoutName": "标题和内容",
+    "masterLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "Office 主题",
+    "colors": {
+      "accent1": "#5B9BD5",
+      "accent2": "#ED7D31",
+      "accent3": "#A5A5A5",
+      "accent4": "#FFC000",
+      "accent5": "#4472C4",
+      "accent6": "#70AD47",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#44546A",
+      "lt2": "#E7E6E6",
+      "hlink": "#0563C1",
+      "folHlink": "#954F72"
+    },
+    "fontScheme": {
+      "name": "5zrrza2d",
+      "majorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      },
+      "minorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      }
+    },
+    "typefaces": [
+      "微软雅黑"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "/ppt/slideLayouts/slideLayout2.xml",
+      "name": "标题和内容",
+      "parentLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/2",
+          "id": "2",
+          "name": "文本框 1",
+          "bbox": [
+            117.5,
+            23.17,
+            123.77,
+            35.54
+          ],
+          "geometry": "rect",
+          "text": "公司LOGO",
+          "textPreview": "公司LOGO",
+          "resolvedTextStyle": {
+            "wrap": "none",
+            "autoFit": "resizeShapeToFitText"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "公司LOGO",
+              "spaceBefore": 0,
+              "spaceAfter": 0,
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "公司",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                },
+                {
+                  "index": 2,
+                  "text": "LOGO",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                }
+              ]
+            }
+          ],
+          "lineWidth": 0
+        },
+        {
+          "order": 2,
+          "kind": "image",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/3",
+          "id": "3",
+          "name": "图片 7",
+          "bbox": [
+            47.67,
+            17,
+            69.83,
+            41.67
+          ],
+          "contentType": "image/png",
+          "imageCrop": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+          },
+          "asset": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          },
+          "fillImage": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          }
+        }
+      ]
+    },
+    {
+      "scope": "master",
+      "id": "/ppt/slideMasters/slideMaster1.xml",
+      "type": "master",
+      "backgroundImage": {
+        "assetId": "/ppt/media/image1.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 26278
+      },
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x0nuxc3y",
+      "id": "2",
+      "name": "矩形 1",
+      "bbox": [
+        -2.01,
+        522.89,
+        962.17,
+        17.02
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "lt1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "fillColor": {
+        "type": "theme",
+        "value": "bg1",
+        "transform": {
+          "opacity": 0.92157,
+          "darken": 0.15
+        }
+      },
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dg7adsji",
+      "id": "19",
+      "name": "矩形 18",
+      "bbox": [
+        420.43,
+        127.05,
+        127.64,
+        29.89
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容",
+      "textPreview": "添加标题内容",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "none",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1kre1w7m",
+      "id": "20",
+      "name": "矩形 19",
+      "bbox": [
+        422.45,
+        153.94,
+        198.92,
+        38.29
+      ],
+      "geometry": "rect",
+      "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "textPreview": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "在此录入上述图表的综合说明，在此录"
+          },
+          {
+            "index": 2,
+            "text": "入上述图表的综合描述说明。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+          "lineSpacingPercent": 120000,
+          "spaceBefore": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/c3ylc7u5",
+      "id": "21",
+      "name": "矩形 20",
+      "bbox": [
+        720.78,
+        119.91,
+        127.64,
+        29.89
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容",
+      "textPreview": "添加标题内容",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "none",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ji5snelo",
+      "id": "22",
+      "name": "矩形 21",
+      "bbox": [
+        722.8,
+        146.8,
+        198.92,
+        38.29
+      ],
+      "geometry": "rect",
+      "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "textPreview": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "在此录入上述图表的综合说明，在此录"
+          },
+          {
+            "index": 2,
+            "text": "入上述图表的综合描述说明。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+          "lineSpacingPercent": 120000,
+          "spaceBefore": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/uxc3ylc7",
+      "id": "23",
+      "name": "矩形 22",
+      "bbox": [
+        419.02,
+        219.6,
+        127.64,
+        29.89
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容",
+      "textPreview": "添加标题内容",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "none",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1cfa9w3m",
+      "id": "24",
+      "name": "矩形 23",
+      "bbox": [
+        421.04,
+        246.49,
+        198.92,
+        38.29
+      ],
+      "geometry": "rect",
+      "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "textPreview": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "在此录入上述图表的综合说明，在此录"
+          },
+          {
+            "index": 2,
+            "text": "入上述图表的综合描述说明。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+          "lineSpacingPercent": 120000,
+          "spaceBefore": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/18jqh0fe",
+      "id": "28",
+      "name": "矩形 27",
+      "bbox": [
+        721.54,
+        219.19,
+        127.64,
+        29.89
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容",
+      "textPreview": "添加标题内容",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "none",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8nqxs72x",
+      "id": "29",
+      "name": "矩形 28",
+      "bbox": [
+        723.56,
+        246.08,
+        198.92,
+        38.29
+      ],
+      "geometry": "rect",
+      "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "textPreview": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "在此录入上述图表的综合说明，在此录"
+          },
+          {
+            "index": 2,
+            "text": "入上述图表的综合描述说明。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+          "lineSpacingPercent": 120000,
+          "spaceBefore": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "在此录入上述图表的综合说明，在此录入上述图表的综合描述说明。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bm58z25k",
+      "id": "39",
+      "name": "TextBox 38",
+      "bbox": [
+        366.65,
+        321.52,
+        580.55,
+        98.59
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 11.34,
+          "bottom": 2.84,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替换图片。"
+          },
+          {
+            "index": 3,
+            "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。"
+          },
+          {
+            "index": 4,
+            "text": "右键点击图片选择设置图片格式可直接替换图片。"
+          },
+          {
+            "index": 5,
+            "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 3,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 4,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    }
+  ],
+  "composeRuns": []
+}

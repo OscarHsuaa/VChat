@@ -1,0 +1,345 @@
+{"kind":"deck","id":"pr/kgnczj","name":"Deck"}
+{"kind":"layout","layoutId":"cc898cff-9f14-4935-89c2-1830f0671f38","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"921b6afa-ccb3-413a-ae06-06fae0117dc6","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/iwo106","slide":1,"title":"VChat","textShapes":4}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":1,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/ji5snelo","slide":1,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":1,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[555,172,240,66]}
+{"kind":"textbox","id":"sh/1cfa9w3m","slide":1,"text":"学生群体聊天系统","textPreview":"学生群体聊天系统","textChars":8,"textLines":1,"bbox":[558,242,300,34]}
+{"kind":"shape","id":"sh/crmhk3q5","slide":1,"bbox":[558,296,180,3]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":1,"text":"贴合当前 Qt 客户端代码的课堂答辩版","textPreview":"贴合当前 Qt 客户端代码的课堂答辩版","textChars":19,"textLines":1,"bbox":[558,318,330,26]}
+{"kind":"textbox","id":"sh/ulwval87","slide":1,"text":"徐一豪 233020798 / 伍锐 233020799","textPreview":"徐一豪 233020798 / 伍锐 233020799","textChars":28,"textLines":1,"bbox":[558,352,330,24]}
+{"kind":"notes","id":"nt/iwo106","slide":1,"text":"第 1 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/o53pls","slide":2,"title":"VChat","textShapes":13}
+{"kind":"shape","id":"sh/g3ex0nux","slide":2,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/nih4byhg","slide":2,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/yxobm58z","slide":2,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/9cvixcze","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/gr2p8nqx","slide":2,"text":"项目与程序完成度","textPreview":"项目与程序完成度","textChars":8,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/r65wjudg","slide":2,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/ylc7u54z","slide":2,"text":"这版 PPT 重点说明当前程序真实完成了什么。","textPreview":"这版 PPT 重点说明当前程序真实完成了什么。","textChars":23,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/90je9cvi","slide":2,"bbox":[82,178,240,105]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":2,"text":"当前仓库","textPreview":"当前仓库","textChars":4,"textLines":1,"bbox":[100,194,204,26]}
+{"kind":"textbox","id":"sh/65wjudg7","slide":2,"text":"Qt 客户端：登录窗口、验证码、聊天主界面、socket 通信和在线列表显示。","textPreview":"Qt 客户端：登录窗口、验证码、聊天主界面、socket 通信和在线列表显示。","textChars":39,"textLines":1,"bbox":[100,230,204,45]}
+{"kind":"shape","id":"sh/zqtcj6to","slide":2,"bbox":[360,178,240,105]}
+{"kind":"textbox","id":"sh/obm58z25","slide":2,"text":"联调依赖","textPreview":"联调依赖","textChars":4,"textLines":1,"bbox":[378,194,204,26]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":2,"text":"ChatServer 与 MySQL 是协议对端，答辩时按 C/S 架构说明。","textPreview":"ChatServer 与 MySQL 是协议对端，答辩时按 C/S 架构说明。","textChars":39,"textLines":1,"bbox":[378,230,204,45]}
+{"kind":"shape","id":"sh/6xkf6dcb","slide":2,"bbox":[638,178,240,105]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":2,"text":"代码口径","textPreview":"代码口径","textChars":4,"textLines":1,"bbox":[656,194,204,26]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":2,"text":"只展示关键代码片段，不把完整函数全部塞进 PPT。","textPreview":"只展示关键代码片段，不把完整函数全部塞进 PPT。","textChars":25,"textLines":1,"bbox":[656,230,204,45]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":2,"bbox":[118,347,11,11]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":2,"text":"客户端不直接连接数据库，数据库访问应由服务器端完成。","textPreview":"客户端不直接连接数据库，数据库访问应由服务器端完成。","textChars":26,"textLines":1,"bbox":[142,340,716,36]}
+{"kind":"shape","id":"sh/z61032ls","slide":2,"bbox":[118,387,11,11]}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":2,"text":"8080 是默认测试端口，服务器改端口时客户端也要同步修改。","textPreview":"8080 是默认测试端口，服务器改端口时客户端也要同步修改。","textChars":30,"textLines":1,"bbox":[142,380,716,36]}
+{"kind":"shape","id":"sh/ixczed8v","slide":2,"bbox":[118,427,11,11]}
+{"kind":"textbox","id":"sh/tovahoza","slide":2,"text":"PPT 中涉及代码的部分都对应当前项目里的真实函数。","textPreview":"PPT 中涉及代码的部分都对应当前项目里的真实函数。","textChars":26,"textLines":1,"bbox":[142,420,716,36]}
+{"kind":"notes","id":"nt/o53pls","slide":2,"text":"第 2 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/qd7lao","slide":3,"title":"VChat","textShapes":14}
+{"kind":"shape","id":"sh/svu9knih","slide":3,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/za1gvy90","slide":3,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":3,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":3,"text":"答辩路线","textPreview":"答辩路线","textChars":4,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/zidonyd0","slide":3,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":3,"text":"项目介绍为主，代码只作为关键实现支撑。","textPreview":"项目介绍为主，代码只作为关键实现支撑。","textChars":19,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":3,"bbox":[86,185,225,84]}
+{"kind":"textbox","id":"sh/s72x4nap","slide":3,"text":"需求背景","textPreview":"需求背景","textChars":4,"textLines":1,"bbox":[104,201,189,26]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":3,"text":"01  为什么做 VChat","textPreview":"01  为什么做 VChat","textChars":14,"textLines":1,"bbox":[104,237,189,24]}
+{"kind":"shape","id":"sh/byhgn29g","slide":3,"bbox":[356,185,225,84]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":3,"text":"系统架构","textPreview":"系统架构","textChars":4,"textLines":1,"bbox":[374,201,189,26]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":3,"text":"02  客户端/服务器/数据库","textPreview":"02  客户端/服务器/数据库","textChars":15,"textLines":1,"bbox":[374,237,189,24]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":3,"bbox":[626,185,225,84]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":3,"text":"功能流程","textPreview":"功能流程","textChars":4,"textLines":1,"bbox":[644,201,189,26]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":3,"text":"03  登录、连接、聊天","textPreview":"03  登录、连接、聊天","textChars":12,"textLines":1,"bbox":[644,237,189,24]}
+{"kind":"shape","id":"sh/tcj6tova","slide":3,"bbox":[86,303,225,84]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":3,"text":"关键代码","textPreview":"关键代码","textChars":4,"textLines":1,"bbox":[104,319,189,26]}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":3,"text":"04  验证码、socket、消息分发","textPreview":"04  验证码、socket、消息分发","textChars":19,"textLines":1,"bbox":[104,355,189,24]}
+{"kind":"shape","id":"sh/zidonyd0","slide":3,"bbox":[356,303,225,84]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":3,"text":"测试总结","textPreview":"测试总结","textChars":4,"textLines":1,"bbox":[374,319,189,26]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":3,"text":"05  完成度、问题与改进","textPreview":"05  完成度、问题与改进","textChars":13,"textLines":1,"bbox":[374,355,189,24]}
+{"kind":"notes","id":"nt/qd7lao","slide":3,"text":"第 3 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/ridx02","slide":4,"title":"VChat","textShapes":12}
+{"kind":"shape","id":"sh/3ex0nuxc","slide":4,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/szqtcj6t","slide":4,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/lkjm1cfa","slide":4,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/ahoza1gv","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/32lszqtc","slide":4,"text":"需求与应用场景","textPreview":"需求与应用场景","textChars":7,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/sneloj2t","slide":4,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/l87ed8ba","slide":4,"text":"适合课堂项目、小组协作和局域网即时沟通。","textPreview":"适合课堂项目、小组协作和局域网即时沟通。","textChars":20,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/e9cvixcz","slide":4,"bbox":[82,180,380,105]}
+{"kind":"textbox","id":"sh/3q5o7qpg","slide":4,"text":"功能需求","textPreview":"功能需求","textChars":4,"textLines":1,"bbox":[100,196,344,26]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":4,"text":"登录验证、服务器地址输入、聊天消息发送/接收、在线用户列表、连接状态提示。","textPreview":"登录验证、服务器地址输入、聊天消息发送/接收、在线用户列表、连接状态提示。","textChars":37,"textLines":1,"bbox":[100,232,344,45]}
+{"kind":"shape","id":"sh/ytsvu9kn","slide":4,"bbox":[502,180,380,105]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":4,"text":"非功能需求","textPreview":"非功能需求","textChars":5,"textLines":1,"bbox":[520,196,344,26]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":4,"text":"界面清晰、错误提示明确、TCP 数据处理稳定、用户输入显示前转义。","textPreview":"界面清晰、错误提示明确、TCP 数据处理稳定、用户输入显示前转义。","textChars":33,"textLines":1,"bbox":[520,232,344,45]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":4,"bbox":[82,325,380,105]}
+{"kind":"textbox","id":"sh/u54zidon","slide":4,"text":"演示需求","textPreview":"演示需求","textChars":4,"textLines":1,"bbox":[100,341,344,26]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":4,"text":"可以在本机或局域网服务器上连接，默认地址为 127.0.0.1:8080。","textPreview":"可以在本机或局域网服务器上连接，默认地址为 127.0.0.1:8080。","textChars":37,"textLines":1,"bbox":[100,377,344,45]}
+{"kind":"shape","id":"sh/cbulwval","slide":4,"bbox":[502,325,380,105]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":4,"text":"扩展需求","textPreview":"扩展需求","textChars":4,"textLines":1,"bbox":[520,341,344,26]}
+{"kind":"textbox","id":"sh/y90je9cv","slide":4,"text":"后续可加入聊天记录查询、离线消息、文件发送和 AI 问答入口。","textPreview":"后续可加入聊天记录查询、离线消息、文件发送和 AI 问答入口。","textChars":31,"textLines":1,"bbox":[520,377,344,45]}
+{"kind":"notes","id":"nt/ridx02","slide":4,"text":"第 4 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/nvvwdn","slide":5,"title":"VChat","textShapes":9}
+{"kind":"shape","id":"sh/t83itgfm","slide":5,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/mhk3q5o7","slide":5,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/b2hwfyxo","slide":5,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/4byhgn29","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/twra5gbq","slide":5,"text":"当前程序结构","textPreview":"当前程序结构","textChars":6,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/m58z25kb","slide":5,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/bq1oryts","slide":5,"text":"真实项目主要由登录窗口、聊天主窗口和 CMake 配置组成。","textPreview":"真实项目主要由登录窗口、聊天主窗口和 CMake 配置组成。","textChars":30,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/47y1kre1","slide":5,"bbox":[96,178,360,220]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":5,"text":"项目文件","textPreview":"项目文件","textChars":4,"textLines":1,"bbox":[114,190,324,22]}
+{"kind":"textbox","id":"sh/90je9cvi","slide":5,"text":"ChatDemo_1\n├─ CMakeLists.txt\n├─ main.cpp\n├─ logindialog.h / .cpp / .ui\n└─ mainwindow.h  / .cpp / .ui","textPreview":"ChatDemo_1 | ├─ CMakeLists.txt | ├─ main.cpp | ├─ logindialog.h / .cpp / .ui | └─ mainwindow.h  / .cpp / .ui","textChars":100,"textLines":5,"bbox":[114,220,324,168]}
+{"kind":"shape","id":"sh/gfmlkjm1","slide":5,"bbox":[526,195,11,11]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":5,"text":"LoginDialog：服务器地址、账号密码、验证码、登录认证。","textPreview":"LoginDialog：服务器地址、账号密码、验证码、登录认证。","textChars":32,"textLines":1,"bbox":[550,188,316,58]}
+{"kind":"shape","id":"sh/yd0z6103","slide":5,"bbox":[526,257,11,11]}
+{"kind":"textbox","id":"sh/9s36hcrm","slide":5,"text":"MainWindow：聊天主界面、socket 连接、消息收发、在线列表。","textPreview":"MainWindow：聊天主界面、socket 连接、消息收发、在线列表。","textChars":37,"textLines":1,"bbox":[550,250,316,58]}
+{"kind":"shape","id":"sh/g7adsji5","slide":5,"bbox":[526,319,11,11]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":5,"text":"CMakeLists：链接 Qt::Core、Qt::Widgets、Qt::Network。","textPreview":"CMakeLists：链接 Qt::Core、Qt::Widgets、Qt::Network。","textChars":47,"textLines":1,"bbox":[550,312,316,58]}
+{"kind":"notes","id":"nt/nvvwdn","slide":5,"text":"第 5 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/p8bha2","slide":6,"title":"VChat","textShapes":12}
+{"kind":"shape","id":"sh/pkzupwb2","slide":6,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/itgfmlkj","slide":6,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":6,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/p8nqxs72","slide":6,"text":"客户端、服务器、数据库连接关系","textPreview":"客户端、服务器、数据库连接关系","textChars":15,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/ih4byhgn","slide":6,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":6,"text":"客户端只连接 ChatServer，不直接暴露数据库连接。","textPreview":"客户端只连接 ChatServer，不直接暴露数据库连接。","textChars":29,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/wjudg7ad","slide":6,"bbox":[250,250,130,0]}
+{"kind":"shape","id":"sh/p4r65wju","slide":6,"bbox":[580,250,130,0]}
+{"kind":"shape","id":"sh/lwval87e","slide":6,"bbox":[90,220,160,58]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":6,"text":"Qt 客户端","textPreview":"Qt 客户端","textChars":6,"textLines":1,"bbox":[98,237,144,24]}
+{"kind":"shape","id":"sh/3q5o7qpg","slide":6,"bbox":[390,220,180,58]}
+{"kind":"textbox","id":"sh/e9cvixcz","slide":6,"text":"ChatServer","textPreview":"ChatServer","textChars":10,"textLines":1,"bbox":[398,237,164,24]}
+{"kind":"shape","id":"sh/loj2t83i","slide":6,"bbox":[720,220,140,58]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":6,"text":"MySQL","textPreview":"MySQL","textChars":5,"textLines":1,"bbox":[728,237,124,24]}
+{"kind":"textbox","id":"sh/3itgfmlk","slide":6,"text":"QTcpSocket\nIP:端口","textPreview":"QTcpSocket | IP:端口","textChars":16,"textLines":2,"bbox":[280,205,85,48]}
+{"kind":"textbox","id":"sh/ex0nuxc3","slide":6,"text":"SQL 查询\nusers/messages","textPreview":"SQL 查询 | users/messages","textChars":21,"textLines":2,"bbox":[612,205,90,56]}
+{"kind":"shape","id":"sh/lkjm1cfa","slide":6,"bbox":[120,347,11,11]}
+{"kind":"textbox","id":"sh/szqtcj6t","slide":6,"text":"客户端负责界面输入、TCP 通信和消息显示。","textPreview":"客户端负责界面输入、TCP 通信和消息显示。","textChars":22,"textLines":1,"bbox":[144,340,711,34]}
+{"kind":"shape","id":"sh/8v6psfil","slide":6,"bbox":[120,385,11,11]}
+{"kind":"textbox","id":"sh/xczed8v6","slide":6,"text":"服务器负责登录判断、消息转发、在线用户维护和数据库访问。","textPreview":"服务器负责登录判断、消息转发、在线用户维护和数据库访问。","textChars":28,"textLines":1,"bbox":[144,378,711,34]}
+{"kind":"shape","id":"sh/qpg3ex0n","slide":6,"bbox":[120,423,11,11]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":6,"text":"数据库保存用户信息和聊天记录，客户端不直接连接数据库。","textPreview":"数据库保存用户信息和聊天记录，客户端不直接连接数据库。","textChars":27,"textLines":1,"bbox":[144,416,711,34]}
+{"kind":"notes","id":"nt/p8bha2","slide":6,"text":"第 6 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/0kq2xd","slide":7,"title":"VChat","textShapes":11}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":7,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/judg7ads","slide":7,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":7,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":7,"text":"端口号 8080 的说明","textPreview":"端口号 8080 的说明","textChars":12,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/jm1cfa9w","slide":7,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":7,"text":"8080 只是默认测试端口，真正要求是客户端和服务器一致。","textPreview":"8080 只是默认测试端口，真正要求是客户端和服务器一致。","textChars":29,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/5gbq1ory","slide":7,"bbox":[80,170,535,150]}
+{"kind":"textbox","id":"sh/cvixczed","slide":7,"text":"LoginDialog 默认地址","textPreview":"LoginDialog 默认地址","textChars":16,"textLines":1,"bbox":[98,182,499,22]}
+{"kind":"textbox","id":"sh/m1cfa9w3","slide":7,"text":"serverEdit->setText(QStringLiteral(\"127.0.0.1:8080\"));\nserverEdit->setPlaceholderText(QStringLiteral(\"例如 127.0.0.1:8080\"));\nui->formLayout->insertRow(0, QStringLiteral(\"服务器:\"), serverEdit);","textPreview":"serverEdit->setText(QStringLiteral(\"127.0.0.1:8080\")); | serverEdit->setPlaceholderText(QStringLiteral(\"例如 127.0.0.1:8080\")); | ui->formL...","textChars":189,"textLines":3,"bbox":[98,212,499,98]}
+{"kind":"shape","id":"sh/bm58z25k","slide":7,"bbox":[650,170,210,78]}
+{"kind":"textbox","id":"sh/47y1kre1","slide":7,"text":"不是固定","textPreview":"不是固定","textChars":4,"textLines":1,"bbox":[668,186,174,26]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":7,"text":"服务器监听 9000，客户端也填 9000。","textPreview":"服务器监听 9000，客户端也填 9000。","textChars":22,"textLines":1,"bbox":[668,222,174,18]}
+{"kind":"shape","id":"sh/mp0bi9s3","slide":7,"bbox":[650,270,210,78]}
+{"kind":"textbox","id":"sh/bat47y1k","slide":7,"text":"方便演示","textPreview":"方便演示","textChars":4,"textLines":1,"bbox":[668,286,174,26]}
+{"kind":"textbox","id":"sh/4vmtwra5","slide":7,"text":"本机调试时 127.0.0.1:8080 最直观。","textPreview":"本机调试时 127.0.0.1:8080 最直观。","textChars":25,"textLines":1,"bbox":[668,322,174,18]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":7,"text":"答辩表达：8080 是项目默认测试端口，不是协议规定。","textPreview":"答辩表达：8080 是项目默认测试端口，不是协议规定。","textChars":27,"textLines":1,"bbox":[95,380,720,36]}
+{"kind":"notes","id":"nt/0kq2xd","slide":7,"text":"第 7 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/z8f2fd","slide":8,"title":"VChat","textShapes":19}
+{"kind":"shape","id":"sh/6hcrmhk3","slide":8,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/d8v6psfi","slide":8,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/onyd0z61","slide":8,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/vahoza1g","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/6tovahoz","slide":8,"text":"核心流程：从登录到聊天","textPreview":"核心流程：从登录到聊天","textChars":11,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/dg7adsji","slide":8,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/ovahoza1","slide":8,"text":"流程与 main.cpp、LoginDialog、MainWindow 的调用关系一致。","textPreview":"流程与 main.cpp、LoginDialog、MainWindow 的调用关系一致。","textChars":44,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/vmtwra5g","slide":8,"bbox":[72,215,130,110]}
+{"kind":"textbox","id":"sh/61032lsz","slide":8,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[114,222,45,34]}
+{"kind":"textbox","id":"sh/wval87ed","slide":8,"text":"启动","textPreview":"启动","textChars":2,"textLines":1,"bbox":[90,263,94,26]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":8,"text":"main.cpp 显示登录框","textPreview":"main.cpp 显示登录框","textChars":14,"textLines":1,"bbox":[86,294,102,32]}
+{"kind":"shape","id":"sh/epkzupwb","slide":8,"bbox":[202,270,35,0]}
+{"kind":"shape","id":"sh/7adsji5s","slide":8,"bbox":[242,215,130,110]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":8,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[284,222,45,34]}
+{"kind":"textbox","id":"sh/psfil0rq","slide":8,"text":"校验","textPreview":"校验","textChars":2,"textLines":1,"bbox":[260,263,94,26]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":8,"text":"账号密码 + 验证码","textPreview":"账号密码 + 验证码","textChars":10,"textLines":1,"bbox":[256,294,102,32]}
+{"kind":"shape","id":"sh/7mp0bi9s","slide":8,"bbox":[372,270,35,0]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":8,"bbox":[412,215,130,110]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":8,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[454,222,45,34]}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":8,"text":"认证","textPreview":"认证","textChars":2,"textLines":1,"bbox":[430,263,94,26]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":8,"text":"LOGIN 请求给服务器","textPreview":"LOGIN 请求给服务器","textChars":12,"textLines":1,"bbox":[426,294,102,32]}
+{"kind":"shape","id":"sh/7qpg3ex0","slide":8,"bbox":[542,270,35,0]}
+{"kind":"shape","id":"sh/i5sneloj","slide":8,"bbox":[582,215,130,110]}
+{"kind":"textbox","id":"sh/p4r65wju","slide":8,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[624,222,45,34]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":8,"text":"连接","textPreview":"连接","textChars":2,"textLines":1,"bbox":[600,263,94,26]}
+{"kind":"textbox","id":"sh/7y1kre1w","slide":8,"text":"MainWindow 正式连接","textPreview":"MainWindow 正式连接","textChars":15,"textLines":1,"bbox":[596,294,102,32]}
+{"kind":"shape","id":"sh/ed8v6psf","slide":8,"bbox":[712,270,35,0]}
+{"kind":"shape","id":"sh/p8nqxs72","slide":8,"bbox":[752,215,130,110]}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":8,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[794,222,45,34]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":8,"text":"聊天","textPreview":"聊天","textChars":2,"textLines":1,"bbox":[770,263,94,26]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":8,"text":"发送消息并接收转发","textPreview":"发送消息并接收转发","textChars":9,"textLines":1,"bbox":[766,294,102,32]}
+{"kind":"notes","id":"nt/z8f2fd","slide":8,"text":"第 8 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/vr19i9","slide":9,"title":"VChat","textShapes":9}
+{"kind":"shape","id":"sh/eloj2t83","slide":9,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":9,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":9,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/7u54zido","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":9,"text":"关键代码 1：验证码与登录校验","textPreview":"关键代码 1：验证码与登录校验","textChars":15,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/l0rqd4vm","slide":9,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/wfyxobm5","slide":9,"text":"这页只保留能说明登录逻辑的核心片段。","textPreview":"这页只保留能说明登录逻辑的核心片段。","textChars":18,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/7mp0bi9s","slide":9,"bbox":[70,150,570,325]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":9,"text":"logindialog.cpp","textPreview":"logindialog.cpp","textChars":15,"textLines":1,"bbox":[88,162,534,22]}
+{"kind":"textbox","id":"sh/0rqd4vmt","slide":9,"text":"captchaCode = createCaptcha();\nui->captchaCodeLabel->setText(captchaCode);\n\nif (inputCaptcha.compare(captchaCode, Qt::CaseInsensitive) != 0) {\n    QMessageBox::warning(this, \"登录失败\", \"验证码错误，请重新输入。\");\n    refreshCaptcha();\n    return;\n}\n\nif (!authenticateWithServer(name, password, &errorMessage)) {\n    QMessageBox::warning(this, \"登录失败\", errorMessage);\n    refreshCaptcha();\n    return;\n}\naccept();","textPreview":"captchaCode = createCaptcha(); | ui->captchaCodeLabel->setText(captchaCode); |  | if (inputCaptcha.compare(captchaCode, Qt::CaseInsensiti...","textChars":397,"textLines":15,"bbox":[88,192,534,273]}
+{"kind":"shape","id":"sh/tcj6tova","slide":9,"bbox":[675,197,11,11]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":9,"text":"验证码在客户端本地判断。","textPreview":"验证码在客户端本地判断。","textChars":12,"textLines":1,"bbox":[699,190,196,60]}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":9,"bbox":[675,261,11,11]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":9,"text":"账号密码交给 ChatServer 查询 users 表。","textPreview":"账号密码交给 ChatServer 查询 users 表。","textChars":29,"textLines":1,"bbox":[699,254,196,60]}
+{"kind":"shape","id":"sh/t47y1kre","slide":9,"bbox":[675,325,11,11]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":9,"text":"成功后 accept() 进入主窗口。","textPreview":"成功后 accept() 进入主窗口。","textChars":19,"textLines":1,"bbox":[699,318,196,60]}
+{"kind":"notes","id":"nt/vr19i9","slide":9,"text":"第 9 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/xjwx0p","slide":10,"title":"VChat","textShapes":9}
+{"kind":"shape","id":"sh/90je9cvi","slide":10,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/yd0z6103","slide":10,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":10,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/g7adsji5","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/9s36hcrm","slide":10,"text":"关键代码 2：服务器认证协议","textPreview":"关键代码 2：服务器认证协议","textChars":14,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/y1kre1w7","slide":10,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/rmhk3q5o","slide":10,"text":"登录阶段使用临时 socket，正式聊天阶段再建立主窗口 socket。","textPreview":"登录阶段使用临时 socket，正式聊天阶段再建立主窗口 socket。","textChars":36,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/g3ex0nux","slide":10,"bbox":[70,150,555,310]}
+{"kind":"textbox","id":"sh/5o7qpg3e","slide":10,"text":"authenticateWithServer()","textPreview":"authenticateWithServer()","textChars":24,"textLines":1,"bbox":[88,162,519,22]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":10,"text":"QTcpSocket socket;\nsocket.connectToHost(host, port);\n\nconst QString request =\n    QStringLiteral(\"LOGIN|%1|%2\\n\").arg(username, password);\nsocket.write(request.toUtf8());\n\nif (response.startsWith(QStringLiteral(\"LOGIN_OK|\"))) {\n    loggedInNickname =\n        response.mid(QStringLiteral(\"LOGIN_OK|\").size()).trimmed();\n    return true;\n}","textPreview":"QTcpSocket socket; | socket.connectToHost(host, port); |  | const QString request = |     QStringLiteral(\"LOGIN|%1|%2\\n\").arg(username, p...","textChars":337,"textLines":12,"bbox":[88,192,519,258]}
+{"kind":"shape","id":"sh/cvixczed","slide":10,"bbox":[680,185,190,58]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":10,"text":"LOGIN|账号|密码","textPreview":"LOGIN|账号|密码","textChars":11,"textLines":1,"bbox":[688,202,174,24]}
+{"kind":"shape","id":"sh/upwb2hwf","slide":10,"bbox":[775,250,0,45]}
+{"kind":"shape","id":"sh/54zidony","slide":10,"bbox":[680,310,190,58]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":10,"text":"LOGIN_OK|昵称","textPreview":"LOGIN_OK|昵称","textChars":11,"textLines":1,"bbox":[688,327,174,24]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":10,"text":"失败则返回 LOGIN_FAIL|原因","textPreview":"失败则返回 LOGIN_FAIL|原因","textChars":19,"textLines":1,"bbox":[660,395,235,28]}
+{"kind":"notes","id":"nt/xjwx0p","slide":10,"text":"第 10 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/jvw3fa","slide":11,"title":"VChat","textShapes":11}
+{"kind":"shape","id":"sh/bi9s36hc","slide":11,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/032lszqt","slide":11,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/tovahoza","slide":11,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/bulwval8","slide":11,"text":"关键代码 3：聊天收发","textPreview":"关键代码 3：聊天收发","textChars":11,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/0fepkzup","slide":11,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":11,"text":"发送前检查连接状态，接收时用 receiveBuffer 处理 TCP 流。","textPreview":"发送前检查连接状态，接收时用 receiveBuffer 处理 TCP 流。","textChars":38,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/idonyd0z","slide":11,"bbox":[70,155,585,295]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":11,"text":"mainwindow.cpp","textPreview":"mainwindow.cpp","textChars":14,"textLines":1,"bbox":[88,167,549,22]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":11,"text":"const QString networkMessage = nickname + \": \" + message + \"\\n\";\nsocket->write(networkMessage.toUtf8());\n\nreceiveBuffer.append(socket->readAll());\nwhile ((lineEnd = receiveBuffer.indexOf('\\n')) != -1) {\n    const QByteArray lineBytes = receiveBuffer.left(lineEnd).trimmed();\n    receiveBuffer.remove(0, lineEnd + 1);\n    appendIncomingLine(QString::fromUtf8(lineBytes));\n}","textPreview":"const QString networkMessage = nickname + \": \" + message + \"\\n\"; | socket->write(networkMessage.toUtf8()); |  | receiveBuffer.append(sock...","textChars":372,"textLines":9,"bbox":[88,197,549,243]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":11,"bbox":[690,176,180,80]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":11,"text":"发送","textPreview":"发送","textChars":2,"textLines":1,"bbox":[708,192,144,26]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":11,"text":"昵称: 消息内容\\n","textPreview":"昵称: 消息内容\\n","textChars":10,"textLines":1,"bbox":[708,228,144,20]}
+{"kind":"shape","id":"sh/r2p8nqxs","slide":11,"bbox":[690,286,180,80]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":11,"text":"接收","textPreview":"接收","textChars":2,"textLines":1,"bbox":[708,302,144,26]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":11,"text":"缓存后按 \\n 拆行","textPreview":"缓存后按 \\n 拆行","textChars":10,"textLines":1,"bbox":[708,338,144,20]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":11,"text":"重点：TCP 不是一条消息一次 readyRead。","textPreview":"重点：TCP 不是一条消息一次 readyRead。","textChars":26,"textLines":1,"bbox":[650,405,260,32]}
+{"kind":"notes","id":"nt/jvw3fa","slide":11,"text":"第 11 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/2d8f7r","slide":12,"title":"VChat","textShapes":12}
+{"kind":"shape","id":"sh/d4vmtwra","slide":12,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/6dcbulwv","slide":12,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/vy90je9c","slide":12,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/o7qpg3ex","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/dsji5sne","slide":12,"text":"关键代码 4：消息分类显示","textPreview":"关键代码 4：消息分类显示","textChars":13,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/61032lsz","slide":12,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/vmtwra5g","slide":12,"text":"服务器返回不同前缀，客户端进入不同处理逻辑。","textPreview":"服务器返回不同前缀，客户端进入不同处理逻辑。","textChars":22,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/ovahoza1","slide":12,"bbox":[80,160,520,270]}
+{"kind":"textbox","id":"sh/dg7adsji","slide":12,"text":"appendIncomingLine()","textPreview":"appendIncomingLine()","textChars":20,"textLines":1,"bbox":[98,172,484,22]}
+{"kind":"textbox","id":"sh/1032lszq","slide":12,"text":"if (line.startsWith(\"USERLIST|\")) {\n    updateUserList(users);\n    return;\n}\n\nif (line.startsWith(\"[System]\")) {\n    appendSystemMessage(line);\n    return;\n}\n\nappendMessage(\"服务器转发\", line);","textPreview":"if (line.startsWith(\"USERLIST|\")) { |     updateUserList(users); |     return; | } |  | if (line.startsWith(\"[System]\")) { |     appendSy...","textChars":188,"textLines":11,"bbox":[98,202,484,218]}
+{"kind":"shape","id":"sh/cfa9w3m9","slide":12,"bbox":[650,170,210,72]}
+{"kind":"textbox","id":"sh/judg7ads","slide":12,"text":"USERLIST","textPreview":"USERLIST","textChars":8,"textLines":1,"bbox":[668,186,174,26]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":12,"text":"刷新在线用户列表。","textPreview":"刷新在线用户列表。","textChars":9,"textLines":1,"bbox":[668,222,174,12]}
+{"kind":"shape","id":"sh/1orytsvu","slide":12,"bbox":[650,274,210,72]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":12,"text":"[System]","textPreview":"[System]","textChars":8,"textLines":1,"bbox":[668,290,174,26]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":12,"text":"显示系统提示。","textPreview":"显示系统提示。","textChars":7,"textLines":1,"bbox":[668,326,174,12]}
+{"kind":"shape","id":"sh/u18jqh0f","slide":12,"bbox":[650,378,210,72]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":12,"text":"普通消息","textPreview":"普通消息","textChars":4,"textLines":1,"bbox":[668,394,174,26]}
+{"kind":"textbox","id":"sh/cvixczed","slide":12,"text":"进入聊天气泡。","textPreview":"进入聊天气泡。","textChars":7,"textLines":1,"bbox":[668,430,174,12]}
+{"kind":"notes","id":"nt/2d8f7r","slide":12,"text":"第 12 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/llyrij","slide":13,"title":"VChat","textShapes":12}
+{"kind":"shape","id":"sh/a1gvy90j","slide":13,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":13,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":13,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":13,"text":"界面与交互细节","textPreview":"界面与交互细节","textChars":7,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/hgn29gr2","slide":13,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/svu9knih","slide":13,"text":"程序不只是能连上，还要让用户知道当前状态。","textPreview":"程序不只是能连上，还要让用户知道当前状态。","textChars":21,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":13,"bbox":[90,180,350,98]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":13,"text":"登录界面","textPreview":"登录界面","textChars":4,"textLines":1,"bbox":[108,196,314,26]}
+{"kind":"textbox","id":"sh/w7mp0bi9","slide":13,"text":"动态添加服务器地址输入框，刷新验证码，错误时弹窗提示。","textPreview":"动态添加服务器地址输入框，刷新验证码，错误时弹窗提示。","textChars":27,"textLines":1,"bbox":[108,232,314,38]}
+{"kind":"shape","id":"sh/psfil0rq","slide":13,"bbox":[520,180,350,98]}
+{"kind":"textbox","id":"sh/e1w7mp0b","slide":13,"text":"聊天主界面","textPreview":"聊天主界面","textChars":5,"textLines":1,"bbox":[538,196,314,26]}
+{"kind":"textbox","id":"sh/7mp0bi9s","slide":13,"text":"显示连接状态、聊天记录、消息输入框和在线用户列表。","textPreview":"显示连接状态、聊天记录、消息输入框和在线用户列表。","textChars":25,"textLines":1,"bbox":[538,232,314,38]}
+{"kind":"shape","id":"sh/wval87ed","slide":13,"bbox":[90,326,350,98]}
+{"kind":"textbox","id":"sh/pg3ex0nu","slide":13,"text":"消息气泡","textPreview":"消息气泡","textChars":4,"textLines":1,"bbox":[108,342,314,26]}
+{"kind":"textbox","id":"sh/epkzupwb","slide":13,"text":"自己消息靠右绿色气泡，其他消息靠左蓝色气泡，系统消息居中。","textPreview":"自己消息靠右绿色气泡，其他消息靠左蓝色气泡，系统消息居中。","textChars":29,"textLines":1,"bbox":[108,378,314,38]}
+{"kind":"shape","id":"sh/7adsji5s","slide":13,"bbox":[520,326,350,98]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":13,"text":"安全细节","textPreview":"安全细节","textChars":4,"textLines":1,"bbox":[538,342,314,26]}
+{"kind":"textbox","id":"sh/lc7u54zi","slide":13,"text":"appendMessage() 里使用 toHtmlEscaped() 转义用户内容。","textPreview":"appendMessage() 里使用 toHtmlEscaped() 转义用户内容。","textChars":43,"textLines":1,"bbox":[538,378,314,38]}
+{"kind":"notes","id":"nt/llyrij","slide":13,"text":"第 13 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/m5985p","slide":14,"title":"VChat","textShapes":9}
+{"kind":"shape","id":"sh/gvy90je9","slide":14,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/ra5gbq1o","slide":14,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":14,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":14,"text":"演示路径","textPreview":"演示路径","textChars":4,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/r2p8nqxs","slide":14,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":14,"text":"答辩时可以按这条路径现场讲，不需要逐行讲代码。","textPreview":"答辩时可以按这条路径现场讲，不需要逐行讲代码。","textChars":23,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":14,"bbox":[120,182,11,11]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":14,"text":"启动程序，先出现 LoginDialog。","textPreview":"启动程序，先出现 LoginDialog。","textChars":21,"textLines":1,"bbox":[144,175,711,48]}
+{"kind":"shape","id":"sh/2p8nqxs7","slide":14,"bbox":[120,234,11,11]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":14,"text":"确认服务器地址，默认 127.0.0.1:8080，也可以换成局域网 IP。","textPreview":"确认服务器地址，默认 127.0.0.1:8080，也可以换成局域网 IP。","textChars":38,"textLines":1,"bbox":[144,227,711,48]}
+{"kind":"shape","id":"sh/gvy90je9","slide":14,"bbox":[120,286,11,11]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":14,"text":"输入账号、密码、验证码，验证码错误会刷新。","textPreview":"输入账号、密码、验证码，验证码错误会刷新。","textChars":21,"textLines":1,"bbox":[144,279,711,48]}
+{"kind":"shape","id":"sh/2hwfyxob","slide":14,"bbox":[120,338,11,11]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":14,"text":"登录成功进入 MainWindow，自动连接服务器并发送 JOIN。","textPreview":"登录成功进入 MainWindow，自动连接服务器并发送 JOIN。","textChars":34,"textLines":1,"bbox":[144,331,711,48]}
+{"kind":"shape","id":"sh/kjm1cfa9","slide":14,"bbox":[120,390,11,11]}
+{"kind":"textbox","id":"sh/94fu18jq","slide":14,"text":"发送聊天消息，观察聊天气泡、系统提示和在线列表变化。","textPreview":"发送聊天消息，观察聊天气泡、系统提示和在线列表变化。","textChars":26,"textLines":1,"bbox":[144,383,711,48]}
+{"kind":"notes","id":"nt/m5985p","slide":14,"text":"第 14 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/alsvzf","slide":15,"title":"VChat","textShapes":13}
+{"kind":"shape","id":"sh/65wjudg7","slide":15,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/hwfyxobm","slide":15,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/obm58z25","slide":15,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":15,"text":"完成度与项目边界","textPreview":"完成度与项目边界","textChars":8,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":15,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":15,"text":"这页回答“现在做到哪一步了”。","textPreview":"这页回答“现在做到哪一步了”。","textChars":15,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/z61032ls","slide":15,"bbox":[82,175,245,108]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":15,"text":"已完成","textPreview":"已完成","textChars":3,"textLines":1,"bbox":[100,191,209,26]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":15,"text":"Qt 客户端登录界面、验证码、地址输入、主窗口、发送/接收消息处理。","textPreview":"Qt 客户端登录界面、验证码、地址输入、主窗口、发送/接收消息处理。","textChars":34,"textLines":1,"bbox":[100,227,209,48]}
+{"kind":"shape","id":"sh/donyd0z6","slide":15,"bbox":[358,175,245,108]}
+{"kind":"textbox","id":"sh/2x4nap4r","slide":15,"text":"需要联调","textPreview":"需要联调","textChars":4,"textLines":1,"bbox":[376,191,209,26]}
+{"kind":"textbox","id":"sh/vixczed8","slide":15,"text":"ChatServer 运行、MySQL users/messages 表、局域网多客户端测试。","textPreview":"ChatServer 运行、MySQL users/messages 表、局域网多客户端测试。","textChars":47,"textLines":1,"bbox":[376,227,209,48]}
+{"kind":"shape","id":"sh/kre1w7mp","slide":15,"bbox":[634,175,245,108]}
+{"kind":"textbox","id":"sh/dcbulwva","slide":15,"text":"可扩展","textPreview":"可扩展","textChars":3,"textLines":1,"bbox":[652,191,209,26]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":15,"text":"密码加密、重连机制、历史消息、文件发送、AI 助手入口。","textPreview":"密码加密、重连机制、历史消息、文件发送、AI 助手入口。","textChars":28,"textLines":1,"bbox":[652,227,209,48]}
+{"kind":"shape","id":"sh/val87ed8","slide":15,"bbox":[112,345,11,11]}
+{"kind":"textbox","id":"sh/knih4byh","slide":15,"text":"当前仓库能直接证明的是 Qt 客户端代码。","textPreview":"当前仓库能直接证明的是 Qt 客户端代码。","textChars":21,"textLines":1,"bbox":[136,338,736,36]}
+{"kind":"shape","id":"sh/d8bat47y","slide":15,"bbox":[112,385,11,11]}
+{"kind":"textbox","id":"sh/d4vmtwra","slide":15,"text":"服务器和数据库内容按协议对端与课程要求说明。","textPreview":"服务器和数据库内容按协议对端与课程要求说明。","textChars":22,"textLines":1,"bbox":[136,378,736,36]}
+{"kind":"shape","id":"sh/oj2t83it","slide":15,"bbox":[112,425,11,11]}
+{"kind":"textbox","id":"sh/vy90je9c","slide":15,"text":"答辩时应强调：客户端不直接连数据库。","textPreview":"答辩时应强调：客户端不直接连数据库。","textChars":18,"textLines":1,"bbox":[136,418,736,36]}
+{"kind":"notes","id":"nt/alsvzf","slide":15,"text":"第 15 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/w07d5i","slide":16,"title":"VChat","textShapes":12}
+{"kind":"shape","id":"sh/sfil0rqd","slide":16,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":16,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/a9w3m94f","slide":16,"text":"VChat","textPreview":"VChat","textChars":5,"textLines":1,"bbox":[34,20,110,24]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":16,"text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[875,22,42,20]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":16,"text":"项目总结","textPreview":"项目总结","textChars":4,"textLines":1,"bbox":[70,62,790,48]}
+{"kind":"shape","id":"sh/z61032ls","slide":16,"bbox":[70,118,100,3]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":16,"text":"VChat 把 Qt 界面、网络编程和项目流程串成了可演示系统。","textPreview":"VChat 把 Qt 界面、网络编程和项目流程串成了可演示系统。","textChars":32,"textLines":1,"bbox":[70,132,790,30]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":16,"bbox":[88,178,350,100]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":16,"text":"技术收获","textPreview":"技术收获","textChars":4,"textLines":1,"bbox":[106,194,314,26]}
+{"kind":"textbox","id":"sh/29gr2p8n","slide":16,"text":"熟悉 Qt6 Widgets、信号槽、QTcpSocket、CMake 和 UI 文件协作。","textPreview":"熟悉 Qt6 Widgets、信号槽、QTcpSocket、CMake 和 UI 文件协作。","textChars":46,"textLines":1,"bbox":[106,230,314,40]}
+{"kind":"shape","id":"sh/vu9knih4","slide":16,"bbox":[522,178,350,100]}
+{"kind":"textbox","id":"sh/kf6dcbul","slide":16,"text":"工程收获","textPreview":"工程收获","textChars":4,"textLines":1,"bbox":[540,194,314,26]}
+{"kind":"textbox","id":"sh/d0z61032","slide":16,"text":"围绕协议拆分登录、连接、收发、列表刷新和异常提示。","textPreview":"围绕协议拆分登录、连接、收发、列表刷新和异常提示。","textChars":25,"textLines":1,"bbox":[540,230,314,40]}
+{"kind":"shape","id":"sh/2lszqtcj","slide":16,"bbox":[88,324,350,100]}
+{"kind":"textbox","id":"sh/v6psfil0","slide":16,"text":"调试重点","textPreview":"调试重点","textChars":4,"textLines":1,"bbox":[106,340,314,26]}
+{"kind":"textbox","id":"sh/knih4byh","slide":16,"text":"验证码刷新、服务器地址格式、TCP 粘包/半包、断线状态同步。","textPreview":"验证码刷新、服务器地址格式、TCP 粘包/半包、断线状态同步。","textChars":31,"textLines":1,"bbox":[106,376,314,40]}
+{"kind":"shape","id":"sh/d8bat47y","slide":16,"bbox":[522,324,350,100]}
+{"kind":"textbox","id":"sh/6psfil0r","slide":16,"text":"后续方向","textPreview":"后续方向","textChars":4,"textLines":1,"bbox":[540,340,314,26]}
+{"kind":"textbox","id":"sh/val87ed8","slide":16,"text":"补齐服务端部署、安全传输、消息持久化查询和更完整的多端测试。","textPreview":"补齐服务端部署、安全传输、消息持久化查询和更完整的多端测试。","textChars":30,"textLines":1,"bbox":[540,376,314,40]}
+{"kind":"notes","id":"nt/w07d5i","slide":16,"text":"第 16 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}
+{"kind":"slide","id":"sl/7w25tq","slide":17,"title":"THANK YOU","textShapes":3}
+{"kind":"shape","id":"sh/q1orytsv","slide":17,"bbox":[590,-120,430,430]}
+{"kind":"shape","id":"sh/xs72x4na","slide":17,"bbox":[-170,330,360,360]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":17,"text":"THANK YOU","textPreview":"THANK YOU","textChars":9,"textLines":1,"bbox":[82,190,430,70]}
+{"kind":"textbox","id":"sh/je9cvixc","slide":17,"text":"欢迎老师和同学提问","textPreview":"欢迎老师和同学提问","textChars":9,"textLines":1,"bbox":[86,270,360,34]}
+{"kind":"shape","id":"sh/qtcj6tov","slide":17,"bbox":[86,328,170,3]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":17,"text":"VChat 学生群体聊天系统 / Qt6 客户端实现","textPreview":"VChat 学生群体聊天系统 / Qt6 客户端实现","textChars":26,"textLines":1,"bbox":[86,354,470,28]}
+{"kind":"notes","id":"nt/7w25tq","slide":17,"text":"第 17 页讲稿提示：项目介绍为主，代码页只讲关键逻辑和当前项目文件的对应关系。"}

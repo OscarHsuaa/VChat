@@ -1,0 +1,39 @@
+
+# Qt Creator
+*.pro.user
+*.pro.user.*
+CMakeLists.txt.user
+CMakeLists.txt.user.*
+
+# Build directories
+build/
+build-*/
+build_*/
+cmake-build-*/
+
+# CMake cache
+CMakeFiles/
+CMakeCache.txt
+.cmake/
+
+# Visual Studio
+.vs/
+*.slnx.sqlite
+
+# Compiled files
+*.exe
+*.dll
+*.o
+*.obj
+*.a
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Temporary files
+*.log
+*.tmp

@@ -1,0 +1,386 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/kre1w7mp",
+    "id": "kre1w7mp",
+    "slide": 30,
+    "layoutId": "/ppt/slideLayouts/slideLayout2.xml",
+    "layoutName": "标题和内容",
+    "masterLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "Office 主题",
+    "colors": {
+      "accent1": "#5B9BD5",
+      "accent2": "#ED7D31",
+      "accent3": "#A5A5A5",
+      "accent4": "#FFC000",
+      "accent5": "#4472C4",
+      "accent6": "#70AD47",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#44546A",
+      "lt2": "#E7E6E6",
+      "hlink": "#0563C1",
+      "folHlink": "#954F72"
+    },
+    "fontScheme": {
+      "name": "5zrrza2d",
+      "majorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      },
+      "minorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      }
+    },
+    "typefaces": [
+      "Calibri",
+      "微软雅黑"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "/ppt/slideLayouts/slideLayout2.xml",
+      "name": "标题和内容",
+      "parentLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/2",
+          "id": "2",
+          "name": "文本框 1",
+          "bbox": [
+            117.5,
+            23.17,
+            123.77,
+            35.54
+          ],
+          "geometry": "rect",
+          "text": "公司LOGO",
+          "textPreview": "公司LOGO",
+          "resolvedTextStyle": {
+            "wrap": "none",
+            "autoFit": "resizeShapeToFitText"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "公司LOGO",
+              "spaceBefore": 0,
+              "spaceAfter": 0,
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "公司",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                },
+                {
+                  "index": 2,
+                  "text": "LOGO",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                }
+              ]
+            }
+          ],
+          "lineWidth": 0
+        },
+        {
+          "order": 2,
+          "kind": "image",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/3",
+          "id": "3",
+          "name": "图片 7",
+          "bbox": [
+            47.67,
+            17,
+            69.83,
+            41.67
+          ],
+          "contentType": "image/png",
+          "imageCrop": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+          },
+          "asset": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          },
+          "fillImage": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          }
+        }
+      ]
+    },
+    {
+      "scope": "master",
+      "id": "/ppt/slideMasters/slideMaster1.xml",
+      "type": "master",
+      "backgroundImage": {
+        "assetId": "/ppt/media/image1.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 26278
+      },
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a1gvy90j",
+      "id": "5",
+      "name": "矩形 19",
+      "bbox": [
+        0,
+        305.98,
+        377.49,
+        122.91
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "Calibri",
+        "color": "tx1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/j2t83itg",
+      "id": "10",
+      "name": "图片 21",
+      "bbox": [
+        377.49,
+        305.98,
+        203.44,
+        122.91
+      ],
+      "contentType": "image/png",
+      "imageCrop": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "asset": {
+        "assetId": "/ppt/media/image26.png",
+        "contentType": "image/png",
+        "byteLength": 260800
+      },
+      "fillImage": {
+        "assetId": "/ppt/media/image26.png",
+        "contentType": "image/png",
+        "byteLength": 260800
+      }
+    },
+    {
+      "order": 3,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/qh0fepkz",
+      "id": "11",
+      "name": "图片 22",
+      "bbox": [
+        590.05,
+        305.98,
+        196.56,
+        122.91
+      ],
+      "contentType": "image/png",
+      "imageCrop": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "asset": {
+        "assetId": "/ppt/media/image27.png",
+        "contentType": "image/png",
+        "byteLength": 225445
+      },
+      "fillImage": {
+        "assetId": "/ppt/media/image27.png",
+        "contentType": "image/png",
+        "byteLength": 225445
+      }
+    },
+    {
+      "order": 4,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/18jqh0fe",
+      "id": "12",
+      "name": "图片 23",
+      "bbox": [
+        797.74,
+        305.98,
+        162.55,
+        122.91
+      ],
+      "contentType": "image/png",
+      "imageCrop": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "asset": {
+        "assetId": "/ppt/media/image28.png",
+        "contentType": "image/png",
+        "byteLength": 183038
+      },
+      "fillImage": {
+        "assetId": "/ppt/media/image28.png",
+        "contentType": "image/png",
+        "byteLength": 183038
+      }
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a5gbq1or",
+      "id": "9",
+      "name": "TextBox 8",
+      "bbox": [
+        111.43,
+        309.15,
+        260.9,
+        117.98
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 3.6,
+          "right": 11.34,
+          "bottom": 2.84,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替换图片。"
+          },
+          {
+            "index": 3,
+            "text": "您的容打在这里，或者通过复制您的文本后，在此"
+          },
+          {
+            "index": 4,
+            "text": "框中选择粘贴，并选择只保留文字。"
+          },
+          {
+            "index": 5,
+            "text": "右键点击图片选择设置图片格式可直接替换图片。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。右键点击图片选择设置图片格式可直接替换图片。",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴，并选择只保留文字。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 3,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    }
+  ],
+  "composeRuns": []
+}

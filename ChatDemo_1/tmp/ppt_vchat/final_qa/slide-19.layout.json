@@ -1,0 +1,310 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/f9elf7",
+    "id": "f9elf7",
+    "slide": 19,
+    "layoutId": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f6dcbulw",
+      "id": "1",
+      "bbox": [
+        560,
+        -90,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.025)",
+      "lineColor": "rgba(255, 255, 255, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4r65wjud",
+      "id": "2",
+      "bbox": [
+        -150,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.035)",
+      "lineColor": "rgba(0, 174, 239, 0.04)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xc3ylc7u",
+      "id": "3",
+      "bbox": [
+        82,
+        198,
+        390,
+        64
+      ],
+      "geometry": "rect",
+      "text": "THANK YOU",
+      "textPreview": "THANK YOU",
+      "resolvedFontSize": 46,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 46,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "THANK YOU"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "THANK YOU",
+          "resolvedTextStyle": {
+            "fontSize": 46,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "THANK YOU",
+              "fontSize": 46,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mtwra5gb",
+      "id": "4",
+      "bbox": [
+        86,
+        276,
+        360,
+        34
+      ],
+      "geometry": "rect",
+      "text": "欢迎老师和同学提问",
+      "textPreview": "欢迎老师和同学提问",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 24,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "欢迎老师和同学提问"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "欢迎老师和同学提问",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "欢迎老师和同学提问",
+              "fontSize": 24,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fepkzupw",
+      "id": "5",
+      "bbox": [
+        86,
+        328,
+        160,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4zidonyd",
+      "id": "6",
+      "bbox": [
+        86,
+        352,
+        480,
+        24
+      ],
+      "geometry": "rect",
+      "text": "VChat 学生群体聊天系统 / 专业综合实战-1",
+      "textPreview": "VChat 学生群体聊天系统 / 专业综合实战-1",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat 学生群体聊天系统 / 专业综合实战-1"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat 学生群体聊天系统 / 专业综合实战-1",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat 学生群体聊天系统 / 专业综合实战-1",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

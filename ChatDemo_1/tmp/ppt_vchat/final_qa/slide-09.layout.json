@@ -1,0 +1,1193 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/nukye9",
+    "id": "nukye9",
+    "slide": 9,
+    "layoutId": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Consolas",
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/32lszqtc",
+      "id": "1",
+      "bbox": [
+        560,
+        -90,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.025)",
+      "lineColor": "rgba(255, 255, 255, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sneloj2t",
+      "id": "2",
+      "bbox": [
+        -150,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.035)",
+      "lineColor": "rgba(0, 174, 239, 0.04)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l87ed8ba",
+      "id": "3",
+      "bbox": [
+        26,
+        14,
+        142,
+        30
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#0F202A",
+      "lineColor": "#0F202A",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/at47y1kr",
+      "id": "4",
+      "bbox": [
+        35,
+        20,
+        120,
+        28
+      ],
+      "geometry": "rect",
+      "text": "VChat",
+      "textPreview": "VChat",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3ex0nuxc",
+      "id": "5",
+      "bbox": [
+        875,
+        22,
+        40,
+        22
+      ],
+      "geometry": "rect",
+      "text": "09",
+      "textPreview": "09",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "09"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "09",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "09",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/szqtcj6t",
+      "id": "6",
+      "bbox": [
+        66,
+        62,
+        720,
+        48
+      ],
+      "geometry": "rect",
+      "text": "代码实现 2：随机验证码",
+      "textPreview": "代码实现 2：随机验证码",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 30,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "代码实现 2：随机验证码"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "代码实现 2：随机验证码",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "代码实现 2：随机验证码",
+              "fontSize": 30,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lkjm1cfa",
+      "id": "7",
+      "bbox": [
+        66,
+        116,
+        94,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ex0nuxc3",
+      "id": "8",
+      "bbox": [
+        66,
+        126,
+        780,
+        36
+      ],
+      "geometry": "rect",
+      "text": "验证码在客户端本地校验，先挡住明显错误输入，再进入服务器认证。",
+      "textPreview": "验证码在客户端本地校验，先挡住明显错误输入，再进入服务器认证。",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "验证码在客户端本地校验，先挡住明显错误输入，再进入服务器认证。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "验证码在客户端本地校验，先挡住明显错误输入，再进入服务器认证。",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "验证码在客户端本地校验，先挡住明显错误输入，再进入服务器认证。",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3itgfmlk",
+      "id": "9",
+      "bbox": [
+        76,
+        158,
+        520,
+        300
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(8, 21, 29, 0.96)",
+      "lineColor": "#24566B",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bm58z25k",
+      "id": "10",
+      "bbox": [
+        94,
+        170,
+        484,
+        22
+      ],
+      "geometry": "rect",
+      "text": "logindialog.cpp",
+      "textPreview": "logindialog.cpp",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "logindialog.cpp"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "logindialog.cpp",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "logindialog.cpp",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m1cfa9w3",
+      "id": "11",
+      "bbox": [
+        94,
+        200,
+        484,
+        246
+      ],
+      "geometry": "rect",
+      "text": "QString LoginDialog::createCaptcha() const\n{\n    static const QString chars =\n        QStringLiteral(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\");\n    QString code;\n    code.reserve(5);\n\n    for (int i = 0; i < 5; ++i) {\n        const int index =\n            QRandomGenerator::global()->bounded(chars.size());\n        code.append(chars.at(index));\n    }\n    return code;\n}",
+      "textPreview": "QString LoginDialog::createCaptcha() const | { |     static const QString chars = |         QStringLiteral(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Consolas",
+        "color": "#D8F3FF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 14,
+        "lines": [
+          {
+            "index": 1,
+            "text": "QString LoginDialog::createCaptcha() const"
+          },
+          {
+            "index": 2,
+            "text": "{"
+          },
+          {
+            "index": 3,
+            "text": "    static const QString chars ="
+          },
+          {
+            "index": 4,
+            "text": "        QStringLiteral(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\");"
+          },
+          {
+            "index": 5,
+            "text": "    QString code;"
+          },
+          {
+            "index": 6,
+            "text": "    code.reserve(5);"
+          },
+          {
+            "index": 7,
+            "text": ""
+          },
+          {
+            "index": 8,
+            "text": "    for (int i = 0; i < 5; ++i) {"
+          },
+          {
+            "index": 9,
+            "text": "        const int index ="
+          },
+          {
+            "index": 10,
+            "text": "            QRandomGenerator::global()->bounded(chars.size());"
+          },
+          {
+            "index": 11,
+            "text": "        code.append(chars.at(index));"
+          },
+          {
+            "index": 12,
+            "text": "    }"
+          },
+          {
+            "index": 13,
+            "text": "    return code;"
+          },
+          {
+            "index": 14,
+            "text": "}"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "QString LoginDialog::createCaptcha() const",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "QString LoginDialog::createCaptcha() const",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "{",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "{",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "    static const QString chars =",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    static const QString chars =",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "        QStringLiteral(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\");",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "        QStringLiteral(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\");",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 5,
+          "text": "    QString code;",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    QString code;",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 6,
+          "text": "    code.reserve(5);",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    code.reserve(5);",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 8,
+          "text": "    for (int i = 0; i < 5; ++i) {",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    for (int i = 0; i < 5; ++i) {",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 9,
+          "text": "        const int index =",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "        const int index =",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 10,
+          "text": "            QRandomGenerator::global()->bounded(chars.size());",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "            QRandomGenerator::global()->bounded(chars.size());",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 11,
+          "text": "        code.append(chars.at(index));",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "        code.append(chars.at(index));",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 12,
+          "text": "    }",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    }",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 13,
+          "text": "    return code;",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    return code;",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 14,
+          "text": "}",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "}",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tsvu9kni",
+      "id": "12",
+      "bbox": [
+        642,
+        178,
+        190,
+        88
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 45, 58, 0.88)",
+      "lineColor": "#23546A",
+      "lineWidth": 1
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/47y1kre1",
+      "id": "13",
+      "bbox": [
+        660,
+        194,
+        154,
+        28
+      ],
+      "geometry": "rect",
+      "text": "长度",
+      "textPreview": "长度",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "长度"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "长度",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "长度",
+              "fontSize": 15,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bat47y1k",
+      "id": "14",
+      "bbox": [
+        660,
+        226,
+        154,
+        42
+      ],
+      "geometry": "rect",
+      "text": "5 位",
+      "textPreview": "5 位",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 28,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "5 位"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "5 位",
+          "resolvedTextStyle": {
+            "fontSize": 28,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "5 位",
+              "fontSize": 28,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mp0bi9s3",
+      "id": "15",
+      "bbox": [
+        642,
+        292,
+        190,
+        88
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 45, 58, 0.88)",
+      "lineColor": "#23546A",
+      "lineWidth": 1
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tgfmlkjm",
+      "id": "16",
+      "bbox": [
+        660,
+        308,
+        154,
+        28
+      ],
+      "geometry": "rect",
+      "text": "体验",
+      "textPreview": "体验",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "体验"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "体验",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "体验",
+              "fontSize": 15,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4vmtwra5",
+      "id": "17",
+      "bbox": [
+        660,
+        340,
+        154,
+        42
+      ],
+      "geometry": "rect",
+      "text": "去混淆字符",
+      "textPreview": "去混淆字符",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 28,
+        "typeface": "Microsoft YaHei",
+        "color": "#46D07E",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "去混淆字"
+          },
+          {
+            "index": 2,
+            "text": "符"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "去混淆字符",
+          "resolvedTextStyle": {
+            "fontSize": 28,
+            "typeface": "Microsoft YaHei",
+            "color": "#46D07E",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "去混淆字符",
+              "fontSize": 28,
+              "typeface": "Microsoft YaHei",
+              "color": "#46D07E",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/b2hwfyxo",
+      "id": "18",
+      "bbox": [
+        632,
+        406,
+        230,
+        42
+      ],
+      "geometry": "rect",
+      "text": "输入错误后 refreshCaptcha() 会重新生成验证码，并清空输入框。",
+      "textPreview": "输入错误后 refreshCaptcha() 会重新生成验证码，并清空输入框。",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "输入错误后 refreshCaptcha()"
+          },
+          {
+            "index": 2,
+            "text": "会重新生成验证码，并清空输入框"
+          },
+          {
+            "index": 3,
+            "text": "。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "输入错误后 refreshCaptcha() 会重新生成验证码，并清空输入框。",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "输入错误后 refreshCaptcha() 会重新生成验证码，并清空输入框。",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

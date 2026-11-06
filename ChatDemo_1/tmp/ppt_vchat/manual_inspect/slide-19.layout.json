@@ -1,0 +1,1222 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/bat47y1k",
+    "id": "bat47y1k",
+    "slide": 19,
+    "layoutId": "/ppt/slideLayouts/slideLayout2.xml",
+    "layoutName": "标题和内容",
+    "masterLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "Office 主题",
+    "colors": {
+      "accent1": "#5B9BD5",
+      "accent2": "#ED7D31",
+      "accent3": "#A5A5A5",
+      "accent4": "#FFC000",
+      "accent5": "#4472C4",
+      "accent6": "#70AD47",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#44546A",
+      "lt2": "#E7E6E6",
+      "hlink": "#0563C1",
+      "folHlink": "#954F72"
+    },
+    "fontScheme": {
+      "name": "5zrrza2d",
+      "majorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      },
+      "minorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      }
+    },
+    "typefaces": [
+      "微软雅黑"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "/ppt/slideLayouts/slideLayout2.xml",
+      "name": "标题和内容",
+      "parentLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/2",
+          "id": "2",
+          "name": "文本框 1",
+          "bbox": [
+            117.5,
+            23.17,
+            123.77,
+            35.54
+          ],
+          "geometry": "rect",
+          "text": "公司LOGO",
+          "textPreview": "公司LOGO",
+          "resolvedTextStyle": {
+            "wrap": "none",
+            "autoFit": "resizeShapeToFitText"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "公司LOGO",
+              "spaceBefore": 0,
+              "spaceAfter": 0,
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "公司",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                },
+                {
+                  "index": 2,
+                  "text": "LOGO",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                }
+              ]
+            }
+          ],
+          "lineWidth": 0
+        },
+        {
+          "order": 2,
+          "kind": "image",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/3",
+          "id": "3",
+          "name": "图片 7",
+          "bbox": [
+            47.67,
+            17,
+            69.83,
+            41.67
+          ],
+          "contentType": "image/png",
+          "imageCrop": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+          },
+          "asset": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          },
+          "fillImage": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          }
+        }
+      ]
+    },
+    {
+      "scope": "master",
+      "id": "/ppt/slideMasters/slideMaster1.xml",
+      "type": "master",
+      "backgroundImage": {
+        "assetId": "/ppt/media/image1.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 26278
+      },
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qtcj6tov",
+      "id": "2",
+      "name": "Rectangle 4",
+      "bbox": [
+        0,
+        519.81,
+        960.29,
+        19.85
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "lt1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "lineWidth": 0,
+      "fillImage": {
+        "assetId": "/ppt/media/image20.png",
+        "contentType": "image/png",
+        "byteLength": 114941
+      }
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/je9cvixc",
+      "id": "3",
+      "name": "矩形 2",
+      "bbox": [
+        -2.01,
+        522.89,
+        962.17,
+        17.02
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "lt1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "fillColor": {
+        "type": "theme",
+        "value": "bg1",
+        "transform": {
+          "opacity": 0.92157,
+          "darken": 0.15
+        }
+      },
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/87ed8bat",
+      "id": "4",
+      "name": "Rectangle 4",
+      "bbox": [
+        43.37,
+        475.99,
+        226.87,
+        29.64
+      ],
+      "geometry": "rect",
+      "text": "Introduction Of Atmospheric  Business\n Plan Startup Plan PPT Template, \nComplete Framework",
+      "textPreview": "Introduction Of Atmospheric  Business |  Plan Startup Plan PPT Template,  | Complete Framework",
+      "resolvedFontSize": 26.67,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "fontSize": 26.67,
+        "typeface": "微软雅黑",
+        "color": "bg1",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Introduction Of Atmospheric  Business"
+          },
+          {
+            "index": 2,
+            "text": " Plan Startup Plan PPT Template,"
+          },
+          {
+            "index": 3,
+            "text": "Complete Framework"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Introduction Of Atmospheric  Business",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Introduction Of Atmospheric  Business",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.25
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 2,
+          "text": " Plan Startup Plan PPT Template, ",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": " Plan Startup Plan PPT Template, ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.25
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        },
+        {
+          "index": 3,
+          "text": "Complete Framework",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Complete Framework",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.25
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xs72x4na",
+      "id": "5",
+      "name": "矩形 4",
+      "bbox": [
+        -2.01,
+        522.89,
+        962.17,
+        17.02
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "lt1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "fillColor": {
+        "type": "theme",
+        "value": "bg1",
+        "transform": {
+          "opacity": 0.92157,
+          "darken": 0.15
+        }
+      },
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w7mp0bi9",
+      "id": "33",
+      "name": "Rectangle 42",
+      "bbox": [
+        0,
+        326.5,
+        960.29,
+        211
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "rotation": 0,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "lineWidth": 6
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7adsji5s",
+      "id": "34",
+      "name": "Content Placeholder 2",
+      "bbox": [
+        71.72,
+        91.59,
+        215.52,
+        107.76
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "vertical": 1,
+        "fontSize": 28,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "textTransform": "none",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替"
+          },
+          {
+            "index": 3,
+            "text": "换图片。"
+          },
+          {
+            "index": 4,
+            "text": "您的容打在这里，或者通过复制您的文本"
+          },
+          {
+            "index": 5,
+            "text": "后，在此框中选择粘贴。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0,
+          "spaceAfter": 600
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+          "lineSpacingPercent": 150000,
+          "spaceAfter": 900,
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/epkzupwb",
+      "id": "35",
+      "name": "Content Placeholder 2",
+      "bbox": [
+        71.72,
+        199.36,
+        215.52,
+        107.76
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "vertical": 1,
+        "fontSize": 28,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "textTransform": "none",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替"
+          },
+          {
+            "index": 3,
+            "text": "换图片。"
+          },
+          {
+            "index": 4,
+            "text": "您的容打在这里，或者通过复制您的文本"
+          },
+          {
+            "index": 5,
+            "text": "后，在此框中选择粘贴。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0,
+          "spaceAfter": 600
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+          "lineSpacingPercent": 150000,
+          "spaceAfter": 900,
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pg3ex0nu",
+      "id": "36",
+      "name": "Content Placeholder 2",
+      "bbox": [
+        678.59,
+        91.59,
+        215.52,
+        107.76
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "vertical": 1,
+        "fontSize": 28,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "textTransform": "none",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替"
+          },
+          {
+            "index": 3,
+            "text": "换图片。"
+          },
+          {
+            "index": 4,
+            "text": "您的容打在这里，或者通过复制您的文本"
+          },
+          {
+            "index": 5,
+            "text": "后，在此框中选择粘贴。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0,
+          "spaceAfter": 600
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+          "lineSpacingPercent": 150000,
+          "spaceAfter": 900,
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wval87ed",
+      "id": "37",
+      "name": "Content Placeholder 2",
+      "bbox": [
+        678.59,
+        199.36,
+        215.52,
+        107.76
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容\n右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "textPreview": "添加标题内容 | 右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+      "resolvedFontSize": 28,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "vertical": 1,
+        "fontSize": 28,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "textTransform": "none",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 5,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          },
+          {
+            "index": 2,
+            "text": "右键点击图片选择设置图片格式可直接替"
+          },
+          {
+            "index": 3,
+            "text": "换图片。"
+          },
+          {
+            "index": 4,
+            "text": "您的容打在这里，或者通过复制您的文本"
+          },
+          {
+            "index": 5,
+            "text": "后，在此框中选择粘贴。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "bold": true
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0,
+          "spaceAfter": 600
+        },
+        {
+          "index": 2,
+          "text": "右键点击图片选择设置图片格式可直接替换图片。您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+          "lineSpacingPercent": 150000,
+          "spaceAfter": 900,
+          "resolvedTextStyle": {
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "右键点击图片选择设置图片格式可直接替换图片。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            },
+            {
+              "index": 2,
+              "text": "您的容打在这里，或者通过复制您的文本后，在此框中选择粘贴。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": {
+                "type": "theme",
+                "value": "bg1",
+                "transform": {
+                  "darken": 0.35
+                }
+              }
+            }
+          ],
+          "bulletCharacter": "",
+          "marginLeft": 0,
+          "indent": 0,
+          "spaceBefore": 0
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/36hcrmhk",
+      "id": "38",
+      "name": "矩形 37",
+      "bbox": [
+        71.72,
+        368.4,
+        822.39,
+        121.78
+      ],
+      "geometry": "rect",
+      "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。\n\n尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内，量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。",
+      "textPreview": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每...",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 2.7,
+          "right": 5.4,
+          "bottom": 2.7,
+          "left": 5.4
+        }
+      },
+      "textLayout": {
+        "lineCount": 6,
+        "lines": [
+          {
+            "index": 1,
+            "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5"
+          },
+          {
+            "index": 2,
+            "text": "分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5"
+          },
+          {
+            "index": 3,
+            "text": "分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。"
+          },
+          {
+            "index": 4,
+            "text": ""
+          },
+          {
+            "index": 5,
+            "text": "尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内，量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5"
+          },
+          {
+            "index": 6,
+            "text": "分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 2,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 3,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 4,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 5,
+              "text": "分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 6,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 7,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 8,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 9,
+              "text": "分钟之内。尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 10,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 11,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 12,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 13,
+              "text": "分钟之内。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内，量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在5分钟之内。",
+          "lineSpacingPercent": 150000,
+          "runs": [
+            {
+              "index": 1,
+              "text": "尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 2,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 3,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 4,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 5,
+              "text": "分钟之内，量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 6,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 7,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 8,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 9,
+              "text": "分钟之内。尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 10,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 11,
+              "text": "字以内，据统计每页幻灯片的最好控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 12,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            },
+            {
+              "index": 13,
+              "text": "分钟之内。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "bg1"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    }
+  ],
+  "composeRuns": []
+}

@@ -1,0 +1,1092 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/k0nq7q",
+    "id": "k0nq7q",
+    "slide": 13,
+    "layoutId": "f7c1fbe9-350a-4171-882d-20870a70b8bf",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "f7c1fbe9-350a-4171-882d-20870a70b8bf",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "89c2dc1b-b288-445f-80a2-119fa269b46b",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0z61032l",
+      "id": "1",
+      "bbox": [
+        590,
+        -120,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.028)",
+      "lineColor": "rgba(255, 255, 255, 0.02)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7ed8bat4",
+      "id": "2",
+      "bbox": [
+        -170,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.04)",
+      "lineColor": "rgba(0, 174, 239, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/itgfmlkj",
+      "id": "3",
+      "bbox": [
+        34,
+        20,
+        110,
+        24
+      ],
+      "geometry": "rect",
+      "text": "VChat",
+      "textPreview": "VChat",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#59D8FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#59D8FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#59D8FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p8nqxs72",
+      "id": "4",
+      "bbox": [
+        875,
+        22,
+        42,
+        20
+      ],
+      "geometry": "rect",
+      "text": "13",
+      "textPreview": "13",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "13"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "13",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "13",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0nuxc3yl",
+      "id": "5",
+      "bbox": [
+        70,
+        62,
+        790,
+        48
+      ],
+      "geometry": "rect",
+      "text": "当前完成度",
+      "textPreview": "当前完成度",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 36,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "当前完成度"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "当前完成度",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "当前完成度",
+              "fontSize": 36,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/72x4nap4",
+      "id": "6",
+      "bbox": [
+        70,
+        118,
+        100,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ih4byhgn",
+      "id": "7",
+      "bbox": [
+        70,
+        132,
+        790,
+        30
+      ],
+      "geometry": "rect",
+      "text": "明确边界，答辩时更稳。",
+      "textPreview": "明确边界，答辩时更稳。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "明确边界，答辩时更稳。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "明确边界，答辩时更稳。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "明确边界，答辩时更稳。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p4r65wju",
+      "id": "8",
+      "bbox": [
+        82,
+        175,
+        245,
+        108
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 43, 54, 0.92)",
+      "lineColor": "#275A6E",
+      "lineWidth": 1
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wjudg7ad",
+      "id": "9",
+      "bbox": [
+        100,
+        191,
+        209,
+        28
+      ],
+      "geometry": "rect",
+      "text": "已完成",
+      "textPreview": "已完成",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Microsoft YaHei",
+        "color": "#46D07E",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "已完成"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "已完成",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Microsoft YaHei",
+            "color": "#46D07E",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "已完成",
+              "fontSize": 23,
+              "typeface": "Microsoft YaHei",
+              "color": "#46D07E",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6tovahoz",
+      "id": "10",
+      "bbox": [
+        100,
+        231,
+        209,
+        44
+      ],
+      "geometry": "rect",
+      "text": "Qt 客户端界面、登录流程、验证码、连接状态、聊天收发处理。",
+      "textPreview": "Qt 客户端界面、登录流程、验证码、连接状态、聊天收发处理。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Qt"
+          },
+          {
+            "index": 2,
+            "text": "客户端界面、登录流程、"
+          },
+          {
+            "index": 3,
+            "text": "验证码、连接状态、聊天"
+          },
+          {
+            "index": 4,
+            "text": "收发处理。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Qt 客户端界面、登录流程、验证码、连接状态、聊天收发处理。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Qt 客户端界面、登录流程、验证码、连接状态、聊天收发处理。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vahoza1g",
+      "id": "11",
+      "bbox": [
+        358,
+        175,
+        245,
+        108
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 43, 54, 0.92)",
+      "lineColor": "#275A6E",
+      "lineWidth": 1
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ovahoza1",
+      "id": "12",
+      "bbox": [
+        376,
+        191,
+        209,
+        28
+      ],
+      "geometry": "rect",
+      "text": "需要联调",
+      "textPreview": "需要联调",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Microsoft YaHei",
+        "color": "#FFB84D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "需要联调"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "需要联调",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Microsoft YaHei",
+            "color": "#FFB84D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "需要联调",
+              "fontSize": 23,
+              "typeface": "Microsoft YaHei",
+              "color": "#FFB84D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dg7adsji",
+      "id": "13",
+      "bbox": [
+        376,
+        231,
+        209,
+        44
+      ],
+      "geometry": "rect",
+      "text": "ChatServer 运行、数据库表、局域网多客户端测试。",
+      "textPreview": "ChatServer 运行、数据库表、局域网多客户端测试。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ChatServer"
+          },
+          {
+            "index": 2,
+            "text": "运行、数据库表、局域网"
+          },
+          {
+            "index": 3,
+            "text": "多客户端测试。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ChatServer 运行、数据库表、局域网多客户端测试。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ChatServer 运行、数据库表、局域网多客户端测试。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6hcrmhk3",
+      "id": "14",
+      "bbox": [
+        634,
+        175,
+        245,
+        108
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(20, 43, 54, 0.92)",
+      "lineColor": "#275A6E",
+      "lineWidth": 1
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z25kb6xk",
+      "id": "15",
+      "bbox": [
+        652,
+        191,
+        209,
+        28
+      ],
+      "geometry": "rect",
+      "text": "可扩展",
+      "textPreview": "可扩展",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Microsoft YaHei",
+        "color": "#59D8FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "可扩展"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "可扩展",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Microsoft YaHei",
+            "color": "#59D8FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "可扩展",
+              "fontSize": 23,
+              "typeface": "Microsoft YaHei",
+              "color": "#59D8FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/onyd0z61",
+      "id": "16",
+      "bbox": [
+        652,
+        231,
+        209,
+        44
+      ],
+      "geometry": "rect",
+      "text": "历史消息、文件发送、重连机制、安全传输、AI 助手入口。",
+      "textPreview": "历史消息、文件发送、重连机制、安全传输、AI 助手入口。",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Microsoft YaHei",
+        "color": "#A7C1CC",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "历史消息、文件发送、重"
+          },
+          {
+            "index": 2,
+            "text": "连机制、安全传输、AI"
+          },
+          {
+            "index": 3,
+            "text": "助手入口。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "历史消息、文件发送、重连机制、安全传输、AI 助手入口。",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Microsoft YaHei",
+            "color": "#A7C1CC",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "历史消息、文件发送、重连机制、安全传输、AI 助手入口。",
+              "fontSize": 16,
+              "typeface": "Microsoft YaHei",
+              "color": "#A7C1CC",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d8v6psfi",
+      "id": "17",
+      "bbox": [
+        112,
+        345,
+        11,
+        11
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6dcbulwv",
+      "id": "18",
+      "bbox": [
+        136,
+        338,
+        736,
+        36
+      ],
+      "geometry": "rect",
+      "text": "当前项目最完整的是客户端功能与通信流程。",
+      "textPreview": "当前项目最完整的是客户端功能与通信流程。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "当前项目最完整的是客户端功能与通信流程。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "当前项目最完整的是客户端功能与通信流程。",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "当前项目最完整的是客户端功能与通信流程。",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vy90je9c",
+      "id": "19",
+      "bbox": [
+        112,
+        385,
+        11,
+        11
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rmhk3q5o",
+      "id": "20",
+      "bbox": [
+        136,
+        378,
+        736,
+        36
+      ],
+      "geometry": "rect",
+      "text": "服务器和数据库作为课程要求中的对端，需要配合运行环境完成联调。",
+      "textPreview": "服务器和数据库作为课程要求中的对端，需要配合运行环境完成联调。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "服务器和数据库作为课程要求中的对端，需要配合运行环境完成联调。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "服务器和数据库作为课程要求中的对端，需要配合运行环境完成联调。",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "服务器和数据库作为课程要求中的对端，需要配合运行环境完成联调。",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1kre1w7",
+      "id": "21",
+      "bbox": [
+        112,
+        425,
+        11,
+        11
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9s36hcrm",
+      "id": "22",
+      "bbox": [
+        136,
+        418,
+        736,
+        36
+      ],
+      "geometry": "rect",
+      "text": "答辩中重点展示客户端体验和 C/S 架构理解。",
+      "textPreview": "答辩中重点展示客户端体验和 C/S 架构理解。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "答辩中重点展示客户端体验和 C/S 架构理解。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "答辩中重点展示客户端体验和 C/S 架构理解。",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "答辩中重点展示客户端体验和 C/S 架构理解。",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

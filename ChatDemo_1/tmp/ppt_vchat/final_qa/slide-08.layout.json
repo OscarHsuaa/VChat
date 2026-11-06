@@ -1,0 +1,992 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/8ncwkz",
+    "id": "8ncwkz",
+    "slide": 8,
+    "layoutId": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Consolas",
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tovahoza",
+      "id": "1",
+      "bbox": [
+        560,
+        -90,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.025)",
+      "lineColor": "rgba(255, 255, 255, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ixczed8v",
+      "id": "2",
+      "bbox": [
+        -150,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.035)",
+      "lineColor": "rgba(0, 174, 239, 0.04)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bi9s36hc",
+      "id": "3",
+      "bbox": [
+        26,
+        14,
+        142,
+        30
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#0F202A",
+      "lineColor": "#0F202A",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0fepkzup",
+      "id": "4",
+      "bbox": [
+        35,
+        20,
+        120,
+        28
+      ],
+      "geometry": "rect",
+      "text": "VChat",
+      "textPreview": "VChat",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p0bi9s36",
+      "id": "5",
+      "bbox": [
+        875,
+        22,
+        40,
+        22
+      ],
+      "geometry": "rect",
+      "text": "08",
+      "textPreview": "08",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "08"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "08",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "08",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i9s36hcr",
+      "id": "6",
+      "bbox": [
+        66,
+        62,
+        720,
+        48
+      ],
+      "geometry": "rect",
+      "text": "代码实现 1：项目结构",
+      "textPreview": "代码实现 1：项目结构",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 30,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "代码实现 1：项目结构"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "代码实现 1：项目结构",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "代码实现 1：项目结构",
+              "fontSize": 30,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bulwval8",
+      "id": "7",
+      "bbox": [
+        66,
+        116,
+        94,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0je9cvix",
+      "id": "8",
+      "bbox": [
+        66,
+        126,
+        780,
+        36
+      ],
+      "geometry": "rect",
+      "text": "CMake 将界面、登录窗口和聊天主窗口组织成一个 Qt6 客户端。",
+      "textPreview": "CMake 将界面、登录窗口和聊天主窗口组织成一个 Qt6 客户端。",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CMake 将界面、登录窗口和聊天主窗口组织成一个 Qt6 客户端。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CMake 将界面、登录窗口和聊天主窗口组织成一个 Qt6 客户端。",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CMake 将界面、登录窗口和聊天主窗口组织成一个 Qt6 客户端。",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t47y1kre",
+      "id": "9",
+      "bbox": [
+        86,
+        166,
+        470,
+        250
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(8, 21, 29, 0.96)",
+      "lineColor": "#24566B",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9s36hcrm",
+      "id": "10",
+      "bbox": [
+        104,
+        178,
+        434,
+        22
+      ],
+      "geometry": "rect",
+      "text": "CMakeLists.txt",
+      "textPreview": "CMakeLists.txt",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "CMakeLists.txt"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "CMakeLists.txt",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CMakeLists.txt",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g7adsji5",
+      "id": "11",
+      "bbox": [
+        104,
+        208,
+        434,
+        196
+      ],
+      "geometry": "rect",
+      "text": "find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)\n\nqt_add_executable(ChatDemo_1\n    main.cpp\n    logindialog.cpp  logindialog.h  logindialog.ui\n    mainwindow.cpp   mainwindow.h   mainwindow.ui\n)\n\ntarget_link_libraries(ChatDemo_1\n    PRIVATE Qt::Core Qt::Widgets Qt::Network\n)",
+      "textPreview": "find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network) |  | qt_add_executable(ChatDemo_1 |     main.cpp |     logindialog.cpp  lo...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Consolas",
+        "color": "#D8F3FF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 11,
+        "lines": [
+          {
+            "index": 1,
+            "text": "find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)"
+          },
+          {
+            "index": 2,
+            "text": ""
+          },
+          {
+            "index": 3,
+            "text": "qt_add_executable(ChatDemo_1"
+          },
+          {
+            "index": 4,
+            "text": "    main.cpp"
+          },
+          {
+            "index": 5,
+            "text": "    logindialog.cpp  logindialog.h  logindialog.ui"
+          },
+          {
+            "index": 6,
+            "text": "    mainwindow.cpp   mainwindow.h   mainwindow.ui"
+          },
+          {
+            "index": 7,
+            "text": ")"
+          },
+          {
+            "index": 8,
+            "text": ""
+          },
+          {
+            "index": 9,
+            "text": "target_link_libraries(ChatDemo_1"
+          },
+          {
+            "index": 10,
+            "text": "    PRIVATE Qt::Core Qt::Widgets Qt::Network"
+          },
+          {
+            "index": 11,
+            "text": ")"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "qt_add_executable(ChatDemo_1",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "qt_add_executable(ChatDemo_1",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "    main.cpp",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    main.cpp",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 5,
+          "text": "    logindialog.cpp  logindialog.h  logindialog.ui",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    logindialog.cpp  logindialog.h  logindialog.ui",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 6,
+          "text": "    mainwindow.cpp   mainwindow.h   mainwindow.ui",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    mainwindow.cpp   mainwindow.h   mainwindow.ui",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 7,
+          "text": ")",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": ")",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 9,
+          "text": "target_link_libraries(ChatDemo_1",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "target_link_libraries(ChatDemo_1",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 10,
+          "text": "    PRIVATE Qt::Core Qt::Widgets Qt::Network",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    PRIVATE Qt::Core Qt::Widgets Qt::Network",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 11,
+          "text": ")",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": ")",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rmhk3q5o",
+      "id": "12",
+      "bbox": [
+        592,
+        191,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1kre1w7",
+      "id": "13",
+      "bbox": [
+        616,
+        186,
+        261,
+        38
+      ],
+      "geometry": "rect",
+      "text": "Widgets 负责登录窗口与聊天主界面。",
+      "textPreview": "Widgets 负责登录窗口与聊天主界面。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Widgets"
+          },
+          {
+            "index": 2,
+            "text": "负责登录窗口与聊天主界面。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Widgets 负责登录窗口与聊天主界面。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Widgets 负责登录窗口与聊天主界面。",
+              "fontSize": 15,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/90je9cvi",
+      "id": "14",
+      "bbox": [
+        592,
+        249,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gfmlkjm1",
+      "id": "15",
+      "bbox": [
+        616,
+        244,
+        261,
+        38
+      ],
+      "geometry": "rect",
+      "text": "Network 提供 QTcpSocket，用于登录认证和聊天通信。",
+      "textPreview": "Network 提供 QTcpSocket，用于登录认证和聊天通信。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Network 提供"
+          },
+          {
+            "index": 2,
+            "text": "QTcpSocket，用于登录认证和聊天"
+          },
+          {
+            "index": 3,
+            "text": "通信。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Network 提供 QTcpSocket，用于登录认证和聊天通信。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Network 提供 QTcpSocket，用于登录认证和聊天通信。",
+              "fontSize": 15,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rytsvu9k",
+      "id": "16",
+      "bbox": [
+        592,
+        307,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yd0z6103",
+      "id": "17",
+      "bbox": [
+        616,
+        302,
+        261,
+        38
+      ],
+      "geometry": "rect",
+      "text": "UI 文件与 C++ 槽函数配合，降低界面逻辑耦合。",
+      "textPreview": "UI 文件与 C++ 槽函数配合，降低界面逻辑耦合。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "UI 文件与 C++"
+          },
+          {
+            "index": 2,
+            "text": "槽函数配合，降低界面逻辑耦合。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "UI 文件与 C++ 槽函数配合，降低界面逻辑耦合。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "UI 文件与 C++ 槽函数配合，降低界面逻辑耦合。",
+              "fontSize": 15,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

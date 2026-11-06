@@ -1,0 +1,697 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/lwval87e",
+    "id": "lwval87e",
+    "slide": 13,
+    "layoutId": "/ppt/slideLayouts/slideLayout2.xml",
+    "layoutName": "标题和内容",
+    "masterLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "Office 主题",
+    "colors": {
+      "accent1": "#5B9BD5",
+      "accent2": "#ED7D31",
+      "accent3": "#A5A5A5",
+      "accent4": "#FFC000",
+      "accent5": "#4472C4",
+      "accent6": "#70AD47",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#44546A",
+      "lt2": "#E7E6E6",
+      "hlink": "#0563C1",
+      "folHlink": "#954F72"
+    },
+    "fontScheme": {
+      "name": "5zrrza2d",
+      "majorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      },
+      "minorFont": {
+        "latinTypeface": "微软雅黑",
+        "eastAsianTypeface": "微软雅黑"
+      }
+    },
+    "typefaces": [
+      "微软雅黑"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "/ppt/slideLayouts/slideLayout2.xml",
+      "name": "标题和内容",
+      "parentLayoutId": "/ppt/slideMasters/slideMaster1.xml",
+      "elements": [
+        {
+          "order": 1,
+          "kind": "shape",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/2",
+          "id": "2",
+          "name": "文本框 1",
+          "bbox": [
+            117.5,
+            23.17,
+            123.77,
+            35.54
+          ],
+          "geometry": "rect",
+          "text": "公司LOGO",
+          "textPreview": "公司LOGO",
+          "resolvedTextStyle": {
+            "wrap": "none",
+            "autoFit": "resizeShapeToFitText"
+          },
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "公司LOGO",
+              "spaceBefore": 0,
+              "spaceAfter": 0,
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "公司",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                },
+                {
+                  "index": 2,
+                  "text": "LOGO",
+                  "fontSize": 21.33,
+                  "typeface": "微软雅黑",
+                  "color": "#2EB4FF"
+                }
+              ]
+            }
+          ],
+          "lineWidth": 0
+        },
+        {
+          "order": 2,
+          "kind": "image",
+          "scope": "layout",
+          "aid": "template/layout//ppt/slideLayouts/slideLayout2.xml/3",
+          "id": "3",
+          "name": "图片 7",
+          "bbox": [
+            47.67,
+            17,
+            69.83,
+            41.67
+          ],
+          "contentType": "image/png",
+          "imageCrop": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+          },
+          "asset": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          },
+          "fillImage": {
+            "assetId": "/ppt/media/image2.png",
+            "contentType": "image/png",
+            "byteLength": 9980
+          }
+        }
+      ]
+    },
+    {
+      "scope": "master",
+      "id": "/ppt/slideMasters/slideMaster1.xml",
+      "type": "master",
+      "backgroundImage": {
+        "assetId": "/ppt/media/image1.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 26278
+      },
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/re1w7mp0",
+      "id": "18",
+      "name": "图片 3",
+      "bbox": [
+        94.41,
+        134.68,
+        395.9,
+        196.92
+      ],
+      "contentType": "image/jpeg",
+      "imageCrop": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "asset": {
+        "assetId": "/ppt/media/image12.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 56118
+      },
+      "fillImage": {
+        "assetId": "/ppt/media/image12.jpeg",
+        "contentType": "image/jpeg",
+        "byteLength": 56118
+      }
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x4nap4r6",
+      "id": "11",
+      "name": "矩形 10",
+      "bbox": [
+        94.41,
+        117.82,
+        395.9,
+        34.03
+      ],
+      "geometry": "rect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "fillColor": "#FFFFFF",
+      "lineWidth": 2.67
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qd4vmtwr",
+      "id": "12",
+      "name": "标题 4",
+      "bbox": [
+        168.14,
+        111.28,
+        255.22,
+        63.26
+      ],
+      "geometry": "rect",
+      "text": "调查主要目的\n",
+      "textPreview": "调查主要目的 |",
+      "resolvedFontSize": 58.67,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "fontSize": 58.67,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "调查主要目的"
+          },
+          {
+            "index": 2,
+            "text": ""
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "调查主要目的",
+          "marginLeft": 0,
+          "indent": 0,
+          "lineSpacingPercent": 100000,
+          "spaceBefore": 0,
+          "spaceAfter": 0,
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "调查主要目的",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "color": "#000000",
+              "textTransform": "none"
+            }
+          ],
+          "bulletCharacter": ""
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fyxobm58",
+      "id": "13",
+      "name": "圆角矩形 12",
+      "bbox": [
+        491.43,
+        117.82,
+        380,
+        213.77
+      ],
+      "geometry": "roundRect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "lineWidth": 2.67
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8v6psfil",
+      "id": "14",
+      "name": "矩形 13",
+      "bbox": [
+        515.67,
+        154.37,
+        333.07,
+        160.55
+      ],
+      "geometry": "rect",
+      "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述 ，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。此处添加详细文本描述，建议与标题相关并符合整体语风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述。",
+      "textPreview": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述 ，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。此处添加详细文本描述，建议与...",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 2.7,
+          "right": 5.4,
+          "bottom": 2.7,
+          "left": 5.4
+        }
+      },
+      "textLayout": {
+        "lineCount": 9,
+        "lines": [
+          {
+            "index": 1,
+            "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言"
+          },
+          {
+            "index": 2,
+            "text": "描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200"
+          },
+          {
+            "index": 3,
+            "text": "字以内，据统计每页幻灯片的最好控制在  5"
+          },
+          {
+            "index": 4,
+            "text": "分钟之内。此处添加详细文本描述"
+          },
+          {
+            "index": 5,
+            "text": "，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。此"
+          },
+          {
+            "index": 6,
+            "text": "处添加详细文本描述，建议与标题相关并符合整体语风格，语言描述"
+          },
+          {
+            "index": 7,
+            "text": "尽量简洁生动。尽量将每页幻灯片的字数控制在 200"
+          },
+          {
+            "index": 8,
+            "text": "字以内，据统计每页幻灯片的最好控制在  5"
+          },
+          {
+            "index": 9,
+            "text": "分钟之内。此处添加详细文本描述。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述 ，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。此处添加详细文本描述，建议与标题相关并符合整体语风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述。",
+          "lineSpacingPercent": 150000,
+          "spaceBefore": 0,
+          "spaceAfter": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 2,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 3,
+              "text": "字以内，据统计每页幻灯片的最好控制在  ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 4,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 5,
+              "text": "分钟之内。此处添加详细文本描述",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 6,
+              "text": " ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 7,
+              "text": "，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。此处添加详细文本描述，建议与标题相关并符合整体语风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在 ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 8,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 9,
+              "text": "字以内，据统计每页幻灯片的最好控制在  ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 10,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 11,
+              "text": "分钟之内。此处添加详细文本描述。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xczed8v6",
+      "id": "15",
+      "name": "圆角矩形 14",
+      "bbox": [
+        94.41,
+        353.04,
+        232.54,
+        34.03
+      ],
+      "geometry": "roundRect",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "verticalAlignment": "middle",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": ""
+          }
+        ]
+      },
+      "lineWidth": 2.67
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qpg3ex0n",
+      "id": "16",
+      "name": "标题 4",
+      "bbox": [
+        88.74,
+        352.83,
+        238.21,
+        31.63
+      ],
+      "geometry": "rect",
+      "text": "添加标题内容",
+      "textPreview": "添加标题内容",
+      "resolvedFontSize": 58.67,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "vertical": 1,
+        "fontSize": 58.67,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "center",
+        "verticalAlignment": "middle",
+        "autoFit": "none",
+        "insets": {
+          "top": 3.6,
+          "right": 7.2,
+          "bottom": 3.6,
+          "left": 7.2
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "添加标题内容"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "添加标题内容",
+          "marginLeft": 0,
+          "indent": 0,
+          "lineSpacingPercent": 100000,
+          "spaceBefore": 0,
+          "spaceAfter": 0,
+          "resolvedTextStyle": {
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "添加标题内容",
+              "fontSize": 18.67,
+              "typeface": "微软雅黑",
+              "color": "#000000",
+              "bold": true,
+              "textTransform": "none"
+            }
+          ],
+          "bulletCharacter": ""
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fa9w3m94",
+      "id": "17",
+      "name": "矩形 16",
+      "bbox": [
+        94.41,
+        398.42,
+        788.36,
+        44.23
+      ],
+      "geometry": "rect",
+      "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。",
+      "textPreview": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "fontSize": 18,
+        "typeface": "微软雅黑",
+        "color": "tx1",
+        "alignment": "left",
+        "wrap": "square",
+        "autoFit": "resizeShapeToFitText",
+        "insets": {
+          "top": 2.7,
+          "right": 5.4,
+          "bottom": 2.7,
+          "left": 5.4
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在"
+          },
+          {
+            "index": 2,
+            "text": " 5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在200字以内，据统计每页幻灯片的最好控制在  5分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。",
+          "lineSpacingPercent": 150000,
+          "spaceBefore": 0,
+          "spaceAfter": 0,
+          "runs": [
+            {
+              "index": 1,
+              "text": "此处添加详细文本描述，建议与标题相关并符合整体语言风格，语言描述尽量简洁生动。尽量将每页幻灯片的字数控制在",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 2,
+              "text": "200",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 3,
+              "text": "字以内，据统计每页幻灯片的最好控制在  ",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 4,
+              "text": "5",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            },
+            {
+              "index": 5,
+              "text": "分钟之内。此处添加详细文本描述，语言描述尽量简洁生动语言描述尽量简洁生动。",
+              "fontSize": 10.67,
+              "typeface": "微软雅黑",
+              "color": "#000000"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ]
+    }
+  ],
+  "composeRuns": []
+}

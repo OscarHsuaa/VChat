@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>1200</width><height>780</height></rect></property>
+  <property name="minimumSize"><size><width>830</width><height>560</height></size></property>
+  <property name="windowTitle"><string>VChat - 聊天室</string></property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet"><string notr="true">
+QWidget#centralwidget { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #fbf8ff,stop:0.55 #f8f5ff,stop:1 #f1ebfc); color: #252044; font-family: "Microsoft YaHei UI"; }
+HeaderWaveFrame#headerPanel { background: transparent; border: none; }
+QFrame#chatPanel, QFrame#rightPanel { background-color: #ffffff; border: 1px solid #eee8f8; border-radius: 18px; }
+QLabel#titleLabel { color: #252044; font-size: 23px; font-weight: 700; }
+QLabel#subtitleLabel { color: #79718f; font-size: 13px; }
+QLabel#onlineTitle { color: #252044; font-size: 16px; font-weight: 600; }
+QLabel#onlineBadge { color: #6c52bc; padding: 6px 12px; font-size: 12px; font-weight: 600; }
+QLabel#serverStatusLabel, QLabel#onlineCountLabel { color: #756e8c; font-size: 12px; }
+QScrollArea#messageScroll { background-color: transparent; border: none; }
+QScrollBar:vertical { background: transparent; width: 8px; margin: 4px 1px; }
+QScrollBar::handle:vertical { background: #dcd2f2; border-radius: 4px; min-height: 26px; }
+QScrollBar::handle:vertical:hover { background: #baa9e7; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+QWidget#messageContainer { background-color: transparent; }
+QListWidget#userList { background-color: transparent; border: none; outline: none; }
+QListWidget#userList::item { background-color: transparent; border-radius: 12px; }
+QListWidget#userList::item:hover { background-color: #f7f4fc; }
+QFrame#composer { background-color: #ffffff; border-top: 1px solid #eee8f8; }
+QLineEdit#messageInput { color: #252044; background-color: #ffffff; border: 1px solid #e4ddf3; border-radius: 13px; padding: 9px 16px; selection-background-color: #8064d9; font-size: 14px; }
+QLineEdit#messageInput:focus { border: 1px solid #9875e8; }
+QPushButton#sendButton { color: white; background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #9068f3,stop:1 #7457d8); border: none; border-radius: 13px; padding: 8px 13px; font-size: 15px; font-weight: 600; }
+QPushButton#sendButton:hover { background: #9574ee; }
+QPushButton#sendButton:pressed { background: #694cc8; }
+QPushButton#sendButton:disabled { color:#f8f6fc; background: #c5b7e6; }
+QPushButton#settingsButton, QPushButton#helpButton, QPushButton#exitButton { color: #4d4279; background: transparent; border: none; border-radius: 9px; padding: 7px 9px; font-size: 13px; }
+QPushButton#settingsButton:hover, QPushButton#helpButton:hover, QPushButton#exitButton:hover { background-color: #eee8fb; }
+QFrame#infoDivider { background-color: #eee8f8; border: none; }
+   </string></property>
+   <layout class="QVBoxLayout" name="rootLayout">
+    <property name="leftMargin"><number>16</number></property><property name="topMargin"><number>14</number></property><property name="rightMargin"><number>16</number></property><property name="bottomMargin"><number>14</number></property><property name="spacing"><number>14</number></property>
+    <item><widget class="HeaderWaveFrame" name="headerPanel"><property name="minimumSize"><size><width>0</width><height>78</height></size></property><layout class="QHBoxLayout" name="headerLayout"><property name="leftMargin"><number>20</number></property><property name="topMargin"><number>8</number></property><property name="rightMargin"><number>16</number></property><property name="bottomMargin"><number>8</number></property><property name="spacing"><number>13</number></property>
+     <item><widget class="QLabel" name="logoLabel"><property name="minimumSize"><size><width>50</width><height>50</height></size></property><property name="maximumSize"><size><width>50</width><height>50</height></size></property></widget></item>
+     <item><layout class="QVBoxLayout" name="brandLayout"><property name="spacing"><number>2</number></property><item><widget class="QLabel" name="titleLabel"><property name="text"><string>VChat 聊天室</string></property></widget></item><item><widget class="QLabel" name="subtitleLabel"><property name="text"><string>轻松连接每一次交流</string></property></widget></item></layout></item>
+     <item><spacer name="headerSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item>
+     <item><widget class="QPushButton" name="settingsButton"><property name="text"><string>设置</string></property></widget></item>
+     <item><widget class="QPushButton" name="helpButton"><property name="text"><string>帮助</string></property></widget></item>
+     <item><widget class="QPushButton" name="exitButton"><property name="text"><string>退出</string></property></widget></item>
+    </layout></widget></item>
+    <item><layout class="QHBoxLayout" name="bodyLayout"><property name="spacing"><number>14</number></property>
+     <item><widget class="QFrame" name="chatPanel"><layout class="QVBoxLayout" name="chatPanelLayout"><property name="leftMargin"><number>0</number></property><property name="topMargin"><number>0</number></property><property name="rightMargin"><number>0</number></property><property name="bottomMargin"><number>0</number></property><property name="spacing"><number>0</number></property>
+      <item><widget class="QScrollArea" name="messageScroll"><property name="widgetResizable"><bool>true</bool></property><property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property><widget class="QWidget" name="messageContainer"><layout class="QVBoxLayout" name="messageLayout"><property name="leftMargin"><number>28</number></property><property name="topMargin"><number>18</number></property><property name="rightMargin"><number>28</number></property><property name="bottomMargin"><number>18</number></property><property name="spacing"><number>12</number></property><item><spacer name="messageBottomSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item></layout></widget></widget></item>
+      <item><widget class="QFrame" name="composer"><property name="minimumSize"><size><width>0</width><height>76</height></size></property><layout class="QHBoxLayout" name="inputLayout"><property name="leftMargin"><number>16</number></property><property name="topMargin"><number>12</number></property><property name="rightMargin"><number>16</number></property><property name="bottomMargin"><number>12</number></property><property name="spacing"><number>12</number></property><item><widget class="QLineEdit" name="messageInput"><property name="minimumSize"><size><width>0</width><height>50</height></size></property><property name="placeholderText"><string>请输入消息...</string></property></widget></item><item><widget class="QPushButton" name="sendButton"><property name="minimumSize"><size><width>118</width><height>50</height></size></property><property name="text"><string>发送</string></property></widget></item></layout></widget></item>
+     </layout></widget></item>
+     <item><widget class="QFrame" name="rightPanel"><property name="minimumSize"><size><width>230</width><height>0</height></size></property><layout class="QVBoxLayout" name="rightLayout"><property name="leftMargin"><number>16</number></property><property name="topMargin"><number>18</number></property><property name="rightMargin"><number>16</number></property><property name="bottomMargin"><number>20</number></property><property name="spacing"><number>12</number></property>
+      <item><layout class="QHBoxLayout" name="memberHeader"><item><widget class="QLabel" name="memberIcon"><property name="minimumSize"><size><width>22</width><height>22</height></size></property></widget></item><item><widget class="QLabel" name="onlineTitle"><property name="text"><string>在线成员</string></property></widget></item><item><spacer name="memberSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property></spacer></item><item><widget class="RoundedLabel" name="onlineBadge"><property name="text"><string>0</string></property></widget></item></layout></item>
+      <item><widget class="QListWidget" name="userList"/></item>
+      <item><widget class="QFrame" name="infoDivider"><property name="minimumSize"><size><width>0</width><height>1</height></size></property><property name="maximumSize"><size><width>16777215</width><height>1</height></size></property></widget></item>
+      <item><widget class="QLabel" name="serverStatusLabel"><property name="text"><string>服务器：未连接</string></property></widget></item>
+      <item><widget class="QLabel" name="onlineCountLabel"><property name="text"><string>在线人数：0</string></property></widget></item>
+     </layout></widget></item>
+    </layout></item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar"><widget class="QMenu" name="menuFile"><property name="title"><string>文件</string></property><addaction name="actionConnect"/><addaction name="actionDisconnect"/><addaction name="actionExit"/></widget><widget class="QMenu" name="menuSettings"><property name="title"><string>设置</string></property><addaction name="actionChangeNickname"/></widget><widget class="QMenu" name="menuHelp"><property name="title"><string>帮助</string></property><addaction name="actionAbout"/></widget><addaction name="menuFile"/><addaction name="menuSettings"/><addaction name="menuHelp"/></widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionConnect"><property name="text"><string>连接服务器</string></property></action>
+  <action name="actionDisconnect"><property name="text"><string>断开连接</string></property></action>
+  <action name="actionExit"><property name="text"><string>退出</string></property></action>
+  <action name="actionChangeNickname"><property name="text"><string>修改昵称</string></property></action>
+  <action name="actionAbout"><property name="text"><string>关于</string></property></action>
+ </widget>
+ <customwidgets><customwidget><class>HeaderWaveFrame</class><extends>QFrame</extends><header>mainwindow.h</header></customwidget><customwidget><class>RoundedLabel</class><extends>QLabel</extends><header>mainwindow.h</header></customwidget></customwidgets>
+ <resources/>
+ <connections/>
+</ui>

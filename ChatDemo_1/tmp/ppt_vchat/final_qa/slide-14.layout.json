@@ -1,0 +1,1223 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/bdz099",
+    "id": "bdz099",
+    "slide": 14,
+    "layoutId": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 960,
+      "height": 540
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Consolas",
+      "Microsoft YaHei"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "c3a292cb-b5d8-43ef-90d6-83daa7e75222",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "daaed4e3-5847-49a5-ae31-b6906bad651f",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w7mp0bi9",
+      "id": "1",
+      "bbox": [
+        560,
+        -90,
+        430,
+        430
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(255, 255, 255, 0.025)",
+      "lineColor": "rgba(255, 255, 255, 0.03)",
+      "lineWidth": 1
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7mp0bi9s",
+      "id": "2",
+      "bbox": [
+        -150,
+        330,
+        360,
+        360
+      ],
+      "geometry": "ellipse",
+      "fillColor": "rgba(0, 174, 239, 0.035)",
+      "lineColor": "rgba(0, 174, 239, 0.04)",
+      "lineWidth": 1
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e1w7mp0b",
+      "id": "3",
+      "bbox": [
+        26,
+        14,
+        142,
+        30
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#0F202A",
+      "lineColor": "#0F202A",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pg3ex0nu",
+      "id": "4",
+      "bbox": [
+        35,
+        20,
+        120,
+        28
+      ],
+      "geometry": "rect",
+      "text": "VChat",
+      "textPreview": "VChat",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "VChat"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "VChat",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "VChat",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wval87ed",
+      "id": "5",
+      "bbox": [
+        875,
+        22,
+        40,
+        22
+      ],
+      "geometry": "rect",
+      "text": "14",
+      "textPreview": "14",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "14"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "14",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "14",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7adsji5s",
+      "id": "6",
+      "bbox": [
+        66,
+        62,
+        720,
+        48
+      ],
+      "geometry": "rect",
+      "text": "代码实现 7：消息展示与在线列表",
+      "textPreview": "代码实现 7：消息展示与在线列表",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 30,
+        "typeface": "Microsoft YaHei",
+        "color": "#F4FBFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "代码实现 7：消息展示与在线列表"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "代码实现 7：消息展示与在线列表",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "typeface": "Microsoft YaHei",
+            "color": "#F4FBFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "代码实现 7：消息展示与在线列表",
+              "fontSize": 30,
+              "typeface": "Microsoft YaHei",
+              "color": "#F4FBFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/epkzupwb",
+      "id": "7",
+      "bbox": [
+        66,
+        116,
+        94,
+        3
+      ],
+      "geometry": "rect",
+      "fillColor": "#00AEEF",
+      "lineColor": "#00AEEF",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lc7u54zi",
+      "id": "8",
+      "bbox": [
+        66,
+        126,
+        780,
+        36
+      ],
+      "geometry": "rect",
+      "text": "对服务器消息分类处理，同时避免 HTML 特殊字符破坏界面。",
+      "textPreview": "对服务器消息分类处理，同时避免 HTML 特殊字符破坏界面。",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "对服务器消息分类处理，同时避免 HTML 特殊字符破坏界面。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "对服务器消息分类处理，同时避免 HTML 特殊字符破坏界面。",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "对服务器消息分类处理，同时避免 HTML 特殊字符破坏界面。",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wra5gbq1",
+      "id": "9",
+      "bbox": [
+        78,
+        154,
+        520,
+        302
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(8, 21, 29, 0.96)",
+      "lineColor": "#24566B",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/upwb2hwf",
+      "id": "10",
+      "bbox": [
+        96,
+        166,
+        484,
+        22
+      ],
+      "geometry": "rect",
+      "text": "appendIncomingLine()",
+      "textPreview": "appendIncomingLine()",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "appendIncomingLine()"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "appendIncomingLine()",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "appendIncomingLine()",
+              "fontSize": 14,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nap4r65w",
+      "id": "11",
+      "bbox": [
+        96,
+        196,
+        484,
+        248
+      ],
+      "geometry": "rect",
+      "text": "if (line.startsWith(\"USERLIST|\")) {\n    QStringList users = line.mid(QStringLiteral(\"USERLIST|\").size())\n        .split(',', Qt::SkipEmptyParts);\n    updateUserList(users);\n    return;\n}\n\nif (line.startsWith(\"[System]\")) {\n    appendSystemMessage(line);\n    return;\n}\n\nappendMessage(\"服务器转发\", line);",
+      "textPreview": "if (line.startsWith(\"USERLIST|\")) { |     QStringList users = line.mid(QStringLiteral(\"USERLIST|\").size()) |         .split(',', Qt::Skip...",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Consolas",
+        "color": "#D8F3FF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 13,
+        "lines": [
+          {
+            "index": 1,
+            "text": "if (line.startsWith(\"USERLIST|\")) {"
+          },
+          {
+            "index": 2,
+            "text": "    QStringList users = line.mid(QStringLiteral(\"USERLIST|\").size())"
+          },
+          {
+            "index": 3,
+            "text": "        .split(',', Qt::SkipEmptyParts);"
+          },
+          {
+            "index": 4,
+            "text": "    updateUserList(users);"
+          },
+          {
+            "index": 5,
+            "text": "    return;"
+          },
+          {
+            "index": 6,
+            "text": "}"
+          },
+          {
+            "index": 7,
+            "text": ""
+          },
+          {
+            "index": 8,
+            "text": "if (line.startsWith(\"[System]\")) {"
+          },
+          {
+            "index": 9,
+            "text": "    appendSystemMessage(line);"
+          },
+          {
+            "index": 10,
+            "text": "    return;"
+          },
+          {
+            "index": 11,
+            "text": "}"
+          },
+          {
+            "index": 12,
+            "text": ""
+          },
+          {
+            "index": 13,
+            "text": "appendMessage(\"服务器转发\", line);"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "if (line.startsWith(\"USERLIST|\")) {",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "if (line.startsWith(\"USERLIST|\")) {",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "    QStringList users = line.mid(QStringLiteral(\"USERLIST|\").size())",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    QStringList users = line.mid(QStringLiteral(\"USERLIST|\").size())",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "        .split(',', Qt::SkipEmptyParts);",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "        .split(',', Qt::SkipEmptyParts);",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 4,
+          "text": "    updateUserList(users);",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    updateUserList(users);",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 5,
+          "text": "    return;",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    return;",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 6,
+          "text": "}",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "}",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 8,
+          "text": "if (line.startsWith(\"[System]\")) {",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "if (line.startsWith(\"[System]\")) {",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 9,
+          "text": "    appendSystemMessage(line);",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    appendSystemMessage(line);",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 10,
+          "text": "    return;",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "    return;",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 11,
+          "text": "}",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "}",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 13,
+          "text": "appendMessage(\"服务器转发\", line);",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Consolas",
+            "color": "#D8F3FF"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "appendMessage(\"服务器转发\", line);",
+              "fontSize": 12,
+              "typeface": "Consolas",
+              "color": "#D8F3FF"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cvixczed",
+      "id": "12",
+      "bbox": [
+        642,
+        168,
+        210,
+        72
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(18, 43, 56, 0.92)",
+      "lineColor": "#236278",
+      "lineWidth": 1
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5gbq1ory",
+      "id": "13",
+      "bbox": [
+        666,
+        184,
+        160,
+        24
+      ],
+      "geometry": "rect",
+      "text": "USERLIST",
+      "textPreview": "USERLIST",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#2DD4FF",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "USERLIST"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "USERLIST",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#2DD4FF",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "USERLIST",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#2DD4FF",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/udg7adsj",
+      "id": "14",
+      "bbox": [
+        666,
+        212,
+        160,
+        18
+      ],
+      "geometry": "rect",
+      "text": "刷新右侧在线用户",
+      "textPreview": "刷新右侧在线用户",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "刷新右侧在线用户"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "刷新右侧在线用户",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "刷新右侧在线用户",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nyd0z610",
+      "id": "15",
+      "bbox": [
+        642,
+        264,
+        210,
+        72
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(18, 43, 56, 0.92)",
+      "lineColor": "#236278",
+      "lineWidth": 1
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cj6tovah",
+      "id": "16",
+      "bbox": [
+        666,
+        280,
+        160,
+        24
+      ],
+      "geometry": "rect",
+      "text": "[System]",
+      "textPreview": "[System]",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#FFB84D",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "[System]"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "[System]",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#FFB84D",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "[System]",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#FFB84D",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/54zidony",
+      "id": "17",
+      "bbox": [
+        666,
+        308,
+        160,
+        18
+      ],
+      "geometry": "rect",
+      "text": "居中显示系统提示",
+      "textPreview": "居中显示系统提示",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "居中显示系统提示"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "居中显示系统提示",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "居中显示系统提示",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u9knih4b",
+      "id": "18",
+      "bbox": [
+        642,
+        360,
+        210,
+        72
+      ],
+      "geometry": "roundRect",
+      "fillColor": "rgba(18, 43, 56, 0.92)",
+      "lineColor": "#236278",
+      "lineWidth": 1
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/judg7ads",
+      "id": "19",
+      "bbox": [
+        666,
+        376,
+        160,
+        24
+      ],
+      "geometry": "rect",
+      "text": "普通消息",
+      "textPreview": "普通消息",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Microsoft YaHei",
+        "color": "#46D07E",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "普通消息"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "普通消息",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Microsoft YaHei",
+            "color": "#46D07E",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "普通消息",
+              "fontSize": 18,
+              "typeface": "Microsoft YaHei",
+              "color": "#46D07E",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fil0rqd4",
+      "id": "20",
+      "bbox": [
+        666,
+        404,
+        160,
+        18
+      ],
+      "geometry": "rect",
+      "text": "进入聊天气泡",
+      "textPreview": "进入聊天气泡",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "Microsoft YaHei",
+        "color": "#A9C0CA",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "进入聊天气泡"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "进入聊天气泡",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "typeface": "Microsoft YaHei",
+            "color": "#A9C0CA",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "进入聊天气泡",
+              "fontSize": 12,
+              "typeface": "Microsoft YaHei",
+              "color": "#A9C0CA",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}
