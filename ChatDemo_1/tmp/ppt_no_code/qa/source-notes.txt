@@ -1,6 +1,0 @@
-Sources used:
-- D:/qtcode/ChatDemo_1/CMakeLists.txt
-- D:/qtcode/ChatDemo_1/logindialog.h and logindialog.cpp
-- D:/qtcode/ChatDemo_1/mainwindow.h and mainwindow.cpp
-- User discussion: keep classroom sharing focused and remove low-value implementation detail topics.
-Boundary: current workspace contains Qt client code; server/MySQL are described as integration counterparts.

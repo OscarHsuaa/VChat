@@ -1,6 +1,0 @@
-cmake_minimum_required(VERSION 3.19)
-project(VChatAiTest LANGUAGES CXX)
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Network)
-qt_standard_project_setup()
-qt_add_executable(VChatAiTest ai_test.cpp aiservice.cpp aiservice.h airoom.cpp airoom.h)
-target_link_libraries(VChatAiTest PRIVATE Qt::Core Qt::Network)

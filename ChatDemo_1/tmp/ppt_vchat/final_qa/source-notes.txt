@@ -1,9 +1,0 @@
-Sources used:
-- Current workspace CMakeLists.txt: Qt6 Core, Widgets, Network modules and executable files.
-- Current workspace logindialog.cpp/.h: server address input, captcha generation, LOGIN protocol authentication.
-- Current workspace mainwindow.cpp/.h: QTcpSocket connection, JOIN/USERLIST handling, message buffer splitting, chat bubble display.
-- Previous generated experiment report: VChat project framing and course report narrative.
-- Source PPTX template: 商业计划书.pptx, reused for dark technology style and slide rhythm.
-
-Claim boundary:
-- The current repository contains the Qt client. Server/MySQL parts are described as integration dependencies/protocol counterparts unless shown in the workspace.

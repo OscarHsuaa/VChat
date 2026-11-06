@@ -1,1 +1,0 @@
-﻿Final balanced deck QA: 17 slides rendered and reviewed via contact sheet. Kept project explanation as the main story; limited code explanation to four key slides: login/captcha, LOGIN protocol, chat send/receive, and message dispatch. Content aligned to CMakeLists.txt, logindialog.cpp/h, mainwindow.cpp/h, and user discussion about client-server-database and port 8080.

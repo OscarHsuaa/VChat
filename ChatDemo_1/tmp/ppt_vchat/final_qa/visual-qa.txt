@@ -1,1 +1,0 @@
-﻿Final expanded deck QA: 19 slides rendered to PNG and reviewed via contact sheet. Added code walkthrough slides for CMake/project structure, captcha, login validation, LOGIN protocol, socket send, TCP receive buffer, and message dispatch. No visible template logo residue, old chart overlap, or obvious text overflow in the rendered contact sheet.

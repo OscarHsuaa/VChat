@@ -1,7 +1,0 @@
-# ninja log v6
-30	349	8156610738006938	ChatServer_autogen/timestamp	82fe0a0ba6c83860
-30	349	8156610738006938	D:/qtcode/ChatServer/tmp/vivi_reply_build/ChatServer_autogen/timestamp	82fe0a0ba6c83860
-351	2831	8156610739119357	CMakeFiles/ChatServer.dir/main.cpp.obj	b537239965229c98
-2838	4533	8156610763990456	CMakeFiles/ChatServer.dir/aiservice.cpp.obj	cd92697240eb3d74
-4534	6452	8156610780937761	CMakeFiles/ChatServer.dir/airoom.cpp.obj	975d4c2bf1632dcb
-6452	7078	8156610800133605	ChatServer.exe	ff0d56a6d71680cc

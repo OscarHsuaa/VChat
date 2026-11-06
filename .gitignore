@@ -37,3 +37,13 @@ CMakeCache.txt
 # Temporary files
 *.log
 *.tmp
+
+# VChat temporary directories
+ChatDemo_1/tmp/
+ChatServer/tmp/
+
+# Generated build files
+Makefile
+Makefile.*
+*.make
+*.cmake
