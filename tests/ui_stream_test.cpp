@@ -296,5 +296,34 @@ int main(int argc, char **argv)
                 latestBody = widget->findChild<AiMarkdownWidget *>();
         return latestBody && latestBody->plainText() == secondRevision;
     })) return 38;
+    const QJsonObject question{{"message_id", "saved-question"}, {"sender_id", "11"},
+        {"sender", QStringLiteral("甲")}, {"type", "user"},
+        {"text", QStringLiteral("@Vivi 请给 C++ 代码")},
+        {"time", "2026-11-07T12:01:02.000"}};
+    const QJsonObject answer{{"message_id", "saved-answer"}, {"sender_id", "11"},
+        {"sender", "Vivi"}, {"type", "ai"},
+        {"text", QStringLiteral("```cpp\nint value = 42;\n```")},
+        {"reply_to_message_id", "saved-question"}, {"reply_to_name", QStringLiteral("甲")}};
+    const auto historyFrame = [](const QJsonObject &item) {
+        return "HISTORY|" + QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64() + "\n";
+    };
+    for (int i = 0; i < 2; ++i) {
+        peers.last()->write(historyFrame(question));
+        peers.last()->write(historyFrame(answer));
+    }
+    if (!waitUntil([&]() {
+        int questions = 0, answers = 0;
+        for (QWidget *widget : latest.findChildren<QWidget *>()) {
+            if (widget->property("userMessageId") == QStringLiteral("saved-question")) ++questions;
+            if (widget->property("aiMessageId") == QStringLiteral("saved-answer")) ++answers;
+        }
+        return questions == 1 && answers == 1;
+    })) return 39;
+    AiMarkdownWidget *savedBody = nullptr;
+    for (QWidget *widget : latest.findChildren<QWidget *>())
+        if (widget->property("aiMessageId") == QStringLiteral("saved-answer"))
+            savedBody = widget->findChild<AiMarkdownWidget *>();
+    if (!savedBody || !waitUntil([&]() { return savedBody->plainText().contains("int value = 42;") &&
+                                            savedBody->findChild<QPlainTextEdit *>() != nullptr; })) return 40;
     return 0;
 }

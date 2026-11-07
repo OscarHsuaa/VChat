@@ -79,7 +79,8 @@ bool openDatabase()
     QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QMYSQL"));
     db.setHostName(kDbHost);
     db.setPort(kDbPort);
-    db.setDatabaseName(kDbName);
+    const QString databaseName = qEnvironmentVariable("VCHAT_TEST_DB", kDbName);
+    db.setDatabaseName(databaseName);
     db.setUserName(kDbUser);
     db.setPassword(kDbPassword);
 
@@ -88,30 +89,93 @@ bool openDatabase()
         return false;
     }
 
-    qDebug() << "Database connected:" << kDbName;
+    if (!db.tables().contains(QStringLiteral("chat_history"))) {
+        qCritical() << "chat_history table missing; apply ChatServer/migrations/001_chat_history.sql";
+        return false;
+    }
+    // An older server may have written more legacy rows before this process started.
+    // The unique legacy ID makes this startup import idempotent.
+    QSqlQuery backfill;
+    if (!backfill.exec(QStringLiteral(
+        "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,"
+        "visibility,created_at,legacy_message_id) "
+        "SELECT 'class-room',UUID(),NULL,sender,'user',"
+        "CASE WHEN LEFT(content,CHAR_LENGTH(sender)+2)=CONCAT(sender,': ') "
+        "THEN SUBSTRING(content,CHAR_LENGTH(sender)+3) ELSE content END,"
+        "'team',COALESCE(sent_at,NOW(3)),id FROM messages "
+        "WHERE group_name='班级群' OR group_name IS NULL "
+        "ON DUPLICATE KEY UPDATE legacy_message_id=legacy_message_id"))) {
+        qCritical() << "Legacy history import failed:" << backfill.lastError().text();
+        return false;
+    }
+
+    qDebug() << "Database connected:" << databaseName;
     return true;
 }
 
-// 把聊天内容保存到 messages 表，方便之后在 Navicat 里查看聊天记录。
-void saveMessageToDatabase(const QString &sender, const QString &content)
+// All new chat messages share stable IDs and a room-scoped order.
+bool saveUserHistory(const QString &id, qint64 senderId, const QString &sender,
+                     const QString &content)
 {
-    if (!QSqlDatabase::database().isOpen()) {
-        qDebug() << "Database is not open. Message was not saved.";
-        return;
-    }
-
     QSqlQuery query;
     query.prepare(QStringLiteral(
-        "INSERT INTO messages(sender, group_name, content, message_type) "
-        "VALUES(?, ?, ?, ?)"));
+        "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content) "
+        "VALUES('class-room',?,?,?,'user',?)"));
+    query.addBindValue(id);
+    query.addBindValue(senderId > 0 ? QVariant(senderId) : QVariant());
     query.addBindValue(sender);
-    query.addBindValue(QStringLiteral("班级群"));
     query.addBindValue(content);
-    query.addBindValue(QStringLiteral("text"));
+    if (query.exec()) return true;
+    qWarning() << "History user insert failed:" << query.lastError().text();
+    return false;
+}
 
+bool saveAiHistory(const QJsonObject &event)
+{
+    QSqlQuery query;
+    query.prepare(QStringLiteral(
+        "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,"
+        "reply_to_message_id,original_request_id) VALUES('class-room',?,?,'Vivi','ai',?,?,?) "
+        "ON DUPLICATE KEY UPDATE content=VALUES(content), original_request_id=VALUES(original_request_id)"));
+    query.addBindValue(event.value(QStringLiteral("message_id")).toString());
+    query.addBindValue(event.value(QStringLiteral("user_id")).toString().toLongLong());
+    query.addBindValue(event.value(QStringLiteral("full_text")).toString());
+    query.addBindValue(event.value(QStringLiteral("reply_to_message_id")).toString());
+    query.addBindValue(event.value(QStringLiteral("original_request_id")).toString().toULongLong());
+    if (query.exec()) return true;
+    qWarning() << "History AI upsert failed:" << query.lastError().text();
+    return false;
+}
+
+bool sendHistory(QTcpSocket *client, qint64 accountId)
+{
+    QSqlQuery query;
+    query.prepare(QStringLiteral(
+        "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
+        "h.reply_to_message_id,h.created_at,q.sender_name "
+        "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
+        "WHERE h.room_id='class-room' AND (h.visibility='team' OR "
+        "(h.visibility='personal' AND h.recipient_user_id=?)) "
+        "ORDER BY h.sequence_id"));
+    query.addBindValue(accountId);
     if (!query.exec()) {
-        qDebug() << "Save message failed:" << query.lastError().text();
+        qWarning() << "History read failed:" << query.lastError().text();
+        return false;
     }
+    while (query.next()) {
+        const QJsonObject item{{QStringLiteral("message_id"), query.value(0).toString()},
+            {QStringLiteral("sender_id"), query.value(1).toString()},
+            {QStringLiteral("sender"), query.value(2).toString()},
+            {QStringLiteral("type"), query.value(3).toString()},
+            {QStringLiteral("text"), query.value(4).toString()},
+            {QStringLiteral("reply_to_message_id"), query.value(5).toString()},
+            {QStringLiteral("time"), query.value(6).toDateTime().toString(Qt::ISODateWithMs)},
+            {QStringLiteral("reply_to_name"), query.value(7).toString()}};
+        sendLine(client, QStringLiteral("HISTORY|%1").arg(QString::fromLatin1(
+            QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64())));
+    }
+    sendLine(client, QStringLiteral("HISTORY_END"));
+    return true;
 }
 
 // 查询 users 表，检查账号密码是否正确。
@@ -200,6 +264,9 @@ int main(int argc, char *argv[])
             ? QStringLiteral("AI|stream|%1|%2").arg(id).arg(QString::fromLatin1(
                 QJsonDocument(roomForBroadcast->streamEvent(id, eventName, text))
                     .toJson(QJsonDocument::Compact).toBase64())) : QString();
+        if (state == QStringLiteral("stream_complete") && roomForBroadcast &&
+            !saveAiHistory(roomForBroadcast->streamEvent(id, QStringLiteral("ai_complete"))))
+            qCritical() << "Completed AI message was not persisted";
         const QString line = QStringLiteral("AI|%1|%2|%3")
             .arg(state).arg(id).arg(QString::fromLatin1(text.toUtf8().toBase64()));
         const QString statusLine = QStringLiteral("AI|status|0|%1")
@@ -343,6 +410,8 @@ int main(int argc, char *argv[])
 
                         onlineUsers[client] = nickname;
                         onlineUserIds[client] = accountId;
+                        if (modernPeers.contains(client) && !sendHistory(client, accountId))
+                            sendLine(client, QStringLiteral("[System] 历史消息读取失败，请联系管理员"));
                         sendLine(client, QStringLiteral("AI|status|0|%1")
                             .arg(QString::fromLatin1(aiState.toUtf8().toBase64())));
                         for (const QJsonObject &event : aiRoom.snapshots())
@@ -434,7 +503,10 @@ int main(int argc, char *argv[])
                             {QStringLiteral("mentions"), validated}};
                         const QString modernLine = QStringLiteral("CHAT2|%1")
                             .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
-                        saveMessageToDatabase(sender, content);
+                        if (!saveUserHistory(userMessageId, onlineUserIds.value(client), sender, content)) {
+                            sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
+                            continue;
+                        }
                         for (QTcpSocket *other : clients)
                             if (other != client && other->state() == QAbstractSocket::ConnectedState && onlineUsers.contains(other))
                                 sendLine(other, modernPeers.contains(other) ? modernLine : legacyLine);
@@ -465,7 +537,13 @@ int main(int argc, char *argv[])
                     const QString serverMessage = QStringLiteral("[%1] %2").arg(time, text);
 
                     qDebug() << "Chat message received: characters=" << text.size();
-                    saveMessageToDatabase(sender, text);
+                    const QString legacyMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                    const QString prefix = sender + QStringLiteral(": ");
+                    const QString content = text.startsWith(prefix) ? text.mid(prefix.size()) : text;
+                    if (!saveUserHistory(legacyMessageId, onlineUserIds.value(client), sender, content)) {
+                        sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
+                        continue;
+                    }
 
                     // 转发给其他已经进入聊天窗口的用户，不发回给发送者本人。
                     for (QTcpSocket *other : clients) {
@@ -474,14 +552,12 @@ int main(int argc, char *argv[])
                         }
                     }
                     if (onlineUsers.contains(client)) {
-                        const QString prefix = sender + QStringLiteral(": ");
-                        const QString content = text.startsWith(prefix) ? text.mid(prefix.size()) : text;
                         static const QRegularExpression mention(
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
                             QRegularExpression::CaseInsensitiveOption);
                         aiRoom.addUserMessage(onlineUserIds.value(client), sender, content,
                                               mention.match(content).hasMatch(),
-                                              QUuid::createUuid().toString(QUuid::WithoutBraces));
+                                              legacyMessageId);
                     }
                 }
             });
@@ -517,15 +593,20 @@ int main(int argc, char *argv[])
 
     // QHostAddress::Any 表示监听本机所有网卡地址。
     // 局域网其他电脑可以用这台电脑的 IPv4:8080 连接。
-    if (!server.listen(QHostAddress::Any, kServerPort)) {
+    bool testPortValid = false;
+    const int testPort = qEnvironmentVariableIntValue("VCHAT_TEST_PORT", &testPortValid);
+    const quint16 listenPort = testPortValid && testPort > 0 && testPort <= 65535
+        ? static_cast<quint16>(testPort) : kServerPort;
+    const QHostAddress listenAddress = listenPort == kServerPort ? QHostAddress::Any : QHostAddress::LocalHost;
+    if (!server.listen(listenAddress, listenPort)) {
         qDebug() << "Server start failed:" << server.errorString();
         return -1;
     }
 
     qDebug() << "Chat server started";
-    qDebug() << "Port:" << kServerPort;
-    qDebug() << "Local test: 127.0.0.1:8080";
-    qDebug() << "LAN test: <server IPv4>:8080";
+    qDebug() << "Port:" << listenPort;
+    qDebug() << "Local test:" << QStringLiteral("127.0.0.1:%1").arg(listenPort);
+    if (listenPort == kServerPort) qDebug() << "LAN test: <server IPv4>:8080";
 
     return app.exec();
 }

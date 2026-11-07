@@ -377,6 +377,7 @@ void MainWindow::on_sendButton_clicked()
     // 本项目使用最简单的文本协议：每条消息以换行符 \n 结束。
     // 服务器收到 “昵称: 内容” 后，会转发给其他在线客户端，并保存到数据库。
     QByteArray networkMessage;
+    QString outgoingMessageId;
     QJsonArray mentions;
     if (mentionProtocol) {
         int leading = 0;
@@ -391,8 +392,9 @@ void MainWindow::on_sendButton_clicked()
                 {QStringLiteral("name"), selected.candidate.name},
                 {QStringLiteral("start"), start}, {QStringLiteral("length"), selected.length}});
         }
+        outgoingMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
         const QJsonObject payload{{QStringLiteral("text"), message},
-            {QStringLiteral("messageId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+            {QStringLiteral("messageId"), outgoingMessageId},
             {QStringLiteral("mentions"), mentions}};
         networkMessage = "CHAT2|" + QJsonDocument(payload).toJson(QJsonDocument::Compact).toBase64() + '\n';
     } else {
@@ -403,7 +405,7 @@ void MainWindow::on_sendButton_clicked()
         return;
     }
 
-    appendMessage(nickname, message, true, {}, false, {}, mentions);
+    appendMessage(nickname, message, true, {}, false, {}, mentions, {}, {}, outgoingMessageId);
     selectedMentions.clear();
     if (mentionPopup) mentionPopup->hide();
     ui->messageInput->clear();
@@ -748,14 +750,20 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::appendMessage(const QString &user, const QString &message, bool own, const QString &displayTime,
                                bool ai, const QString &aiRequestId, const QJsonArray &mentions,
-                               const QJsonObject &replyTarget, const QString &streamMessageId)
+                               const QJsonObject &replyTarget, const QString &streamMessageId,
+                               const QString &userMessageId)
 {
+    if (!ai && !userMessageId.isEmpty()) {
+        if (renderedUserMessageIds.contains(userMessageId)) return;
+        renderedUserMessageIds.insert(userMessageId);
+    }
     QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
     const bool followBottom = scroll->value() >= scroll->maximum() - 24;
     const QString messageKey = (ai ? QStringLiteral("ai:") : own ? QStringLiteral("self:") : QStringLiteral("other:")) + user;
     auto *row = new QWidget(ui->messageContainer);
     row->setProperty("mentions", mentions.toVariantList());
     if (!streamMessageId.isEmpty()) row->setProperty("aiMessageId", streamMessageId);
+    if (!userMessageId.isEmpty()) row->setProperty("userMessageId", userMessageId);
     auto *rowLayout = new QHBoxLayout(row);
     rowLayout->setContentsMargins(0, lastMessageKey == messageKey ? 0 : 8, 0, 0);
     rowLayout->setSpacing(10);
@@ -792,7 +800,10 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         row->setProperty("replyAccountId", replyTarget.value(QStringLiteral("accountId")).toString());
     }
     const QString rawTime = displayTime.isEmpty()
-        ? QTime::currentTime().toString(QStringLiteral("hh:mm:ss")) : displayTime;
+        ? QTime::currentTime().toString(QStringLiteral("hh:mm:ss"))
+        : displayTime.contains(QLatin1Char('T'))
+            ? QDateTime::fromString(displayTime, Qt::ISODateWithMs).time().toString(QStringLiteral("hh:mm:ss"))
+            : displayTime;
     auto *timeLabel = new QLabel(rawTime.left(5), column);
     QFont timeFont(QStringLiteral("Microsoft YaHei UI"));
     timeFont.setPixelSize(11);
@@ -887,7 +898,8 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             state.actions = {copy, retry, up, down};
             state.requestId = aiRequestId;
             state.originalRequestId = aiRequestId;
-            state.canRegenerate = replyTarget.value(QStringLiteral("accountId")).toString()
+            state.canRegenerate = !aiRequestId.startsWith(QStringLiteral("history:")) &&
+                replyTarget.value(QStringLiteral("accountId")).toString()
                 == QString::number(ownAccountId);
             for (QToolButton *button : state.actions) button->setEnabled(false);
             auto *cancel = makeAction(QStringLiteral("取消生成"), QStringLiteral(":/login/refresh.svg"),
@@ -1041,7 +1053,8 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
     if (!existed) {
         const QJsonObject target{{QStringLiteral("accountId"), event.value(QStringLiteral("user_id")).toString()},
                                  {QStringLiteral("nickname"), event.value(QStringLiteral("nickname")).toString()}};
-        appendMessage(QStringLiteral("Vivi"), {}, false, {}, true, requestId, {}, target, messageId);
+        appendMessage(QStringLiteral("Vivi"), {}, false,
+            event.value(QStringLiteral("created_at")).toString(), true, requestId, {}, target, messageId);
     }
     auto it = aiStreams.find(messageId);
     if (it == aiStreams.end() || !it->body) return;
@@ -1075,6 +1088,16 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
             event.value(QStringLiteral("user_id")).toString() == QString::number(ownAccountId));
         qInfo() << "Vivi regeneration started: request=" << requestId
                 << "message=" << messageId << "generation=" << generationId;
+    }
+    if (it->finished && it->requestId.startsWith(QStringLiteral("history:")) &&
+        kind == QStringLiteral("ai_complete") &&
+        it->raw == event.value(QStringLiteral("full_text")).toString()) {
+        it->requestId = requestId;
+        it->originalRequestId = event.value(QStringLiteral("original_request_id")).toString();
+        it->generationId = generationId;
+        it->canRegenerate = event.value(QStringLiteral("user_id")).toString()
+            == QString::number(ownAccountId);
+        if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
     }
     if (it->finished) return;
     if (it->requestId != requestId || it->generationId != generationId) {
@@ -1295,6 +1318,44 @@ void MainWindow::appendPresenceNotice(const QString &name, bool joined)
 
 void MainWindow::appendIncomingLine(const QString &line)
 {
+    if (line.startsWith(QStringLiteral("HISTORY|"))) {
+        const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(8).toLatin1()));
+        if (!document.isObject()) return;
+        const QJsonObject item = document.object();
+        const QString id = item.value(QStringLiteral("message_id")).toString();
+        if (id.isEmpty()) return;
+        const QString body = item.value(QStringLiteral("text")).toString();
+        if (item.value(QStringLiteral("type")) == QStringLiteral("ai")) {
+            auto existing = aiStreams.find(id);
+            if (existing != aiStreams.end()) {
+                if (existing->finished && existing->raw != body && existing->body) {
+                    existing->body->beginStreaming();
+                    existing->body->finishStreaming(body);
+                    existing->raw = body;
+                    existing->displayed = body;
+                    updateBubbleWidths();
+                }
+                return;
+            }
+            const QJsonObject event{{QStringLiteral("event"), QStringLiteral("ai_complete")},
+                {QStringLiteral("request_id"), QStringLiteral("history:") + id},
+                {QStringLiteral("message_id"), id},
+                {QStringLiteral("generation_id"), QStringLiteral("persisted")},
+                {QStringLiteral("original_request_id"), QStringLiteral("0")},
+                {QStringLiteral("user_id"), item.value(QStringLiteral("sender_id")).toString()},
+                {QStringLiteral("nickname"), item.value(QStringLiteral("reply_to_name")).toString()},
+                {QStringLiteral("created_at"), item.value(QStringLiteral("time")).toString()},
+                {QStringLiteral("sequence"), 0}, {QStringLiteral("full_text"), body}};
+            appendAiStreamEvent(event);
+        } else if (item.value(QStringLiteral("type")) == QStringLiteral("user")) {
+            const QString senderId = item.value(QStringLiteral("sender_id")).toString();
+            appendMessage(item.value(QStringLiteral("sender")).toString(), body,
+                !senderId.isEmpty() && senderId == QString::number(ownAccountId),
+                item.value(QStringLiteral("time")).toString(), false, {}, {}, {}, {}, id);
+        }
+        return;
+    }
+    if (line == QStringLiteral("HISTORY_END")) return;
     if (line.startsWith(QStringLiteral("USERLIST2|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(10).toLatin1()));
         if (!document.isArray()) return;
@@ -1318,7 +1379,8 @@ void MainWindow::appendIncomingLine(const QString &line)
         appendMessage(payload.value(QStringLiteral("sender")).toString(),
             payload.value(QStringLiteral("text")).toString(), false,
             payload.value(QStringLiteral("time")).toString(), false, {},
-            payload.value(QStringLiteral("mentions")).toArray());
+            payload.value(QStringLiteral("mentions")).toArray(), {}, {},
+            payload.value(QStringLiteral("messageId")).toString());
         return;
     }
     if (line.startsWith(QStringLiteral("AI|"))) {

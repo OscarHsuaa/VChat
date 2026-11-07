@@ -149,6 +149,7 @@ private:
     QHash<QString, AiStreamState> aiStreams;
     QTimer *aiTypewriterTimer = nullptr;
     QSet<QString> streamedRequestIds;
+    QSet<QString> renderedUserMessageIds;
     QLabel *viviStatusLabel = nullptr;
     QLabel *viviStatusDot = nullptr;
     QDate lastSystemDate;
@@ -171,7 +172,8 @@ private:
                        const QString &aiRequestId = QString(),
                        const QJsonArray &mentions = {},
                        const QJsonObject &replyTarget = {},
-                       const QString &streamMessageId = {});
+                       const QString &streamMessageId = {},
+                       const QString &userMessageId = {});
     void appendAiStreamEvent(const QJsonObject &event);
     void flushAiStream(const QString &messageId);
     void advanceAiTypewriter();
