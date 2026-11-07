@@ -10,6 +10,8 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QClipboard>
+#include <QDateTime>
+#include <QDebug>
 #include <QGuiApplication>
 #include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
@@ -28,7 +30,9 @@
 #include <QToolButton>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QTextBoundaryFinder>
 #include <QVBoxLayout>
+#include <QUuid>
 
 namespace {
 QIcon iconFromSvg(const QString &path, int size = 20)
@@ -152,6 +156,9 @@ MainWindow::MainWindow(const QString &loginName, const QString &serverAddress, Q
     , socket(new QTcpSocket(this))
 {
     ui->setupUi(this);
+    aiTypewriterTimer = new QTimer(this);
+    aiTypewriterTimer->setInterval(20);
+    connect(aiTypewriterTimer, &QTimer::timeout, this, &MainWindow::advanceAiTypewriter);
 
     // 主窗口创建后，先设置界面，再连接网络信号，最后根据登录界面的服务器地址自动连接。
     setupUI();
@@ -315,6 +322,21 @@ void MainWindow::connectSlots()
         isConnected = false;
         mentionProtocol = false;
         onlineMentionMembers.clear();
+        streamedRequestIds.clear();
+        aiReplyTargets.clear();
+        for (auto it = aiStreams.begin(); it != aiStreams.end(); ++it) {
+            if (it->retryAwaiting) {
+                it->retryAwaiting = false;
+                for (QToolButton *button : it->actions) button->setEnabled(true);
+                if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
+            }
+            if (it->finished) continue;
+            it->interrupted = true;
+            it->errorText = QStringLiteral("连接已断开，Vivi 生成中断。");
+            it->errorReceived = true;
+            it->raw = it->displayed;
+            finalizeAiStream(it.key());
+        }
         if (mentionPopup) mentionPopup->hide();
         setAiStatus(QStringLiteral("unavailable"));
         for (const QString &id : aiThinkingRows.keys()) removeAiThinking(id);
@@ -369,7 +391,9 @@ void MainWindow::on_sendButton_clicked()
                 {QStringLiteral("name"), selected.candidate.name},
                 {QStringLiteral("start"), start}, {QStringLiteral("length"), selected.length}});
         }
-        const QJsonObject payload{{QStringLiteral("text"), message}, {QStringLiteral("mentions"), mentions}};
+        const QJsonObject payload{{QStringLiteral("text"), message},
+            {QStringLiteral("messageId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+            {QStringLiteral("mentions"), mentions}};
         networkMessage = "CHAT2|" + QJsonDocument(payload).toJson(QJsonDocument::Compact).toBase64() + '\n';
     } else {
         networkMessage = (nickname + ": " + message + "\n").toUtf8();
@@ -724,13 +748,14 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::appendMessage(const QString &user, const QString &message, bool own, const QString &displayTime,
                                bool ai, const QString &aiRequestId, const QJsonArray &mentions,
-                               const QJsonObject &replyTarget)
+                               const QJsonObject &replyTarget, const QString &streamMessageId)
 {
     QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
     const bool followBottom = scroll->value() >= scroll->maximum() - 24;
     const QString messageKey = (ai ? QStringLiteral("ai:") : own ? QStringLiteral("self:") : QStringLiteral("other:")) + user;
     auto *row = new QWidget(ui->messageContainer);
     row->setProperty("mentions", mentions.toVariantList());
+    if (!streamMessageId.isEmpty()) row->setProperty("aiMessageId", streamMessageId);
     auto *rowLayout = new QHBoxLayout(row);
     rowLayout->setContentsMargins(0, lastMessageKey == messageKey ? 0 : 8, 0, 0);
     rowLayout->setSpacing(10);
@@ -788,6 +813,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
                                     ai ? 16 : 14, ai ? 12 : 10);
     if (ai) {
         auto *body = new AiMarkdownWidget(message, bubble);
+        if (!streamMessageId.isEmpty()) body->setStreamingText({});
         bubbleLayout->addWidget(body);
         aiColumns.append(column);
         aiBubbles.append(bubble);
@@ -833,16 +859,50 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         connect(copy, &QToolButton::clicked, this, [this, body = aiBodies.last()]() {
             QGuiApplication::clipboard()->setText(body->plainText());
         });
-        retry->setEnabled(!aiRequestId.isEmpty());
-        connect(retry, &QToolButton::clicked, this, [this, aiRequestId]() {
+        retry->setEnabled(!aiRequestId.isEmpty() &&
+            (streamMessageId.isEmpty() || replyTarget.value(QStringLiteral("accountId")).toString()
+                == QString::number(ownAccountId)));
+        connect(retry, &QToolButton::clicked, this, [this, aiRequestId, streamMessageId]() {
             if (!isConnected || socket->state() != QAbstractSocket::ConnectedState) {
                 appendSystemMessage(QStringLiteral("无法重新生成：服务器未连接。"));
                 return;
             }
-            socket->write(QStringLiteral("AI_REGENERATE|%1\n").arg(aiRequestId).toUtf8());
+            QString originalId = aiRequestId;
+            if (!streamMessageId.isEmpty()) {
+                auto it = aiStreams.find(streamMessageId);
+                if (it == aiStreams.end() || !it->finished || it->raw.isEmpty() ||
+                    !it->canRegenerate || it->retryAwaiting) return;
+                originalId = it->originalRequestId;
+                // Prevent repeated clicks before the server broadcasts the new generation.
+                it->retryAwaiting = true;
+                for (QToolButton *button : it->actions) button->setEnabled(false);
+            }
+            socket->write(QStringLiteral("AI_REGENERATE|%1\n").arg(originalId).toUtf8());
         });
         connect(up, &QToolButton::clicked, this, [down](bool checked) { if (checked) down->setChecked(false); });
         connect(down, &QToolButton::clicked, this, [up](bool checked) { if (checked) up->setChecked(false); });
+        if (!streamMessageId.isEmpty()) {
+            AiStreamState state;
+            state.body = aiBodies.last();
+            state.actions = {copy, retry, up, down};
+            state.requestId = aiRequestId;
+            state.originalRequestId = aiRequestId;
+            state.canRegenerate = replyTarget.value(QStringLiteral("accountId")).toString()
+                == QString::number(ownAccountId);
+            for (QToolButton *button : state.actions) button->setEnabled(false);
+            auto *cancel = makeAction(QStringLiteral("取消生成"), QStringLiteral(":/login/refresh.svg"),
+                                      QStringLiteral("取消当前 Vivi 请求"));
+            cancel->setVisible(replyTarget.value(QStringLiteral("accountId")).toString()
+                               == QString::number(ownAccountId));
+            connect(cancel, &QToolButton::clicked, this, [this, streamMessageId]() {
+                const auto it = aiStreams.constFind(streamMessageId);
+                if (it != aiStreams.cend() && isConnected &&
+                    socket->state() == QAbstractSocket::ConnectedState)
+                    socket->write(QStringLiteral("AI_CANCEL|%1\n").arg(it->requestId).toUtf8());
+            });
+            state.cancel = cancel;
+            aiStreams.insert(streamMessageId, state);
+        }
         actions->addStretch();
         columnLayout->addLayout(actions);
     }
@@ -871,6 +931,195 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             });
         }
     });
+}
+
+void MainWindow::flushAiStream(const QString &messageId)
+{
+    auto it = aiStreams.find(messageId);
+    if (it == aiStreams.end() || it->finished || !it->body) return;
+    QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
+    const int oldMax = scroll->maximum();
+    const bool followBottom = scroll->value() >= oldMax - 24;
+    it->body->setStreamingText(it->displayed);
+    ++it->paints;
+    const auto follow = [scroll, oldMax, followBottom]() {
+        if (followBottom && scroll->value() >= oldMax - 24)
+            scroll->setValue(scroll->maximum());
+    };
+    QTimer::singleShot(0, this, follow);
+    QTimer::singleShot(40, this, follow);
+}
+
+void MainWindow::advanceAiTypewriter()
+{
+    bool pending = false;
+    QList<QString> readyToFinish;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    for (auto it = aiStreams.begin(); it != aiStreams.end(); ++it) {
+        AiStreamState &state = it.value();
+        if (state.finished) continue;
+        const int backlog = state.raw.size() - state.displayed.size();
+        if (backlog <= 0) {
+            if (state.completeReceived || state.errorReceived) readyToFinish.append(it.key());
+            continue;
+        }
+        // Keep one trailing grapheme briefly so a combining mark in the next
+        // network chunk cannot be shown as a separate character.
+        QTextBoundaryFinder boundaries(QTextBoundaryFinder::Grapheme, state.raw);
+        boundaries.setPosition(state.displayed.size());
+        const int steps = backlog > 1500 ? 6 : backlog > 600 ? 4 : backlog > 200 ? 2 : 1;
+        int position = state.displayed.size();
+        for (int i = 0; i < steps; ++i) {
+            const int next = boundaries.toNextBoundary();
+            if (next < 0 || next <= position) break;
+            if (next == state.raw.size() && !state.completeReceived && !state.errorReceived
+                && now - state.lastChunkMs < 60) break;
+            position = next;
+        }
+        if (position > state.displayed.size()) {
+            state.displayed = state.raw.left(position);
+            flushAiStream(it.key());
+        }
+        if (state.displayed.size() == state.raw.size() && (state.completeReceived || state.errorReceived))
+            readyToFinish.append(it.key());
+        else if (state.displayed.size() < state.raw.size()) pending = true;
+    }
+    for (const QString &id : readyToFinish) finalizeAiStream(id);
+    if (!pending) aiTypewriterTimer->stop();
+}
+
+void MainWindow::finalizeAiStream(const QString &messageId)
+{
+    auto it = aiStreams.find(messageId);
+    if (it == aiStreams.end() || it->finished || !it->body) return;
+    it->finished = true;
+    QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
+    const int oldMax = scroll->maximum();
+    const bool followBottom = scroll->value() >= oldMax - 24;
+    if (it->completeReceived) {
+        it->body->finishStreaming(it->raw);
+        it->previousContent.clear();
+        for (QToolButton *button : it->actions) button->setEnabled(true);
+        if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
+    } else {
+        if (!it->previousContent.isEmpty()) {
+            it->raw = it->previousContent;
+            it->displayed = it->raw;
+            it->body->finishStreaming(it->raw);
+            for (QToolButton *button : it->actions) button->setEnabled(true);
+            if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
+        } else {
+            it->body->setStreamingText(it->raw.isEmpty() ? it->errorText
+                : it->raw + QLatin1Char('\n') + it->errorText);
+            if (!it->actions.isEmpty()) it->actions.first()->setEnabled(!it->raw.isEmpty());
+        }
+    }
+    if (it->cancel) it->cancel->hide();
+    updateBubbleWidths();
+    qInfo() << "Vivi UI stream complete: chunks=" << it->chunksReceived
+            << "chunk_span_ms=" << (it->lastChunkMs - it->firstChunkMs)
+            << "max_chunk_gap_ms=" << it->maxChunkGapMs
+            << "bubble_updates=" << it->paints;
+    const auto follow = [scroll, oldMax, followBottom]() {
+        if (followBottom && scroll->value() >= oldMax - 24)
+            scroll->setValue(scroll->maximum());
+    };
+    QTimer::singleShot(0, this, follow);
+    QTimer::singleShot(40, this, follow);
+}
+
+void MainWindow::appendAiStreamEvent(const QJsonObject &event)
+{
+    const QString kind = event.value(QStringLiteral("event")).toString();
+    const QString requestId = event.value(QStringLiteral("request_id")).toString();
+    const QString messageId = event.value(QStringLiteral("message_id")).toString();
+    const QString generationId = event.value(QStringLiteral("generation_id")).toString();
+    if (requestId.isEmpty() || messageId.isEmpty()) return;
+    streamedRequestIds.insert(requestId);
+    removeAiThinking(requestId);
+    const bool existed = aiStreams.contains(messageId);
+    if (!existed) {
+        const QJsonObject target{{QStringLiteral("accountId"), event.value(QStringLiteral("user_id")).toString()},
+                                 {QStringLiteral("nickname"), event.value(QStringLiteral("nickname")).toString()}};
+        appendMessage(QStringLiteral("Vivi"), {}, false, {}, true, requestId, {}, target, messageId);
+    }
+    auto it = aiStreams.find(messageId);
+    if (it == aiStreams.end() || !it->body) return;
+    if (it->generationId.isEmpty()) it->generationId = generationId;
+    if ((kind == QStringLiteral("ai_start") || kind == QStringLiteral("ai_complete")) && existed &&
+        event.value(QStringLiteral("regeneration")).toBool() && it->finished &&
+        ((generationId != it->generationId &&
+          requestId.toULongLong() > it->requestId.toULongLong()) ||
+         (it->interrupted && requestId == it->requestId && generationId == it->generationId))) {
+        it->previousContent = it->raw.isEmpty()
+            ? event.value(QStringLiteral("previous_text")).toString() : it->raw;
+        it->body->beginStreaming();
+        it->requestId = requestId;
+        it->generationId = generationId;
+        it->retryAwaiting = false;
+        it->interrupted = false;
+        it->raw.clear();
+        it->displayed.clear();
+        it->errorText.clear();
+        it->sequence = 0;
+        it->finished = false;
+        it->completeReceived = false;
+        it->errorReceived = false;
+        it->chunksReceived = 0;
+        it->paints = 0;
+        it->firstChunkMs = 0;
+        it->lastChunkMs = 0;
+        it->maxChunkGapMs = 0;
+        for (QToolButton *button : it->actions) button->setEnabled(false);
+        if (it->cancel) it->cancel->setVisible(
+            event.value(QStringLiteral("user_id")).toString() == QString::number(ownAccountId));
+        qInfo() << "Vivi regeneration started: request=" << requestId
+                << "message=" << messageId << "generation=" << generationId;
+    }
+    if (it->finished) return;
+    if (it->requestId != requestId || it->generationId != generationId) {
+        qWarning() << "Vivi stream event rejected: request/message association mismatch";
+        return;
+    }
+    const QString originalId = event.value(QStringLiteral("original_request_id")).toString();
+    if (!originalId.isEmpty()) it->originalRequestId = originalId;
+    if (event.value(QStringLiteral("regeneration")).toBool() && it->previousContent.isEmpty())
+        it->previousContent = event.value(QStringLiteral("previous_text")).toString();
+    const int sequence = event.value(QStringLiteral("sequence")).toInt();
+    if (kind == QStringLiteral("ai_start")) {
+        if (sequence >= it->sequence) {
+            it->sequence = sequence;
+            it->raw = event.value(QStringLiteral("full_text")).toString();
+            if (!it->raw.isEmpty()) aiTypewriterTimer->start();
+        }
+    } else if (kind == QStringLiteral("ai_chunk")) {
+        if (sequence <= it->sequence) return;
+        it->sequence = sequence;
+        it->raw += event.value(QStringLiteral("text")).toString();
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (it->chunksReceived == 0) it->firstChunkMs = now;
+        else it->maxChunkGapMs = qMax(it->maxChunkGapMs, now - it->lastChunkMs);
+        it->lastChunkMs = now;
+        ++it->chunksReceived;
+        if (!aiTypewriterTimer->isActive()) aiTypewriterTimer->start();
+    } else if (kind == QStringLiteral("ai_complete") || kind == QStringLiteral("ai_error")) {
+        it->sequence = sequence;
+        if (kind == QStringLiteral("ai_complete")) {
+            const QString finalText = event.value(QStringLiteral("full_text")).toString();
+            if (!finalText.isEmpty() || it->raw.isEmpty()) it->raw = finalText;
+            else qWarning() << "Vivi completion contained no text; retaining streamed content"
+                            << "characters=" << it->raw.size();
+            it->completeReceived = true;
+        } else {
+            it->errorText = event.value(QStringLiteral("error")).toString();
+            it->errorReceived = true;
+        }
+        // A reconnecting client may receive only the final snapshot.
+        if (!existed && it->chunksReceived == 0) it->displayed = it->raw;
+        if (!it->raw.startsWith(it->displayed)) it->displayed.clear();
+        if (it->displayed.size() == it->raw.size()) finalizeAiStream(messageId);
+        else if (!aiTypewriterTimer->isActive()) aiTypewriterTimer->start();
+    }
 }
 
 void MainWindow::appendAiThinking(const QString &id)
@@ -1078,16 +1327,34 @@ void MainWindow::appendIncomingLine(const QString &line)
         const QString state = parts.at(1);
         const QString id = parts.at(2);
         const QString content = QString::fromUtf8(QByteArray::fromBase64(parts.at(3).toLatin1()));
+        if (state == QStringLiteral("stream")) {
+            const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
+            if (document.isObject() && document.object().value(QStringLiteral("request_id")).toString() == id)
+                appendAiStreamEvent(document.object());
+            return;
+        }
         if (state == QStringLiteral("status")) setAiStatus(content);
         else if (state == QStringLiteral("meta")) {
             const QJsonDocument metadata = QJsonDocument::fromJson(content.toUtf8());
             if (metadata.isObject()) aiReplyTargets.insert(id, metadata.object());
         }
-        else if (state == QStringLiteral("thinking")) appendAiThinking(id);
+        else if (state == QStringLiteral("thinking")) {
+            if (!streamedRequestIds.contains(id)) appendAiThinking(id);
+        }
         else if (state == QStringLiteral("reply")) {
+            if (streamedRequestIds.contains(id)) { aiReplyTargets.remove(id); return; }
             removeAiThinking(id);
             appendMessage(QStringLiteral("Vivi"), content, false, QString(), true, id, {}, aiReplyTargets.take(id));
         } else if (state == QStringLiteral("error")) {
+            if (id == QStringLiteral("0")) {
+                for (auto it = aiStreams.begin(); it != aiStreams.end(); ++it) {
+                    if (!it->retryAwaiting) continue;
+                    it->retryAwaiting = false;
+                    for (QToolButton *button : it->actions) button->setEnabled(true);
+                    if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
+                }
+            }
+            if (streamedRequestIds.contains(id)) return;
             removeAiThinking(id);
             aiReplyTargets.remove(id);
             appendSystemMessage(QStringLiteral("Vivi：") + content);

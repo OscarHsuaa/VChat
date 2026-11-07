@@ -147,9 +147,15 @@ AiMarkdownWidget::AiMarkdownWidget(const QString &markdown, QWidget *parent) : Q
 
 void AiMarkdownWidget::setContentWidth(int width)
 {
-    if (contentWidth == width) return;
+    if (contentWidth == width && !streamingLabel && !renderedBody) return;
     contentWidth = width;
     setFixedWidth(width);
+    if (streamingLabel) {
+        streamingLabel->setFixedWidth(width);
+        streamingLabel->setFixedHeight(qMax(streamingLabel->fontMetrics().height(),
+                                           streamingLabel->heightForWidth(width)));
+    }
+    if (renderedBody) renderedBody->setContentWidth(width);
     for (QTextBrowser *browser : proseBlocks) {
         browser->setFixedWidth(width);
         browser->document()->setTextWidth(width);
@@ -157,7 +163,59 @@ void AiMarkdownWidget::setContentWidth(int width)
     }
     for (QFrame *panel : findChildren<QFrame *>(QString(), Qt::FindDirectChildrenOnly))
         panel->setFixedWidth(width);
+    layout()->invalidate();
     layout()->activate();
-    setFixedHeight(qMax(1, layout()->sizeHint().height()));
+    // A newly inserted final Markdown child can report a stale parent
+    // sizeHint during this layout pass. Its own measured height is authoritative.
+    const int finalHeight = renderedBody ? renderedBody->height() : 0;
+    setFixedHeight(qMax(1, qMax(layout()->sizeHint().height(), finalHeight)));
     updateGeometry();
+}
+
+void AiMarkdownWidget::setStreamingText(const QString &text)
+{
+    if (renderedBody) return;
+    if (!streamingLabel) {
+        streamingLabel = new QLabel(this);
+        streamingLabel->setTextFormat(Qt::PlainText);
+        streamingLabel->setWordWrap(true);
+        streamingLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        streamingLabel->setStyleSheet(QStringLiteral("color:#30234e; font-size:14px; background:transparent;"));
+        layout()->addWidget(streamingLabel);
+    }
+    plain = text;
+    streamingLabel->setText(text.isEmpty() ? QStringLiteral("Vivi 正在思考…") : text);
+    if (contentWidth > 0) setContentWidth(contentWidth);
+}
+
+void AiMarkdownWidget::beginStreaming()
+{
+    if (renderedBody) {
+        layout()->removeWidget(renderedBody);
+        delete renderedBody;
+        renderedBody = nullptr;
+    }
+    if (streamingLabel) {
+        layout()->removeWidget(streamingLabel);
+        delete streamingLabel;
+        streamingLabel = nullptr;
+    }
+    plain.clear();
+    setStreamingText({});
+    layout()->invalidate();
+    updateGeometry();
+}
+
+void AiMarkdownWidget::finishStreaming(const QString &markdown)
+{
+    if (renderedBody) return;
+    if (streamingLabel) {
+        layout()->removeWidget(streamingLabel);
+        delete streamingLabel;
+        streamingLabel = nullptr;
+    }
+    renderedBody = new AiMarkdownWidget(markdown, this);
+    layout()->addWidget(renderedBody);
+    plain = renderedBody->plainText();
+    if (contentWidth > 0) setContentWidth(contentWidth);
 }

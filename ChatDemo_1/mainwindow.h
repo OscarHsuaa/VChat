@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QHash>
+#include <QSet>
 #include <QLineEdit>
 #include <QLabel>
 #include <QMainWindow>
@@ -32,6 +33,7 @@ class AiMarkdownWidget;
 class QToolButton;
 class QListWidget;
 class QEvent;
+class QTimer;
 
 class HeaderWaveFrame : public QFrame
 {
@@ -120,6 +122,33 @@ private:
     QList<QFrame *> systemPills;
     QHash<QString, QWidget *> aiThinkingRows;
     QHash<QString, QJsonObject> aiReplyTargets;
+    struct AiStreamState {
+        AiMarkdownWidget *body = nullptr;
+        QList<QToolButton *> actions;
+        QToolButton *cancel = nullptr;
+        QString requestId;
+        QString originalRequestId;
+        QString generationId;
+        QString previousContent;
+        bool canRegenerate = false;
+        bool retryAwaiting = false;
+        bool interrupted = false;
+        QString raw;
+        QString displayed;
+        QString errorText;
+        int sequence = 0;
+        bool finished = false;
+        bool completeReceived = false;
+        bool errorReceived = false;
+        int chunksReceived = 0;
+        int paints = 0;
+        qint64 firstChunkMs = 0;
+        qint64 lastChunkMs = 0;
+        qint64 maxChunkGapMs = 0;
+    };
+    QHash<QString, AiStreamState> aiStreams;
+    QTimer *aiTypewriterTimer = nullptr;
+    QSet<QString> streamedRequestIds;
     QLabel *viviStatusLabel = nullptr;
     QLabel *viviStatusDot = nullptr;
     QDate lastSystemDate;
@@ -141,7 +170,12 @@ private:
                        const QString &displayTime = QString(), bool ai = false,
                        const QString &aiRequestId = QString(),
                        const QJsonArray &mentions = {},
-                       const QJsonObject &replyTarget = {});
+                       const QJsonObject &replyTarget = {},
+                       const QString &streamMessageId = {});
+    void appendAiStreamEvent(const QJsonObject &event);
+    void flushAiStream(const QString &messageId);
+    void advanceAiTypewriter();
+    void finalizeAiStream(const QString &messageId);
     void appendAiThinking(const QString &id);
     void removeAiThinking(const QString &id);
     void setAiStatus(const QString &status);

@@ -184,16 +184,34 @@ int main(int argc, char *argv[])
     AiService aiService(&app);
     QString aiState = aiService.isConfigured() ? QStringLiteral("online") : QStringLiteral("unavailable");
     AiRoom *roomForBroadcast = nullptr;
-    auto broadcastAi = [&onlineUsers, &aiState, &roomForBroadcast](const QString &state, quint64 id, const QString &text) {
-        if (state == QStringLiteral("thinking") || state == QStringLiteral("busy")) aiState = QStringLiteral("thinking");
-        else if (state == QStringLiteral("reply")) aiState = QStringLiteral("online");
-        else if (state == QStringLiteral("error")) aiState = QStringLiteral("unavailable");
+    auto broadcastAi = [&onlineUsers, &aiState, &roomForBroadcast, &aiService](const QString &state, quint64 id, const QString &text) {
+        const bool streamEvent = state.startsWith(QStringLiteral("stream_"));
+        if (state == QStringLiteral("thinking") || state == QStringLiteral("busy") ||
+            state == QStringLiteral("stream_start")) aiState = QStringLiteral("thinking");
+        else if (state == QStringLiteral("reply") || state == QStringLiteral("stream_complete")) aiState = QStringLiteral("online");
+        else if (state == QStringLiteral("error") || state == QStringLiteral("stream_error"))
+            aiState = text.startsWith(QStringLiteral("已取消")) && aiService.isConfigured()
+                ? QStringLiteral("online") : QStringLiteral("unavailable");
+        const QString eventName = state == QStringLiteral("stream_start") ? QStringLiteral("ai_start")
+            : state == QStringLiteral("stream_chunk") ? QStringLiteral("ai_chunk")
+            : state == QStringLiteral("stream_complete") ? QStringLiteral("ai_complete")
+            : QStringLiteral("ai_error");
+        const QString streamLine = streamEvent && roomForBroadcast
+            ? QStringLiteral("AI|stream|%1|%2").arg(id).arg(QString::fromLatin1(
+                QJsonDocument(roomForBroadcast->streamEvent(id, eventName, text))
+                    .toJson(QJsonDocument::Compact).toBase64())) : QString();
         const QString line = QStringLiteral("AI|%1|%2|%3")
             .arg(state).arg(id).arg(QString::fromLatin1(text.toUtf8().toBase64()));
         const QString statusLine = QStringLiteral("AI|status|0|%1")
             .arg(QString::fromLatin1(aiState.toUtf8().toBase64()));
         for (QTcpSocket *member : onlineUsers.keys()) {
             if (member->state() == QAbstractSocket::ConnectedState) {
+                if (streamEvent) {
+                    sendLine(member, streamLine); // Older clients ignore the unknown AI state.
+                    if (state == QStringLiteral("stream_chunk")) continue;
+                    sendLine(member, statusLine);
+                    continue;
+                }
                 if (state == QStringLiteral("reply") && roomForBroadcast) {
                     const AiRoom::ReplyTarget target = roomForBroadcast->replyTarget(id);
                     const QJsonObject meta{{QStringLiteral("accountId"), QString::number(target.accountId)},
@@ -327,6 +345,11 @@ int main(int argc, char *argv[])
                         onlineUserIds[client] = accountId;
                         sendLine(client, QStringLiteral("AI|status|0|%1")
                             .arg(QString::fromLatin1(aiState.toUtf8().toBase64())));
+                        for (const QJsonObject &event : aiRoom.snapshots())
+                            sendLine(client, QStringLiteral("AI|stream|%1|%2")
+                                .arg(event.value(QStringLiteral("request_id")).toString())
+                                .arg(QString::fromLatin1(QJsonDocument(event)
+                                    .toJson(QJsonDocument::Compact).toBase64())));
                         qDebug() << "User joined:" << nickname;
                         sendLine(client, QStringLiteral("[System] Welcome %1").arg(nickname));
 
@@ -341,12 +364,23 @@ int main(int argc, char *argv[])
                         continue;
                     }
 
+                    if (text.startsWith(QStringLiteral("AI_CANCEL|"))) {
+                        bool validId = false;
+                        const quint64 requestId = text.mid(10).toULongLong(&validId);
+                        if (!onlineUsers.contains(client) || !validId ||
+                            !aiRoom.cancel(requestId, onlineUserIds.value(client)))
+                            sendLine(client, QStringLiteral("[System] 无法取消：请求不存在或不属于当前账号"));
+                        continue;
+                    }
+
                     if (text.startsWith(QStringLiteral("AI_REGENERATE|"))) {
                         bool validId = false;
                         const quint64 originalId = text.mid(14).toULongLong(&validId);
-                        if (!onlineUsers.contains(client) || !validId || !aiRoom.regenerate(originalId))
+                        // Only the account that asked the original question may replace its shared answer.
+                        if (!onlineUsers.contains(client) || !validId ||
+                            !aiRoom.regenerate(originalId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("AI|error|0|%1")
-                                .arg(QString::fromLatin1(QStringLiteral("无法重新生成：原始请求已失效。")
+                                .arg(QString::fromLatin1(QStringLiteral("无法重新生成：请求不可用、正在生成或不属于当前账号。")
                                     .toUtf8().toBase64())));
                         continue;
                     }
@@ -358,6 +392,9 @@ int main(int argc, char *argv[])
                         const QJsonObject request = document.object();
                         const QString content = request.value(QStringLiteral("text")).toString();
                         if (content.trimmed().isEmpty() || content.contains(QLatin1Char('\n')) || content.size() > 4000) continue;
+                        QString userMessageId = request.value(QStringLiteral("messageId")).toString();
+                        if (QUuid(userMessageId).isNull())
+                            userMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                         QJsonArray validated;
                         bool invalid = false;
                         for (const QJsonValue &value : request.value(QStringLiteral("mentions")).toArray()) {
@@ -392,6 +429,7 @@ int main(int argc, char *argv[])
                         const QString legacyLine = QStringLiteral("[%1] %2: %3").arg(time, sender, content);
                         QJsonObject outgoing{{QStringLiteral("sender"), sender},
                             {QStringLiteral("senderId"), QString::number(onlineUserIds.value(client))},
+                            {QStringLiteral("messageId"), userMessageId},
                             {QStringLiteral("text"), content}, {QStringLiteral("time"), time},
                             {QStringLiteral("mentions"), validated}};
                         const QString modernLine = QStringLiteral("CHAT2|%1")
@@ -417,7 +455,7 @@ int main(int argc, char *argv[])
                             }
                             if (!ordinaryVivi) askVivi = true;
                         }
-                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, askVivi);
+                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, askVivi, userMessageId);
                         continue;
                     }
 
@@ -426,7 +464,7 @@ int main(int argc, char *argv[])
                     const QString sender = onlineUsers.value(client, socketName(client));
                     const QString serverMessage = QStringLiteral("[%1] %2").arg(time, text);
 
-                    qDebug() << "Message from" << sender << ":" << text;
+                    qDebug() << "Chat message received: characters=" << text.size();
                     saveMessageToDatabase(sender, text);
 
                     // 转发给其他已经进入聊天窗口的用户，不发回给发送者本人。
@@ -441,7 +479,9 @@ int main(int argc, char *argv[])
                         static const QRegularExpression mention(
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
                             QRegularExpression::CaseInsensitiveOption);
-                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, mention.match(content).hasMatch());
+                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content,
+                                              mention.match(content).hasMatch(),
+                                              QUuid::createUuid().toString(QUuid::WithoutBraces));
                     }
                 }
             });
