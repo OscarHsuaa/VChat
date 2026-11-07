@@ -1059,6 +1059,20 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
     auto it = aiStreams.find(messageId);
     if (it == aiStreams.end() || !it->body) return;
     if (it->generationId.isEmpty()) it->generationId = generationId;
+    // History is replayed before AiRoom's active snapshots. Attach the live
+    // request to the row already placed by HISTORY, rather than adding a
+    // second bubble or rejecting its chunks because the placeholder ID differs.
+    if (it->requestId.startsWith(QStringLiteral("history:")) && !it->finished &&
+        (kind == QStringLiteral("ai_start") || kind == QStringLiteral("ai_complete") ||
+         kind == QStringLiteral("ai_error")) &&
+        !event.value(QStringLiteral("regeneration")).toBool()) {
+        it->requestId = requestId;
+        it->originalRequestId = event.value(QStringLiteral("original_request_id")).toString();
+        it->generationId = generationId;
+        it->canRegenerate = event.value(QStringLiteral("user_id")).toString()
+            == QString::number(ownAccountId);
+        if (it->cancel) it->cancel->setVisible(it->canRegenerate);
+    }
     if ((kind == QStringLiteral("ai_start") || kind == QStringLiteral("ai_complete")) && existed &&
         event.value(QStringLiteral("regeneration")).toBool() && it->finished &&
         ((generationId != it->generationId &&
@@ -1337,7 +1351,13 @@ void MainWindow::appendIncomingLine(const QString &line)
                 }
                 return;
             }
-            const QJsonObject event{{QStringLiteral("event"), QStringLiteral("ai_complete")},
+            const QString persistedState = item.value(QStringLiteral("ai_state")).toString();
+            const bool pending = persistedState == QStringLiteral("pending");
+            const bool failed = persistedState == QStringLiteral("failed") ||
+                persistedState == QStringLiteral("cancelled") ||
+                persistedState == QStringLiteral("timed_out");
+            const QJsonObject event{{QStringLiteral("event"), pending ? QStringLiteral("ai_start")
+                : failed ? QStringLiteral("ai_error") : QStringLiteral("ai_complete")},
                 {QStringLiteral("request_id"), QStringLiteral("history:") + id},
                 {QStringLiteral("message_id"), id},
                 {QStringLiteral("generation_id"), QStringLiteral("persisted")},
@@ -1345,8 +1365,16 @@ void MainWindow::appendIncomingLine(const QString &line)
                 {QStringLiteral("user_id"), item.value(QStringLiteral("sender_id")).toString()},
                 {QStringLiteral("nickname"), item.value(QStringLiteral("reply_to_name")).toString()},
                 {QStringLiteral("created_at"), item.value(QStringLiteral("time")).toString()},
-                {QStringLiteral("sequence"), 0}, {QStringLiteral("full_text"), body}};
+                {QStringLiteral("sequence"), 0}, {QStringLiteral("full_text"), pending ? QString() : body},
+                {QStringLiteral("error"), failed ? body : QString()}};
             appendAiStreamEvent(event);
+            if (pending) {
+                auto stream = aiStreams.find(id);
+                if (stream != aiStreams.end() && stream->body) {
+                    stream->body->setStreamingText(QStringLiteral("Vivi 正在思考…"));
+                    if (stream->cancel) stream->cancel->hide();
+                }
+            }
         } else if (item.value(QStringLiteral("type")) == QStringLiteral("user")) {
             const QString senderId = item.value(QStringLiteral("sender_id")).toString();
             appendMessage(item.value(QStringLiteral("sender")).toString(), body,

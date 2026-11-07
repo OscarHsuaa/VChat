@@ -8,6 +8,11 @@ qt_add_executable(VChatStreamingTest stream_test.cpp
     ../ChatServer/airoom.cpp ../ChatServer/airoom.h)
 target_include_directories(VChatStreamingTest PRIVATE ../ChatServer)
 target_link_libraries(VChatStreamingTest PRIVATE Qt::Core Qt::Network)
+qt_add_executable(VChatConcurrentAiTest concurrent_ai_test.cpp
+    ../ChatServer/aiservice.cpp ../ChatServer/aiservice.h
+    ../ChatServer/airoom.cpp ../ChatServer/airoom.h)
+target_include_directories(VChatConcurrentAiTest PRIVATE ../ChatServer)
+target_link_libraries(VChatConcurrentAiTest PRIVATE Qt::Core Qt::Network)
 qt_add_executable(VChatStreamUiTest ui_stream_test.cpp
     ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h

@@ -3,8 +3,24 @@
 #include <QNetworkReply>
 #include <QUuid>
 
-AiRoom::AiRoom(AiService *aiService, Broadcast send, QObject *parent)
-    : QObject(parent), service(aiService), broadcast(std::move(send)) {}
+AiRoom::AiRoom(AiService *aiService, Broadcast send, QObject *parent,
+               int maxConcurrent, int maxQueued, int timeoutMs)
+    : QObject(parent), service(aiService), broadcast(std::move(send)),
+      maxActive(qMax(1, maxConcurrent)), maxPending(qMax(0, maxQueued)),
+      requestTimeoutMs(qMax(100, timeoutMs)) {}
+
+QString AiRoom::stateName(State state)
+{
+    switch (state) {
+    case State::Pending: return QStringLiteral("pending");
+    case State::Streaming: return QStringLiteral("streaming");
+    case State::Completed: return QStringLiteral("completed");
+    case State::Failed: return QStringLiteral("failed");
+    case State::Cancelled: return QStringLiteral("cancelled");
+    case State::TimedOut: return QStringLiteral("timed_out");
+    }
+    return {};
+}
 
 void AiRoom::appendHistory(const QString &role, const QString &content, const QString &messageId)
 {
@@ -14,11 +30,12 @@ void AiRoom::appendHistory(const QString &role, const QString &content, const QS
     if (historySink) historySink(role, content);
 }
 
-void AiRoom::addUserMessage(qint64 accountId, const QString &nickname, const QString &content,
+bool AiRoom::addUserMessage(qint64 accountId, const QString &nickname, const QString &content,
                             bool askVivi, const QString &replyToMessageId)
 {
     appendHistory(QStringLiteral("user"), QStringLiteral("[%1] %2").arg(nickname, content));
-    if (!askVivi) return;
+    if (!askVivi) return true;
+    if (activeReplies.size() >= maxActive && pending.size() >= maxPending) return false;
     QJsonArray context;
     context.append(QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
         {QStringLiteral("content"), QStringLiteral(
@@ -40,11 +57,13 @@ void AiRoom::addUserMessage(qint64 accountId, const QString &nickname, const QSt
     broadcast(QStringLiteral("stream_start"), request.id, {});
     broadcast(QStringLiteral("thinking"), request.id, QStringLiteral("Vivi 正在思考…"));
     startNext();
+    return true;
 }
 
 bool AiRoom::regenerate(quint64 originalId, qint64 accountId)
 {
-    if (!requestContexts.contains(originalId) || !latestRequestIds.contains(originalId) ||
+    if ((activeReplies.size() >= maxActive && pending.size() >= maxPending) ||
+        !requestContexts.contains(originalId) || !latestRequestIds.contains(originalId) ||
         regenerating.contains(originalId) ||
         requestTargets.value(originalId).accountId != accountId) return false;
     const quint64 previousId = latestRequestIds.value(originalId);
@@ -68,9 +87,9 @@ bool AiRoom::cancel(quint64 requestId, qint64 accountId)
 {
     if (!streams.contains(requestId) || streams.value(requestId).target.accountId != accountId ||
         streams.value(requestId).finished) return false;
-    if (requestId == activeRequestId) {
-        if (activeReply) activeReply->abort();
-        else canceledRequests.insert(requestId);
+    if (activeReplies.contains(requestId)) {
+        canceledRequests.insert(requestId);
+        if (activeReplies.value(requestId)) activeReplies.value(requestId)->abort();
         return true;
     }
     for (auto it = pending.begin(); it != pending.end(); ++it) {
@@ -78,12 +97,14 @@ bool AiRoom::cancel(quint64 requestId, qint64 accountId)
         pending.erase(it);
         StreamInfo &info = streams[requestId];
         info.finished = true;
+        info.state = State::Cancelled;
         info.error = QStringLiteral("已取消 Vivi 生成。");
         broadcast(QStringLiteral("stream_error"), requestId, info.error);
         if (info.originalId != requestId) {
             latestRequestIds.insert(info.originalId, info.previousRequestId);
             regenerating.remove(info.originalId);
         } else broadcast(QStringLiteral("error"), requestId, info.error);
+        startNext();
         return true;
     }
     return false;
@@ -102,6 +123,7 @@ QJsonObject AiRoom::streamEvent(quint64 requestId, const QString &state, const Q
         {QStringLiteral("user_id"), QString::number(info.target.accountId)},
         {QStringLiteral("nickname"), info.target.nickname},
         {QStringLiteral("sequence"), info.sequence}};
+    event.insert(QStringLiteral("request_state"), stateName(info.state));
     if (state == QStringLiteral("ai_chunk")) event.insert(QStringLiteral("text"), text);
     if (state == QStringLiteral("ai_start") || state == QStringLiteral("ai_complete"))
         event.insert(QStringLiteral("full_text"), info.content);
@@ -126,20 +148,27 @@ QList<QJsonObject> AiRoom::snapshots() const
 
 void AiRoom::startNext()
 {
-    if (busy || pending.isEmpty()) return;
-    busy = true;
+    while (activeReplies.size() < maxActive && !pending.isEmpty()) {
     const Pending request = pending.dequeue();
-    activeRequestId = request.id;
+    StreamInfo &starting = streams[request.id];
+    starting.state = State::Streaming;
+    activeReplies.insert(request.id, nullptr);
     broadcast(QStringLiteral("busy"), request.id, {});
-    activeReply = service->stream(request.context, [this, id = request.id](const QString &chunk) {
+    QNetworkReply *reply = service->stream(request.context, [this, id = request.id](const QString &chunk) {
         StreamInfo &info = streams[id];
+        if (info.finished || canceledRequests.contains(id) || timedOutRequests.contains(id)) return;
         info.content += chunk;
         ++info.sequence;
         broadcast(QStringLiteral("stream_chunk"), id, chunk);
     }, [this, request](const QString &answer, const QString &error) {
         StreamInfo &info = streams[request.id];
-        const QString finalError = canceledRequests.remove(request.id)
-            ? QStringLiteral("已取消 Vivi 生成。") : error;
+        if (info.finished) return;
+        const bool cancelled = canceledRequests.remove(request.id);
+        const bool timedOut = timedOutRequests.remove(request.id);
+        const QString finalError = cancelled ? QStringLiteral("已取消 Vivi 生成。")
+            : timedOut ? QStringLiteral("AI 响应超时，请稍后重试。") : error;
+        if (QTimer *timer = activeTimers.take(request.id)) { timer->stop(); timer->deleteLater(); }
+        activeReplies.remove(request.id);
         if (finalError.isEmpty()) {
             QString body = answer;
             const QString prefix = QStringLiteral("[%1]").arg(request.target.nickname);
@@ -150,6 +179,7 @@ void AiRoom::startNext()
             }
             info.content = body;
             info.finished = true;
+            info.state = State::Completed;
             if (request.originalId == 0) {
                 appendHistory(QStringLiteral("assistant"), body, info.messageId);
             } else {
@@ -163,6 +193,8 @@ void AiRoom::startNext()
             if (request.originalId == 0) broadcast(QStringLiteral("reply"), request.id, body);
         } else {
             info.finished = true;
+            info.state = cancelled ? State::Cancelled : timedOut ||
+                finalError.contains(QStringLiteral("超时")) ? State::TimedOut : State::Failed;
             info.error = finalError;
             broadcast(QStringLiteral("stream_error"), request.id, finalError);
             if (request.originalId == 0) broadcast(QStringLiteral("error"), request.id, finalError);
@@ -172,8 +204,6 @@ void AiRoom::startNext()
                 regenerating.remove(request.originalId);
             }
         }
-        activeReply = nullptr;
-        activeRequestId = 0;
         while (streamOrder.size() > 30 && streams.value(latestRequestIds.value(streamOrder.head())).finished) {
             const quint64 oldId = streamOrder.dequeue();
             const QString oldMessageId = streams.value(oldId).messageId;
@@ -188,7 +218,17 @@ void AiRoom::startNext()
             requestContexts.remove(oldId);
             requestTargets.remove(oldId);
         }
-        busy = false;
         startNext();
     });
+    activeReplies[request.id] = reply;
+    auto *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    activeTimers.insert(request.id, timer);
+    connect(timer, &QTimer::timeout, this, [this, id = request.id]() {
+        if (!activeReplies.contains(id) || streams.value(id).finished) return;
+        timedOutRequests.insert(id);
+        if (activeReplies.value(id)) activeReplies.value(id)->abort();
+    });
+    timer->start(requestTimeoutMs);
+    }
 }

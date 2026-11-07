@@ -325,5 +325,43 @@ int main(int argc, char **argv)
             savedBody = widget->findChild<AiMarkdownWidget *>();
     if (!savedBody || !waitUntil([&]() { return savedBody->plainText().contains("int value = 42;") &&
                                             savedBody->findChild<QPlainTextEdit *>() != nullptr; })) return 40;
+    // A reconnect during generation receives the persisted pending row first,
+    // then AiRoom's live snapshot. Both must update the same bubble.
+    MainWindow resumed(QStringLiteral("甲"), address, nullptr, 11, QStringLiteral("test-e"));
+    resumed.show();
+    waitEvents(120);
+    if (peers.size() != 5) return 41;
+    QJsonObject pendingQuestion = question;
+    pendingQuestion.insert(QStringLiteral("message_id"), QStringLiteral("pending-question"));
+    QJsonObject pendingAnswer = answer;
+    pendingAnswer.insert(QStringLiteral("message_id"), QStringLiteral("pending-answer"));
+    pendingAnswer.insert(QStringLiteral("reply_to_message_id"), QStringLiteral("pending-question"));
+    pendingAnswer.insert(QStringLiteral("text"), QStringLiteral(""));
+    pendingAnswer.insert(QStringLiteral("ai_state"), QStringLiteral("pending"));
+    peers.last()->write(historyFrame(pendingQuestion));
+    peers.last()->write(historyFrame(pendingAnswer));
+    AiMarkdownWidget *pendingBody = nullptr;
+    if (!waitUntil([&]() {
+        for (QWidget *widget : resumed.findChildren<QWidget *>())
+            if (widget->property("aiMessageId") == QStringLiteral("pending-answer"))
+                pendingBody = widget->findChild<AiMarkdownWidget *>();
+        return pendingBody && pendingBody->plainText().contains(QStringLiteral("正在思考"));
+    })) return 42;
+    QJsonObject liveStart = event("ai_start", 9, "pending-answer", 11, QStringLiteral("甲"), 0);
+    liveStart.insert(QStringLiteral("reply_to_message_id"), QStringLiteral("pending-question"));
+    peers.last()->write(frame(liveStart));
+    QJsonObject liveChunk = event("ai_chunk", 9, "pending-answer", 11, QStringLiteral("甲"), 1,
+                                  QStringLiteral("恢复后继续生成"));
+    peers.last()->write(frame(liveChunk));
+    if (!waitUntil([&]() { return pendingBody->plainText() == QStringLiteral("恢复后继续生成"); })) return 43;
+    QJsonObject liveComplete = event("ai_complete", 9, "pending-answer", 11, QStringLiteral("甲"), 1,
+                                     QStringLiteral("恢复后继续生成"));
+    peers.last()->write(frame(liveComplete));
+    if (!waitUntil([&]() { return pendingBody->plainText() == QStringLiteral("恢复后继续生成") &&
+        pendingBody->findChild<QTextBrowser *>() != nullptr; })) return 44;
+    int pendingRows = 0;
+    for (QWidget *widget : resumed.findChildren<QWidget *>())
+        if (widget->property("aiMessageId") == QStringLiteral("pending-answer")) ++pendingRows;
+    if (pendingRows != 1) return 45;
     return 0;
 }

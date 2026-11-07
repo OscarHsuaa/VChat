@@ -93,6 +93,14 @@ bool openDatabase()
         qCritical() << "chat_history table missing; apply ChatServer/migrations/001_chat_history.sql";
         return false;
     }
+    QSqlQuery stateColumn;
+    stateColumn.prepare(QStringLiteral(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
+        "AND TABLE_NAME='chat_history' AND COLUMN_NAME='ai_state'"));
+    if (!stateColumn.exec() || !stateColumn.next() || stateColumn.value(0).toInt() == 0) {
+        qCritical() << "chat_history.ai_state missing; apply ChatServer/migrations/002_ai_history_state.sql";
+        return false;
+    }
     // An older server may have written more legacy rows before this process started.
     // The unique legacy ID makes this startup import idempotent.
     QSqlQuery backfill;
@@ -132,16 +140,42 @@ bool saveUserHistory(const QString &id, qint64 senderId, const QString &sender,
 
 bool saveAiHistory(const QJsonObject &event)
 {
+    const QString kind = event.value(QStringLiteral("event")).toString();
+    const bool regeneration = event.value(QStringLiteral("regeneration")).toBool();
+    // Regeneration keeps the previous persisted answer until a replacement
+    // succeeds. Its message_id and sequence_id must never change.
+    if (regeneration && kind != QStringLiteral("ai_complete")) return true;
+    // A default-constructed QString is null and QMYSQL binds it as SQL NULL.
+    // chat_history.content is NOT NULL even for an in-progress AI row.
+    QString content = QStringLiteral("");
+    QString state;
+    if (kind == QStringLiteral("ai_start")) state = QStringLiteral("pending");
+    else if (kind == QStringLiteral("ai_complete")) {
+        state = QStringLiteral("completed");
+        content = event.value(QStringLiteral("full_text")).toString();
+    } else if (kind == QStringLiteral("ai_error")) {
+        state = event.value(QStringLiteral("request_state")).toString();
+        if (state != QStringLiteral("cancelled") && state != QStringLiteral("timed_out"))
+            state = QStringLiteral("failed");
+        content = state == QStringLiteral("cancelled") ? QStringLiteral("已取消 Vivi 生成。")
+            : state == QStringLiteral("timed_out") ? QStringLiteral("Vivi 回复超时，请稍后重试。")
+            : QStringLiteral("Vivi 回复失败，请稍后重试。");
+    } else return true;
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,"
-        "reply_to_message_id,original_request_id) VALUES('class-room',?,?,'Vivi','ai',?,?,?) "
-        "ON DUPLICATE KEY UPDATE content=VALUES(content), original_request_id=VALUES(original_request_id)"));
+        "reply_to_message_id,original_request_id,ai_state) "
+        "VALUES('class-room',?,?,'Vivi','ai',?,?,?,?) "
+        "ON DUPLICATE KEY UPDATE "
+        "content=IF(VALUES(ai_state)='pending',content,VALUES(content)), "
+        "ai_state=IF(VALUES(ai_state)='pending',ai_state,VALUES(ai_state)), "
+        "original_request_id=VALUES(original_request_id)"));
     query.addBindValue(event.value(QStringLiteral("message_id")).toString());
     query.addBindValue(event.value(QStringLiteral("user_id")).toString().toLongLong());
-    query.addBindValue(event.value(QStringLiteral("full_text")).toString());
+    query.addBindValue(content);
     query.addBindValue(event.value(QStringLiteral("reply_to_message_id")).toString());
     query.addBindValue(event.value(QStringLiteral("original_request_id")).toString().toULongLong());
+    query.addBindValue(state);
     if (query.exec()) return true;
     qWarning() << "History AI upsert failed:" << query.lastError().text();
     return false;
@@ -152,11 +186,15 @@ bool sendHistory(QTcpSocket *client, qint64 accountId)
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
-        "h.reply_to_message_id,h.created_at,q.sender_name "
+        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state "
         "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
         "WHERE h.room_id='class-room' AND (h.visibility='team' OR "
         "(h.visibility='personal' AND h.recipient_user_id=?)) "
-        "ORDER BY h.sequence_id"));
+        // Older AI rows were inserted at completion. Anchor them to their
+        // original question; new AI rows are inserted synchronously at start.
+        "ORDER BY COALESCE(q.sequence_id,h.sequence_id), "
+        "CASE WHEN h.message_type='ai' AND q.sequence_id IS NOT NULL THEN 1 ELSE 0 END, "
+        "h.sequence_id"));
     query.addBindValue(accountId);
     if (!query.exec()) {
         qWarning() << "History read failed:" << query.lastError().text();
@@ -170,7 +208,8 @@ bool sendHistory(QTcpSocket *client, qint64 accountId)
             {QStringLiteral("text"), query.value(4).toString()},
             {QStringLiteral("reply_to_message_id"), query.value(5).toString()},
             {QStringLiteral("time"), query.value(6).toDateTime().toString(Qt::ISODateWithMs)},
-            {QStringLiteral("reply_to_name"), query.value(7).toString()}};
+            {QStringLiteral("reply_to_name"), query.value(7).toString()},
+            {QStringLiteral("ai_state"), query.value(8).toString()}};
         sendLine(client, QStringLiteral("HISTORY|%1").arg(QString::fromLatin1(
             QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64())));
     }
@@ -256,6 +295,7 @@ int main(int argc, char *argv[])
         else if (state == QStringLiteral("error") || state == QStringLiteral("stream_error"))
             aiState = text.startsWith(QStringLiteral("已取消")) && aiService.isConfigured()
                 ? QStringLiteral("online") : QStringLiteral("unavailable");
+        if (roomForBroadcast && roomForBroadcast->hasWork()) aiState = QStringLiteral("thinking");
         const QString eventName = state == QStringLiteral("stream_start") ? QStringLiteral("ai_start")
             : state == QStringLiteral("stream_chunk") ? QStringLiteral("ai_chunk")
             : state == QStringLiteral("stream_complete") ? QStringLiteral("ai_complete")
@@ -264,9 +304,9 @@ int main(int argc, char *argv[])
             ? QStringLiteral("AI|stream|%1|%2").arg(id).arg(QString::fromLatin1(
                 QJsonDocument(roomForBroadcast->streamEvent(id, eventName, text))
                     .toJson(QJsonDocument::Compact).toBase64())) : QString();
-        if (state == QStringLiteral("stream_complete") && roomForBroadcast &&
-            !saveAiHistory(roomForBroadcast->streamEvent(id, QStringLiteral("ai_complete"))))
-            qCritical() << "Completed AI message was not persisted";
+        if (streamEvent && state != QStringLiteral("stream_chunk") && roomForBroadcast &&
+            !saveAiHistory(roomForBroadcast->streamEvent(id, eventName)))
+            qCritical() << "AI message state was not persisted:" << eventName << "request=" << id;
         const QString line = QStringLiteral("AI|%1|%2|%3")
             .arg(state).arg(id).arg(QString::fromLatin1(text.toUtf8().toBase64()));
         const QString statusLine = QStringLiteral("AI|status|0|%1")
@@ -527,7 +567,8 @@ int main(int argc, char *argv[])
                             }
                             if (!ordinaryVivi) askVivi = true;
                         }
-                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, askVivi, userMessageId);
+                        if (!aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, askVivi, userMessageId))
+                            sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                         continue;
                     }
 
@@ -555,9 +596,9 @@ int main(int argc, char *argv[])
                         static const QRegularExpression mention(
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
                             QRegularExpression::CaseInsensitiveOption);
-                        aiRoom.addUserMessage(onlineUserIds.value(client), sender, content,
-                                              mention.match(content).hasMatch(),
-                                              legacyMessageId);
+                        if (!aiRoom.addUserMessage(onlineUserIds.value(client), sender, content,
+                                                  mention.match(content).hasMatch(), legacyMessageId))
+                            sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                     }
                 }
             });
@@ -600,6 +641,16 @@ int main(int argc, char *argv[])
     const QHostAddress listenAddress = listenPort == kServerPort ? QHostAddress::Any : QHostAddress::LocalHost;
     if (!server.listen(listenAddress, listenPort)) {
         qDebug() << "Server start failed:" << server.errorString();
+        return -1;
+    }
+    // A stopped server cannot resume an unfinished DeepSeek request. Run only
+    // after acquiring the listening port, so a second server cannot mark the
+    // active server's in-flight rows as interrupted.
+    QSqlQuery interrupted;
+    if (!interrupted.exec(QStringLiteral(
+        "UPDATE chat_history SET ai_state='failed',content='Vivi 回复因服务重启中断。' "
+        "WHERE message_type='ai' AND ai_state='pending'"))) {
+        qCritical() << "Interrupted AI history recovery failed:" << interrupted.lastError().text();
         return -1;
     }
 
