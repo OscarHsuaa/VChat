@@ -4,8 +4,9 @@
 #include <QUuid>
 
 AiRoom::AiRoom(AiService *aiService, Broadcast send, QObject *parent,
-               int maxConcurrent, int maxQueued, int timeoutMs)
+               int maxConcurrent, int maxQueued, int timeoutMs, quint64 firstRequestId)
     : QObject(parent), service(aiService), broadcast(std::move(send)),
+      nextId(qMax<quint64>(1, firstRequestId)),
       maxActive(qMax(1, maxConcurrent)), maxPending(qMax(0, maxQueued)),
       requestTimeoutMs(qMax(100, timeoutMs)) {}
 

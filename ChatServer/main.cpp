@@ -1,6 +1,7 @@
 ﻿#include <QCoreApplication>
 #include "airoom.h"
 #include "aiservice.h"
+#include "roomstore.h"
 #include <QDateTime>
 #include <QDebug>
 #include <QHostAddress>
@@ -93,6 +94,12 @@ bool openDatabase()
         qCritical() << "chat_history table missing; apply ChatServer/migrations/001_chat_history.sql";
         return false;
     }
+    if (!db.tables().contains(QStringLiteral("rooms")) ||
+        !db.tables().contains(QStringLiteral("room_members")) ||
+        !db.tables().contains(QStringLiteral("room_invites"))) {
+        qCritical() << "Room tables missing; apply ChatServer/migrations/003_rooms.sql";
+        return false;
+    }
     QSqlQuery stateColumn;
     stateColumn.prepare(QStringLiteral(
         "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
@@ -122,13 +129,14 @@ bool openDatabase()
 }
 
 // All new chat messages share stable IDs and a room-scoped order.
-bool saveUserHistory(const QString &id, qint64 senderId, const QString &sender,
+bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, const QString &sender,
                      const QString &content)
 {
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content) "
-        "VALUES('class-room',?,?,?,'user',?)"));
+        "VALUES(?,?,?,?,'user',?)"));
+    query.addBindValue(roomId);
     query.addBindValue(id);
     query.addBindValue(senderId > 0 ? QVariant(senderId) : QVariant());
     query.addBindValue(sender);
@@ -138,7 +146,7 @@ bool saveUserHistory(const QString &id, qint64 senderId, const QString &sender,
     return false;
 }
 
-bool saveAiHistory(const QJsonObject &event)
+bool saveAiHistory(const QString &roomId, const QJsonObject &event)
 {
     const QString kind = event.value(QStringLiteral("event")).toString();
     const bool regeneration = event.value(QStringLiteral("regeneration")).toBool();
@@ -165,11 +173,12 @@ bool saveAiHistory(const QJsonObject &event)
     query.prepare(QStringLiteral(
         "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,"
         "reply_to_message_id,original_request_id,ai_state) "
-        "VALUES('class-room',?,?,'Vivi','ai',?,?,?,?) "
+        "VALUES(?, ?,?,'Vivi','ai',?,?,?,?) "
         "ON DUPLICATE KEY UPDATE "
         "content=IF(VALUES(ai_state)='pending',content,VALUES(content)), "
         "ai_state=IF(VALUES(ai_state)='pending',ai_state,VALUES(ai_state)), "
         "original_request_id=VALUES(original_request_id)"));
+    query.addBindValue(roomId);
     query.addBindValue(event.value(QStringLiteral("message_id")).toString());
     query.addBindValue(event.value(QStringLiteral("user_id")).toString().toLongLong());
     query.addBindValue(content);
@@ -181,27 +190,30 @@ bool saveAiHistory(const QJsonObject &event)
     return false;
 }
 
-bool sendHistory(QTcpSocket *client, qint64 accountId)
+bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId)
 {
+    if (!RoomStore::isMember(roomId, accountId)) return false;
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
         "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state "
         "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
-        "WHERE h.room_id='class-room' AND (h.visibility='team' OR "
+        "WHERE h.room_id=? AND (h.visibility='team' OR "
         "(h.visibility='personal' AND h.recipient_user_id=?)) "
         // Older AI rows were inserted at completion. Anchor them to their
         // original question; new AI rows are inserted synchronously at start.
         "ORDER BY COALESCE(q.sequence_id,h.sequence_id), "
         "CASE WHEN h.message_type='ai' AND q.sequence_id IS NOT NULL THEN 1 ELSE 0 END, "
         "h.sequence_id"));
+    query.addBindValue(roomId);
     query.addBindValue(accountId);
     if (!query.exec()) {
         qWarning() << "History read failed:" << query.lastError().text();
         return false;
     }
     while (query.next()) {
-        const QJsonObject item{{QStringLiteral("message_id"), query.value(0).toString()},
+        const QJsonObject item{{QStringLiteral("room_id"), roomId},
+            {QStringLiteral("message_id"), query.value(0).toString()},
             {QStringLiteral("sender_id"), query.value(1).toString()},
             {QStringLiteral("sender"), query.value(2).toString()},
             {QStringLiteral("type"), query.value(3).toString()},
@@ -280,14 +292,20 @@ int main(int argc, char *argv[])
     // 登录窗口使用的是临时连接，不会加入这个在线列表。
     QMap<QTcpSocket *, QString> onlineUsers;
     QMap<QTcpSocket *, qint64> onlineUserIds;
+    QMap<QTcpSocket *, QString> activeRooms;
     QSet<QTcpSocket *> modernPeers;
     QHash<QString, LoginSession> loginSessions;
-    qint64 nextLegacySessionId = -1;
 
     AiService aiService(&app);
-    QString aiState = aiService.isConfigured() ? QStringLiteral("online") : QStringLiteral("unavailable");
-    AiRoom *roomForBroadcast = nullptr;
-    auto broadcastAi = [&onlineUsers, &aiState, &roomForBroadcast, &aiService](const QString &state, quint64 id, const QString &text) {
+    const QString idleAiState = aiService.isConfigured()
+        ? QStringLiteral("online") : QStringLiteral("unavailable");
+    QHash<QString, QString> aiStates;
+    QHash<QString, AiRoom *> aiRooms;
+    quint64 nextRoomAiNamespace = 0;
+    auto broadcastAi = [&onlineUsers, &activeRooms, &aiRooms, &aiStates, &aiService]
+        (const QString &roomId, const QString &state, quint64 id, const QString &text) {
+        AiRoom *room = aiRooms.value(roomId, nullptr);
+        QString &aiState = aiStates[roomId];
         const bool streamEvent = state.startsWith(QStringLiteral("stream_"));
         if (state == QStringLiteral("thinking") || state == QStringLiteral("busy") ||
             state == QStringLiteral("stream_start")) aiState = QStringLiteral("thinking");
@@ -295,32 +313,34 @@ int main(int argc, char *argv[])
         else if (state == QStringLiteral("error") || state == QStringLiteral("stream_error"))
             aiState = text.startsWith(QStringLiteral("已取消")) && aiService.isConfigured()
                 ? QStringLiteral("online") : QStringLiteral("unavailable");
-        if (roomForBroadcast && roomForBroadcast->hasWork()) aiState = QStringLiteral("thinking");
+        if (room && room->hasWork()) aiState = QStringLiteral("thinking");
         const QString eventName = state == QStringLiteral("stream_start") ? QStringLiteral("ai_start")
             : state == QStringLiteral("stream_chunk") ? QStringLiteral("ai_chunk")
             : state == QStringLiteral("stream_complete") ? QStringLiteral("ai_complete")
             : QStringLiteral("ai_error");
-        const QString streamLine = streamEvent && roomForBroadcast
+        QJsonObject event = streamEvent && room ? room->streamEvent(id, eventName, text) : QJsonObject{};
+        if (streamEvent) event.insert(QStringLiteral("room_id"), roomId);
+        const QString streamLine = streamEvent && room
             ? QStringLiteral("AI|stream|%1|%2").arg(id).arg(QString::fromLatin1(
-                QJsonDocument(roomForBroadcast->streamEvent(id, eventName, text))
+                QJsonDocument(event)
                     .toJson(QJsonDocument::Compact).toBase64())) : QString();
-        if (streamEvent && state != QStringLiteral("stream_chunk") && roomForBroadcast &&
-            !saveAiHistory(roomForBroadcast->streamEvent(id, eventName)))
+        if (streamEvent && state != QStringLiteral("stream_chunk") && room &&
+            !saveAiHistory(roomId, event))
             qCritical() << "AI message state was not persisted:" << eventName << "request=" << id;
         const QString line = QStringLiteral("AI|%1|%2|%3")
             .arg(state).arg(id).arg(QString::fromLatin1(text.toUtf8().toBase64()));
         const QString statusLine = QStringLiteral("AI|status|0|%1")
             .arg(QString::fromLatin1(aiState.toUtf8().toBase64()));
         for (QTcpSocket *member : onlineUsers.keys()) {
-            if (member->state() == QAbstractSocket::ConnectedState) {
+            if (member->state() == QAbstractSocket::ConnectedState && activeRooms.value(member) == roomId) {
                 if (streamEvent) {
                     sendLine(member, streamLine); // Older clients ignore the unknown AI state.
                     if (state == QStringLiteral("stream_chunk")) continue;
                     sendLine(member, statusLine);
                     continue;
                 }
-                if (state == QStringLiteral("reply") && roomForBroadcast) {
-                    const AiRoom::ReplyTarget target = roomForBroadcast->replyTarget(id);
+                if (state == QStringLiteral("reply") && room) {
+                    const AiRoom::ReplyTarget target = room->replyTarget(id);
                     const QJsonObject meta{{QStringLiteral("accountId"), QString::number(target.accountId)},
                                            {QStringLiteral("nickname"), target.nickname}};
                     sendLine(member, QStringLiteral("AI|meta|%1|%2").arg(id).arg(
@@ -331,16 +351,28 @@ int main(int argc, char *argv[])
             }
         }
     };
-    AiRoom aiRoom(&aiService, broadcastAi, &app); // Existing server has one room: 班级群.
-    roomForBroadcast = &aiRoom;
+    auto roomFor = [&](const QString &roomId) -> AiRoom * {
+        if (AiRoom *existing = aiRooms.value(roomId, nullptr)) return existing;
+        const quint64 firstRequestId = roomId == QString::fromLatin1(RoomStore::LobbyId)
+            ? 1 : (++nextRoomAiNamespace * 1000000000000ULL) + 1;
+        auto *created = new AiRoom(&aiService, [&, roomId](const QString &state, quint64 id, const QString &text) {
+            broadcastAi(roomId, state, id, text);
+        }, &app, 3, 12, 90000, firstRequestId);
+        aiRooms.insert(roomId, created);
+        return created;
+    };
+    roomFor(QString::fromLatin1(RoomStore::LobbyId));
 
     // 把当前在线用户列表广播给所有聊天窗口客户端。
     // 数据格式：USERLIST|张三,李四,王五
     auto broadcastUserList = [&]() {
+        for (QTcpSocket *client : clients) {
+            if (client->state() != QAbstractSocket::ConnectedState || !onlineUsers.contains(client)) continue;
+            const QString roomId = activeRooms.value(client);
         QStringList users;
         QJsonArray members;
         for (auto it = onlineUsers.cbegin(); it != onlineUsers.cend(); ++it) {
-            if (!it.value().trimmed().isEmpty()) {
+            if (activeRooms.value(it.key()) == roomId && !it.value().trimmed().isEmpty()) {
                 users << it.value().trimmed();
                 members.append(QJsonObject{{QStringLiteral("id"), QString::number(onlineUserIds.value(it.key()))},
                     {QStringLiteral("name"), it.value().trimmed()}});
@@ -350,11 +382,8 @@ int main(int argc, char *argv[])
         const QString payload = QStringLiteral("USERLIST|%1").arg(users.join(','));
         const QString modernPayload = QStringLiteral("USERLIST2|%1")
             .arg(QString::fromLatin1(QJsonDocument(members).toJson(QJsonDocument::Compact).toBase64()));
-        for (QTcpSocket *client : clients) {
-            if (client->state() == QAbstractSocket::ConnectedState) {
-                sendLine(client, payload);
-                if (modernPeers.contains(client)) sendLine(client, modernPayload);
-            }
+            sendLine(client, payload);
+            if (modernPeers.contains(client)) sendLine(client, modernPayload);
         }
     };
 
@@ -371,8 +400,8 @@ int main(int argc, char *argv[])
 
             // 某个客户端发来数据时执行。这里统一处理登录、上线和聊天消息。
             QObject::connect(client, &QTcpSocket::readyRead, [client, &clients, &buffers, &onlineUsers,
-                &onlineUserIds, &modernPeers, &loginSessions, &nextLegacySessionId,
-                &broadcastUserList, &aiRoom, &aiState]() {
+                &onlineUserIds, &modernPeers, &loginSessions,
+                &broadcastUserList, &roomFor, &aiRooms, &aiStates, &idleAiState, &activeRooms]() {
                 // TCP 数据不一定一次收到完整一行，所以先放进该客户端自己的缓存。
                 QByteArray &buffer = buffers[client];
                 buffer.append(client->readAll());
@@ -423,10 +452,13 @@ int main(int argc, char *argv[])
                     // 服务器收到 JOIN 后，才把这个 socket 算作在线用户。
                     if (text.startsWith(QStringLiteral("JOIN|"))) {
                         const QStringList parts = text.split(QLatin1Char('|'));
-                        if (parts.size() != 2 && parts.size() != 3) continue;
+                        if (parts.size() != 3) {
+                            sendLine(client, QStringLiteral("[System] 请先登录后进入聊天室"));
+                            continue;
+                        }
                         QString nickname = parts.at(1).trimmed();
-                        qint64 accountId = nextLegacySessionId--;
-                        if (parts.size() == 3) {
+                        qint64 accountId = 0;
+                        {
                             auto session = loginSessions.find(parts.at(2));
                             const bool valid = session != loginSessions.end() &&
                                 session.value().issuedAt.secsTo(QDateTime::currentDateTimeUtc()) <= 86400 &&
@@ -438,10 +470,9 @@ int main(int argc, char *argv[])
                                 session.value().issuedAt = QDateTime::currentDateTimeUtc();
                                 modernPeers.insert(client);
                             } else {
-                                // A reconnect after a server restart retains the old chat behavior.
-                                // It does not receive ID-bearing mention metadata until a fresh login.
                                 modernPeers.remove(client);
-                                sendLine(client, QStringLiteral("[System] 身份会话已失效，建议重新登录以使用成员提及"));
+                                sendLine(client, QStringLiteral("[System] 身份会话已失效，请重新登录"));
+                                continue;
                             }
                         }
                         if (nickname.isEmpty()) {
@@ -450,21 +481,31 @@ int main(int argc, char *argv[])
 
                         onlineUsers[client] = nickname;
                         onlineUserIds[client] = accountId;
-                        if (modernPeers.contains(client) && !sendHistory(client, accountId))
+                        activeRooms[client] = QString::fromLatin1(RoomStore::LobbyId);
+                        if (modernPeers.contains(client) && !RoomStore::ensureLobbyMember(accountId)) {
+                            sendLine(client, QStringLiteral("[System] 大厅成员初始化失败"));
+                            onlineUsers.remove(client); onlineUserIds.remove(client); activeRooms.remove(client);
+                            continue;
+                        }
+                        if (modernPeers.contains(client) && !sendHistory(client, accountId, activeRooms.value(client)))
                             sendLine(client, QStringLiteral("[System] 历史消息读取失败，请联系管理员"));
                         sendLine(client, QStringLiteral("AI|status|0|%1")
-                            .arg(QString::fromLatin1(aiState.toUtf8().toBase64())));
-                        for (const QJsonObject &event : aiRoom.snapshots())
+                            .arg(QString::fromLatin1(aiStates.value(activeRooms.value(client), idleAiState)
+                                .toUtf8().toBase64())));
+                        for (QJsonObject event : roomFor(activeRooms.value(client))->snapshots()) {
+                            event.insert(QStringLiteral("room_id"), activeRooms.value(client));
                             sendLine(client, QStringLiteral("AI|stream|%1|%2")
                                 .arg(event.value(QStringLiteral("request_id")).toString())
                                 .arg(QString::fromLatin1(QJsonDocument(event)
                                     .toJson(QJsonDocument::Compact).toBase64())));
+                        }
                         qDebug() << "User joined:" << nickname;
                         sendLine(client, QStringLiteral("[System] Welcome %1").arg(nickname));
 
                         // 通知其他已经在线的用户：有新用户加入。
                         for (QTcpSocket *other : clients) {
-                            if (other != client && other->state() == QAbstractSocket::ConnectedState && onlineUsers.contains(other)) {
+                            if (other != client && other->state() == QAbstractSocket::ConnectedState &&
+                                onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client)) {
                                 sendLine(other, QStringLiteral("[System] %1 joined the chat").arg(nickname));
                             }
                         }
@@ -473,11 +514,121 @@ int main(int argc, char *argv[])
                         continue;
                     }
 
+                    // New room control plane. Existing clients never send ROOM
+                    // and continue using the default lobby without UI changes.
+                    if (text.startsWith(QStringLiteral("ROOM|"))) {
+                        const QStringList parts = text.split(QLatin1Char('|'));
+                        QJsonObject reply{{QStringLiteral("ok"), false}};
+                        const QString action = parts.size() == 3 ? parts.at(1) : QString();
+                        reply.insert(QStringLiteral("action"), action);
+                        auto respond = [&]() {
+                            sendLine(client, QStringLiteral("ROOM|result|%1").arg(QString::fromLatin1(
+                                QJsonDocument(reply).toJson(QJsonDocument::Compact).toBase64())));
+                        };
+                        if (text.size() > 8192 || parts.size() != 3 || !modernPeers.contains(client) ||
+                            !onlineUsers.contains(client) || onlineUserIds.value(client) <= 0) {
+                            reply.insert(QStringLiteral("error"), QStringLiteral("需要有效登录会话和合法 ROOM 请求"));
+                            respond(); continue;
+                        }
+                        const QJsonDocument decoded = QJsonDocument::fromJson(QByteArray::fromBase64(parts.at(2).toLatin1()));
+                        if (!decoded.isObject()) {
+                            reply.insert(QStringLiteral("error"), QStringLiteral("请求数据格式错误"));
+                            respond(); continue;
+                        }
+                        const QJsonObject args = decoded.object();
+                        const qint64 actor = onlineUserIds.value(client);
+                        const QString roomId = args.value(QStringLiteral("room_id")).toString();
+                        QString error;
+                        if (action == QStringLiteral("list_mine")) {
+                            reply.insert(QStringLiteral("rooms"), RoomStore::myRooms(actor));
+                            reply.insert(QStringLiteral("ok"), true);
+                        } else if (action == QStringLiteral("list_public")) {
+                            reply.insert(QStringLiteral("rooms"), RoomStore::publicRooms(actor));
+                            reply.insert(QStringLiteral("ok"), true);
+                        } else if (action == QStringLiteral("create")) {
+                            const QString type = args.value(QStringLiteral("room_type"))
+                                .toString(QStringLiteral("invite_only"));
+                            const QJsonObject created = RoomStore::create(actor,
+                                args.value(QStringLiteral("room_name")).toString(),
+                                args.value(QStringLiteral("description")).toString(), type, &error);
+                            if (!created.isEmpty()) {
+                                reply.insert(QStringLiteral("room"), created);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("invite")) {
+                            const QString token = RoomStore::invite(actor, roomId,
+                                args.value(QStringLiteral("expires_minutes")).toInt(60), &error);
+                            if (!token.isEmpty()) {
+                                reply.insert(QStringLiteral("token"), token);
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("join_invite")) {
+                            const QString joined = RoomStore::redeem(actor,
+                                args.value(QStringLiteral("token")).toString(), &error);
+                            if (!joined.isEmpty()) {
+                                reply.insert(QStringLiteral("room_id"), joined);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("join_public")) {
+                            if (RoomStore::joinPublic(actor, roomId, &error)) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("leave")) {
+                            if (activeRooms.value(client) == roomId) {
+                                error = QStringLiteral("请先切换到其他聊天室");
+                            } else if (RoomStore::leave(actor, roomId, &error)) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("members")) {
+                            if (RoomStore::isMember(roomId, actor)) {
+                                reply.insert(QStringLiteral("members"), RoomStore::members(roomId));
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                            } else error = QStringLiteral("无权查看聊天室成员");
+                        } else if (action == QStringLiteral("history")) {
+                            if (RoomStore::isMember(roomId, actor)) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                if (!sendHistory(client, actor, roomId))
+                                    sendLine(client, QStringLiteral("[System] 历史消息读取失败"));
+                                continue;
+                            } else error = QStringLiteral("无权读取聊天室历史");
+                        } else if (action == QStringLiteral("switch")) {
+                            if (RoomStore::isMember(roomId, actor)) {
+                                activeRooms[client] = roomId;
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                if (!sendHistory(client, actor, roomId))
+                                    sendLine(client, QStringLiteral("[System] 历史消息读取失败"));
+                                sendLine(client, QStringLiteral("AI|status|0|%1")
+                                    .arg(QString::fromLatin1(aiStates.value(roomId, idleAiState)
+                                        .toUtf8().toBase64())));
+                                for (QJsonObject event : roomFor(roomId)->snapshots()) {
+                                    event.insert(QStringLiteral("room_id"), roomId);
+                                    sendLine(client, QStringLiteral("AI|stream|%1|%2")
+                                        .arg(event.value(QStringLiteral("request_id")).toString())
+                                        .arg(QString::fromLatin1(QJsonDocument(event)
+                                            .toJson(QJsonDocument::Compact).toBase64())));
+                                }
+                                broadcastUserList();
+                                continue;
+                            } else error = QStringLiteral("无权进入聊天室");
+                        } else error = QStringLiteral("未知聊天室操作");
+                        if (!error.isEmpty()) reply.insert(QStringLiteral("error"), error);
+                        respond();
+                        continue;
+                    }
+
                     if (text.startsWith(QStringLiteral("AI_CANCEL|"))) {
                         bool validId = false;
                         const quint64 requestId = text.mid(10).toULongLong(&validId);
                         if (!onlineUsers.contains(client) || !validId ||
-                            !aiRoom.cancel(requestId, onlineUserIds.value(client)))
+                            !roomFor(activeRooms.value(client))->cancel(requestId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("[System] 无法取消：请求不存在或不属于当前账号"));
                         continue;
                     }
@@ -487,7 +638,7 @@ int main(int argc, char *argv[])
                         const quint64 originalId = text.mid(14).toULongLong(&validId);
                         // Only the account that asked the original question may replace its shared answer.
                         if (!onlineUsers.contains(client) || !validId ||
-                            !aiRoom.regenerate(originalId, onlineUserIds.value(client)))
+                            !roomFor(activeRooms.value(client))->regenerate(originalId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("AI|error|0|%1")
                                 .arg(QString::fromLatin1(QStringLiteral("无法重新生成：请求不可用、正在生成或不属于当前账号。")
                                     .toUtf8().toBase64())));
@@ -523,7 +674,8 @@ int main(int argc, char *argv[])
                                 bool found = false;
                                 for (auto it = onlineUserIds.cbegin(); it != onlineUserIds.cend(); ++it)
                                     if (ok && targetId != onlineUserIds.value(client) && it.value() == targetId &&
-                                        it.key() != client && onlineUsers.value(it.key()) == name)
+                                        it.key() != client && activeRooms.value(it.key()) == activeRooms.value(client) &&
+                                        onlineUsers.value(it.key()) == name)
                                         found = true;
                                 if (!found) { invalid = true; break; }
                             } else { invalid = true; break; }
@@ -537,18 +689,21 @@ int main(int argc, char *argv[])
                         const QString time = QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss"));
                         const QString legacyLine = QStringLiteral("[%1] %2: %3").arg(time, sender, content);
                         QJsonObject outgoing{{QStringLiteral("sender"), sender},
+                            {QStringLiteral("room_id"), activeRooms.value(client)},
                             {QStringLiteral("senderId"), QString::number(onlineUserIds.value(client))},
                             {QStringLiteral("messageId"), userMessageId},
                             {QStringLiteral("text"), content}, {QStringLiteral("time"), time},
                             {QStringLiteral("mentions"), validated}};
                         const QString modernLine = QStringLiteral("CHAT2|%1")
                             .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
-                        if (!saveUserHistory(userMessageId, onlineUserIds.value(client), sender, content)) {
+                        if (!saveUserHistory(activeRooms.value(client), userMessageId,
+                                             onlineUserIds.value(client), sender, content)) {
                             sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                             continue;
                         }
                         for (QTcpSocket *other : clients)
-                            if (other != client && other->state() == QAbstractSocket::ConnectedState && onlineUsers.contains(other))
+                            if (other != client && other->state() == QAbstractSocket::ConnectedState &&
+                                onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client))
                                 sendLine(other, modernPeers.contains(other) ? modernLine : legacyLine);
                         bool askVivi = false;
                         for (const QJsonValue &value : validated)
@@ -567,11 +722,18 @@ int main(int argc, char *argv[])
                             }
                             if (!ordinaryVivi) askVivi = true;
                         }
-                        if (!aiRoom.addUserMessage(onlineUserIds.value(client), sender, content, askVivi, userMessageId))
+                        if (!roomFor(activeRooms.value(client))->addUserMessage(
+                                onlineUserIds.value(client), sender, content, askVivi, userMessageId))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                         continue;
                     }
 
+                    // Older text framing is accepted only after the same
+                    // authenticated JOIN; anonymous sockets cannot enter a room.
+                    if (!modernPeers.contains(client) || !onlineUsers.contains(client)) {
+                        sendLine(client, QStringLiteral("[System] 请先登录后进入聊天室"));
+                        continue;
+                    }
                     // 走到这里说明既不是 LOGIN，也不是 JOIN，而是一条普通聊天消息。
                     const QString time = QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss"));
                     const QString sender = onlineUsers.value(client, socketName(client));
@@ -581,14 +743,16 @@ int main(int argc, char *argv[])
                     const QString legacyMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                     const QString prefix = sender + QStringLiteral(": ");
                     const QString content = text.startsWith(prefix) ? text.mid(prefix.size()) : text;
-                    if (!saveUserHistory(legacyMessageId, onlineUserIds.value(client), sender, content)) {
+                    if (!saveUserHistory(activeRooms.value(client, QString::fromLatin1(RoomStore::LobbyId)),
+                                         legacyMessageId, onlineUserIds.value(client), sender, content)) {
                         sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                         continue;
                     }
 
                     // 转发给其他已经进入聊天窗口的用户，不发回给发送者本人。
                     for (QTcpSocket *other : clients) {
-                        if (other != client && other->state() == QAbstractSocket::ConnectedState && onlineUsers.contains(other)) {
+                        if (other != client && other->state() == QAbstractSocket::ConnectedState &&
+                            onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client)) {
                             sendLine(other, serverMessage);
                         }
                     }
@@ -596,7 +760,7 @@ int main(int argc, char *argv[])
                         static const QRegularExpression mention(
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
                             QRegularExpression::CaseInsensitiveOption);
-                        if (!aiRoom.addUserMessage(onlineUserIds.value(client), sender, content,
+                        if (!roomFor(activeRooms.value(client))->addUserMessage(onlineUserIds.value(client), sender, content,
                                                   mention.match(content).hasMatch(), legacyMessageId))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                     }
@@ -605,7 +769,7 @@ int main(int argc, char *argv[])
 
             // 客户端断开连接时，清理列表和缓存，并刷新在线用户列表。
             QObject::connect(client, &QTcpSocket::disconnected, [client, &clients, &buffers, &onlineUsers,
-                &onlineUserIds, &modernPeers, &broadcastUserList]() {
+                &onlineUserIds, &modernPeers, &activeRooms, &broadcastUserList]() {
                 const QString clientName = socketName(client);
                 const bool wasOnline = onlineUsers.contains(client);
                 const QString nickname = onlineUsers.value(client);
@@ -617,11 +781,13 @@ int main(int argc, char *argv[])
                 onlineUsers.remove(client);
                 onlineUserIds.remove(client);
                 modernPeers.remove(client);
+                const QString leavingRoom = activeRooms.take(client);
 
                 if (wasOnline) {
                     for (QTcpSocket *other : clients) {
                         if (other->state() == QAbstractSocket::ConnectedState && onlineUsers.contains(other)) {
-                            sendLine(other, QStringLiteral("[System] %1 left the chat").arg(nickname));
+                            if (activeRooms.value(other) == leavingRoom)
+                                sendLine(other, QStringLiteral("[System] %1 left the chat").arg(nickname));
                         }
                     }
                     broadcastUserList();

@@ -19,7 +19,8 @@ public:
     using Broadcast = std::function<void(const QString &state, quint64 id, const QString &text)>;
     using HistorySink = std::function<void(const QString &role, const QString &content)>;
     explicit AiRoom(AiService *service, Broadcast broadcast, QObject *parent = nullptr,
-                    int maxConcurrent = 3, int maxQueued = 12, int timeoutMs = 90000);
+                    int maxConcurrent = 3, int maxQueued = 12, int timeoutMs = 90000,
+                    quint64 firstRequestId = 1);
     bool addUserMessage(qint64 accountId, const QString &nickname, const QString &content,
                         bool askVivi, const QString &replyToMessageId = {});
     bool regenerate(quint64 originalId, qint64 accountId);

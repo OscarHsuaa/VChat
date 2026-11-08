@@ -11,6 +11,8 @@ qt_add_executable(ChatServer
     aiservice.h
     airoom.cpp
     airoom.h
+    roomstore.cpp
+    roomstore.h
 )
 
 set_target_properties(ChatServer PROPERTIES AUTOMOC OFF)

@@ -34,6 +34,7 @@ class QToolButton;
 class QListWidget;
 class QEvent;
 class QTimer;
+class RoomSidebarWidget;
 
 class HeaderWaveFrame : public QFrame
 {
@@ -153,6 +154,20 @@ private:
     QLabel *viviStatusLabel = nullptr;
     QLabel *viviStatusDot = nullptr;
     QDate lastSystemDate;
+    RoomSidebarWidget *roomSidebar = nullptr;
+    QString currentRoomId = QStringLiteral("class-room");
+    QString pendingRoomId;
+    QString queuedRoomId;
+    QString roomSettingsKey;
+    QJsonArray joinedRooms;
+    struct RoomMember { qint64 id = 0; QString name; bool online = false; };
+    QVector<RoomMember> roomMembers;
+    QSet<qint64> onlineRoomUserIds;
+    bool roomListRequested = false;
+    bool roomListLoaded = false;
+    bool switchInFlight = false;
+    bool roomHistoryLoading = false;
+    bool initialHistoryDone = false;
 
     // 初始化聊天窗口样式、状态栏、输入框颜色等界面内容。
     void setupUI();
@@ -165,6 +180,13 @@ private:
 
     // 告诉服务器“我已经进入聊天界面”，服务器据此更新在线用户列表。
     void sendJoinMessage();
+    void sendRoomRequest(const QString &action, const QJsonObject &arguments = {});
+    void requestRoomSwitch(const QString &roomId);
+    void handleRoomResult(const QJsonObject &result);
+    void clearMessageView();
+    void updateRoomTitle();
+    void renderRoomMembers();
+    void requestRoomMembers();
 
     // 在聊天框里显示普通聊天消息。
     void appendMessage(const QString &user, const QString &message, bool own = false,

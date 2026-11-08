@@ -17,8 +17,17 @@ qt_add_executable(VChatStreamUiTest ui_stream_test.cpp
     ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
     ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
+    ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
     ../ChatDemo_1/login_icons.qrc)
 target_include_directories(VChatStreamUiTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatStreamUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)
+qt_add_executable(VChatRoomUiIntegrationTest rooms_client_live_test.cpp
+    ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
+    ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
+    ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
+    ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
+    ../ChatDemo_1/login_icons.qrc)
+target_include_directories(VChatRoomUiIntegrationTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatRoomUiIntegrationTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)
 qt_add_executable(VChatServerE2eTest server_e2e_test.cpp)
 target_link_libraries(VChatServerE2eTest PRIVATE Qt::Core Qt::Network)

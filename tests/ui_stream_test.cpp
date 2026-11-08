@@ -1,17 +1,22 @@
 #include "mainwindow.h"
 #include "aimarkdownwidget.h"
+#include "roomsidebarwidget.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QDir>
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QFontDatabase>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QListWidget>
 #include <QLayout>
 #include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSettings>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -47,7 +52,8 @@ static QJsonObject event(const char *kind, int request, const char *message, int
         {"request_id", QString::number(request)}, {"message_id", QString::fromLatin1(message)},
         {"generation_id", QStringLiteral("generation-") + QString::number(request)},
         {"reply_to_message_id", QStringLiteral("question-") + QString::number(request)},
-        {"user_id", QString::number(user)}, {"nickname", name}, {"sequence", sequence}};
+        {"user_id", QString::number(user)}, {"nickname", name}, {"sequence", sequence},
+        {"room_id", QStringLiteral("class-room")}};
     if (QString::fromLatin1(kind) == QStringLiteral("ai_chunk")) object.insert("text", text);
     else if (QString::fromLatin1(kind) == QStringLiteral("ai_complete") ||
              QString::fromLatin1(kind) == QStringLiteral("ai_start")) object.insert("full_text", text);
@@ -58,17 +64,21 @@ static QJsonObject event(const char *kind, int request, const char *message, int
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
+                       QDir::tempPath() + QStringLiteral("/VChatUiTest"));
     QFontDatabase::addApplicationFont(QStringLiteral("C:/Windows/Fonts/msyh.ttc"));
     QTcpServer server;
     if (!server.listen(QHostAddress::LocalHost, 0)) return 1;
     QList<QTcpSocket *> peers;
     QStringList clientCommands;
+    QStringList roomCommands;
     QObject::connect(&server, &QTcpServer::newConnection, &app, [&]() {
         QTcpSocket *peer = server.nextPendingConnection();
         peers.append(peer);
         auto *buffer = new QByteArray;
         QObject::connect(peer, &QObject::destroyed, &app, [buffer]() { delete buffer; });
-        QObject::connect(peer, &QTcpSocket::readyRead, peer, [peer, buffer, &clientCommands]() {
+        QObject::connect(peer, &QTcpSocket::readyRead, peer, [peer, buffer, &clientCommands, &roomCommands]() {
             buffer->append(peer->readAll());
             int end = -1;
             while ((end = buffer->indexOf('\n')) >= 0) {
@@ -76,6 +86,7 @@ int main(int argc, char **argv)
                 buffer->remove(0, end + 1);
                 if (line.startsWith("AI_CANCEL|") || line.startsWith("AI_REGENERATE|"))
                     clientCommands.append(QString::fromUtf8(line));
+                if (line.startsWith("ROOM|")) roomCommands.append(QString::fromUtf8(line));
             }
         });
     });
@@ -296,11 +307,11 @@ int main(int argc, char **argv)
                 latestBody = widget->findChild<AiMarkdownWidget *>();
         return latestBody && latestBody->plainText() == secondRevision;
     })) return 38;
-    const QJsonObject question{{"message_id", "saved-question"}, {"sender_id", "11"},
+    const QJsonObject question{{"room_id", "class-room"}, {"message_id", "saved-question"}, {"sender_id", "11"},
         {"sender", QStringLiteral("甲")}, {"type", "user"},
         {"text", QStringLiteral("@Vivi 请给 C++ 代码")},
         {"time", "2026-11-07T12:01:02.000"}};
-    const QJsonObject answer{{"message_id", "saved-answer"}, {"sender_id", "11"},
+    const QJsonObject answer{{"room_id", "class-room"}, {"message_id", "saved-answer"}, {"sender_id", "11"},
         {"sender", "Vivi"}, {"type", "ai"},
         {"text", QStringLiteral("```cpp\nint value = 42;\n```")},
         {"reply_to_message_id", "saved-question"}, {"reply_to_name", QStringLiteral("甲")}};
@@ -363,5 +374,177 @@ int main(int argc, char **argv)
     for (QWidget *widget : resumed.findChildren<QWidget *>())
         if (widget->property("aiMessageId") == QStringLiteral("pending-answer")) ++pendingRows;
     if (pendingRows != 1) return 45;
+
+    // The navigation uses real protocol frames and never changes the visible
+    // room before a successful switch response.
+    const auto roomResult = [](const QJsonObject &item) {
+        return "ROOM|result|" + QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64() + "\n";
+    };
+    const QJsonArray rooms{
+        QJsonObject{{"room_id", "class-room"}, {"room_name", QStringLiteral("VChat 大厅")}},
+        QJsonObject{{"room_id", "room-two"}, {"room_name", QStringLiteral("任务讨论")},
+                    {"description", QStringLiteral("隔离测试")}}};
+    peers.first()->write("HISTORY_END\n");
+    if (!waitUntil([&]() { return roomCommands.join('\n').contains(QStringLiteral("ROOM|list_mine|")); })) return 46;
+    peers.first()->write(roomResult(QJsonObject{{"action", "list_mine"}, {"ok", true}, {"rooms", rooms}}));
+    auto *sidebar = a.findChild<RoomSidebarWidget *>();
+    if (!sidebar || !waitUntil([&]() { return sidebar->findChild<QListWidget *>()->count() == 2; })) return 47;
+    auto *roomList = sidebar->findChild<QListWidget *>();
+    roomList->itemClicked(roomList->item(1));
+    if (!waitUntil([&]() { return roomCommands.join('\n').contains(QStringLiteral("ROOM|switch|")); })) return 48;
+    if (a.findChildren<AiMarkdownWidget *>().isEmpty()) return 49;
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", false},
+        {"error", QStringLiteral("无权进入聊天室")}}));
+    waitEvents();
+    if (a.findChildren<AiMarkdownWidget *>().isEmpty() ||
+        !roomList->item(0)->isSelected()) return 50;
+    roomList->itemClicked(roomList->item(1));
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "room-two"}}));
+    QJsonObject secondRoomMessage{{"room_id", "room-two"}, {"message_id", "only-room-two"},
+        {"sender_id", "22"}, {"sender", QStringLiteral("乙")}, {"type", "user"},
+        {"text", QStringLiteral("仅任务讨论可见")}, {"time", "2026-11-07T12:01:02.000"}};
+    peers.first()->write(historyFrame(secondRoomMessage));
+    peers.first()->write("HISTORY_END\n");
+    const QJsonArray online{QJsonObject{{"id", "11"}, {"name", QStringLiteral("甲")}}};
+    peers.first()->write("USERLIST2|" + QJsonDocument(online).toJson(QJsonDocument::Compact).toBase64() + "\n");
+    const QJsonArray roomMembers{
+        QJsonObject{{"user_id", "11"}, {"nickname", QStringLiteral("甲")}},
+        QJsonObject{{"user_id", "22"}, {"nickname", QStringLiteral("乙")}}};
+    peers.first()->write(roomResult(QJsonObject{{"action", "members"}, {"ok", true},
+        {"room_id", "room-two"}, {"members", roomMembers}}));
+    if (!waitUntil([&]() {
+        int newRows = 0, oldRows = 0;
+        for (QWidget *widget : a.findChildren<QWidget *>()) {
+            if (widget->property("userMessageId") == QStringLiteral("only-room-two")) ++newRows;
+            if (widget->property("aiMessageId") == QStringLiteral("reply-1")) ++oldRows;
+        }
+        return newRows == 1 && oldRows == 0 && roomList->item(1)->isSelected();
+    })) return 51;
+    if (a.findChild<QListWidget *>(QStringLiteral("userList"))->count() != 2 ||
+        !a.findChild<QLabel *>(QStringLiteral("onlineBadge"))->text().contains(QStringLiteral("1 人在线"))) return 52;
+    peers.first()->write(frame(event("ai_start", 80, "old-room-event", 11, QStringLiteral("甲"), 0)));
+    waitEvents();
+    for (QWidget *widget : a.findChildren<QWidget *>())
+        if (widget->property("aiMessageId") == QStringLiteral("old-room-event")) return 53;
+    sidebar->setCollapsed(true);
+    if (sidebar->width() > 70 || !roomList->item(1)->isSelected()) return 54;
+    sidebar->setCollapsed(false);
+    if (sidebar->width() < 210) return 55;
+    auto *toggle = sidebar->findChildren<QToolButton *>().first();
+    toggle->click();
+    QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+    settings.sync();
+    if (!sidebar->isCollapsed() || !settings.value(QStringLiteral("rooms/sidebarCollapsed")).toBool()) return 66;
+    toggle->click();
+    settings.sync();
+    if (sidebar->isCollapsed() || settings.value(QStringLiteral("rooms/sidebarCollapsed")).toBool()) return 67;
+    auto switchCount = [&]() {
+        int count = 0;
+        for (const QString &command : roomCommands)
+            if (command.startsWith(QStringLiteral("ROOM|switch|"))) ++count;
+        return count;
+    };
+    const int beforeRapid = switchCount();
+    roomList->itemClicked(roomList->item(0));
+    roomList->itemClicked(roomList->item(1));
+    waitEvents();
+    if (switchCount() != beforeRapid + 1) return 56; // Second click is queued.
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "class-room"}}));
+    QJsonObject lobbyMessage = secondRoomMessage;
+    lobbyMessage.insert(QStringLiteral("room_id"), QStringLiteral("class-room"));
+    lobbyMessage.insert(QStringLiteral("message_id"), QStringLiteral("lobby-rapid"));
+    peers.first()->write(historyFrame(lobbyMessage));
+    peers.first()->write("HISTORY_END\n");
+    if (!waitUntil([&]() { return switchCount() == beforeRapid + 2; })) return 57;
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "room-two"}}));
+    peers.first()->write(historyFrame(secondRoomMessage));
+    peers.first()->write("HISTORY_END\n");
+    if (!waitUntil([&]() {
+        int roomTwo = 0, lobby = 0;
+        for (QWidget *widget : a.findChildren<QWidget *>()) {
+            if (widget->property("userMessageId") == QStringLiteral("only-room-two")) ++roomTwo;
+            if (widget->property("userMessageId") == QStringLiteral("lobby-rapid")) ++lobby;
+        }
+        return roomTwo == 1 && lobby == 0 && roomList->item(1)->isSelected();
+    })) return 58;
+    MainWindow restored(QStringLiteral("甲"), address, nullptr, 11, QStringLiteral("test-restore"));
+    restored.show();
+    if (!waitUntil([&]() { return peers.size() == 6; })) return 59;
+    peers.last()->write("HISTORY_END\n");
+    if (!waitUntil([&]() {
+        int count = 0;
+        for (const QString &command : roomCommands)
+            if (command.startsWith(QStringLiteral("ROOM|list_mine|"))) ++count;
+        return count >= 2;
+    })) return 60;
+    peers.last()->write(roomResult(QJsonObject{{"action", "list_mine"}, {"ok", true}, {"rooms", rooms}}));
+    if (!waitUntil([&]() { return switchCount() == beforeRapid + 3; })) return 61;
+    peers.last()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "room-two"}}));
+    peers.last()->write(historyFrame(secondRoomMessage));
+    peers.last()->write("HISTORY_END\n");
+    if (!waitUntil([&]() {
+        auto *list = restored.findChild<QListWidget *>(QStringLiteral("roomList"));
+        return list && list->count() == 2 && list->item(1)->isSelected();
+    })) return 62;
+    // Switching away from an active Vivi reply must discard only this room's
+    // widgets. Returning replays the pending history row plus one live snapshot.
+    roomList->itemClicked(roomList->item(0));
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "class-room"}}));
+    QJsonObject pendingRoomAi = answer;
+    pendingRoomAi.insert(QStringLiteral("message_id"), QStringLiteral("room-ai-pending"));
+    pendingRoomAi.insert(QStringLiteral("ai_state"), QStringLiteral("pending"));
+    pendingRoomAi.insert(QStringLiteral("text"), QString());
+    peers.first()->write(historyFrame(pendingRoomAi));
+    peers.first()->write("HISTORY_END\n");
+    QJsonObject partial = event("ai_start", 90, "room-ai-pending", 11,
+                                QStringLiteral("甲"), 1, QStringLiteral("已生成片段"));
+    peers.first()->write(frame(partial));
+    if (!waitUntil([&]() {
+        for (QWidget *widget : a.findChildren<QWidget *>())
+            if (widget->property("aiMessageId") == QStringLiteral("room-ai-pending")) {
+                auto *body = widget->findChild<AiMarkdownWidget *>();
+                return body && body->plainText() == QStringLiteral("已生成片段");
+            }
+        return false;
+    })) return 63;
+    roomList->itemClicked(roomList->item(1));
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "room-two"}}));
+    peers.first()->write(historyFrame(secondRoomMessage));
+    peers.first()->write("HISTORY_END\n");
+    peers.first()->write(frame(event("ai_chunk", 90, "room-ai-pending", 11,
+                                   QStringLiteral("甲"), 2, QStringLiteral("旧房间增量"))));
+    waitEvents();
+    for (QWidget *widget : a.findChildren<QWidget *>())
+        if (widget->property("aiMessageId") == QStringLiteral("room-ai-pending")) return 64;
+    roomList->itemClicked(roomList->item(0));
+    peers.first()->write(roomResult(QJsonObject{{"action", "switch"}, {"ok", true},
+        {"room_id", "class-room"}}));
+    peers.first()->write(historyFrame(pendingRoomAi));
+    peers.first()->write("HISTORY_END\n");
+    partial.insert(QStringLiteral("sequence"), 2);
+    partial.insert(QStringLiteral("full_text"), QStringLiteral("已生成片段旧房间增量"));
+    peers.first()->write(frame(partial));
+    if (!waitUntil([&]() {
+        int rows = 0;
+        bool complete = false;
+        for (QWidget *widget : a.findChildren<QWidget *>())
+            if (widget->property("aiMessageId") == QStringLiteral("room-ai-pending")) {
+                ++rows;
+                auto *body = widget->findChild<AiMarkdownWidget *>();
+                complete = body && body->plainText() == QStringLiteral("已生成片段旧房间增量");
+            }
+        return rows == 1 && complete;
+    })) return 65;
+    if (argc > 2) {
+        a.resize(1200, 780);
+        waitEvents();
+        a.grab().save(QString::fromLocal8Bit(argv[2]));
+    }
     return 0;
 }

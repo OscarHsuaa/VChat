@@ -19,6 +19,8 @@ qt_add_executable(ChatDemo_1
     aimarkdownwidget.h
     mentioninput.cpp
     mentioninput.h
+    roomsidebarwidget.cpp
+    roomsidebarwidget.h
     mainwindow.ui
 )
 

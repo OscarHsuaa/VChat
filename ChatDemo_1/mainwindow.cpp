@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "aimarkdownwidget.h"
 #include "mentioninput.h"
+#include "roomsidebarwidget.h"
 #include "ui_mainwindow.h"
 
 #include <QFont>
@@ -10,6 +11,7 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QClipboard>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDebug>
 #include <QGuiApplication>
@@ -24,6 +26,7 @@
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSettings>
 #include <QStyle>
 #include <QSvgRenderer>
 #include <QTimer>
@@ -33,6 +36,7 @@
 #include <QTextBoundaryFinder>
 #include <QVBoxLayout>
 #include <QUuid>
+#include <algorithm>
 
 namespace {
 QIcon iconFromSvg(const QString &path, int size = 20)
@@ -156,6 +160,8 @@ MainWindow::MainWindow(const QString &loginName, const QString &serverAddress, Q
     , socket(new QTcpSocket(this))
 {
     ui->setupUi(this);
+    roomSettingsKey = QStringLiteral("rooms/last/%1/%2").arg(ownAccountId).arg(
+        QString::fromLatin1(QCryptographicHash::hash(serverAddress.toUtf8(), QCryptographicHash::Sha256).toHex()));
     aiTypewriterTimer = new QTimer(this);
     aiTypewriterTimer->setInterval(20);
     connect(aiTypewriterTimer, &QTimer::timeout, this, &MainWindow::advanceAiTypewriter);
@@ -189,8 +195,19 @@ void MainWindow::setupUI()
     menuBar()->hide();
     statusBar()->hide();
     ui->logoLabel->setPixmap(chatLogo().scaled(50, 50, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->bodyLayout->setStretch(0, 3);
-    ui->bodyLayout->setStretch(1, 1);
+    roomSidebar = new RoomSidebarWidget(ui->centralwidget);
+    ui->bodyLayout->insertWidget(0, roomSidebar);
+    ui->bodyLayout->setStretch(0, 0);
+    ui->bodyLayout->setStretch(1, 3);
+    ui->bodyLayout->setStretch(2, 1);
+    QSettings roomSettings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+    roomSidebar->setCollapsed(roomSettings.value(QStringLiteral("rooms/sidebarCollapsed"), false).toBool());
+    connect(roomSidebar, &RoomSidebarWidget::collapsedChanged, this, [](bool collapsed) {
+        QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+        settings.setValue(QStringLiteral("rooms/sidebarCollapsed"), collapsed);
+    });
+    connect(roomSidebar, &RoomSidebarWidget::roomSelected, this, &MainWindow::requestRoomSwitch);
+    updateRoomTitle();
     // QTextEdit advertises vertical expansion through its parent layout. Keep
     // the original one-line composer height and give spare space to messages.
     ui->messageScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -310,8 +327,21 @@ void MainWindow::connectSlots()
     // 连接成功后，客户端会立刻发送 JOIN|昵称，让服务器知道这个用户正式进入聊天界面。
     connect(socket, &QTcpSocket::connected, this, [this]() {
         isConnected = true;
+        roomListRequested = roomListLoaded = switchInFlight = roomHistoryLoading = initialHistoryDone = false;
+        pendingRoomId.clear();
+        queuedRoomId.clear();
+        currentRoomId = QStringLiteral("class-room");
+        roomMembers.clear();
+        onlineRoomUserIds.clear();
+        onlineNames.clear();
+        clearMessageView();
+        roomSidebar->setRooms({});
+        roomSidebar->setCurrentRoom(currentRoomId);
+        roomSidebar->setNotice(QStringLiteral("正在加载聊天室…"));
+        updateRoomTitle();
         ui->serverStatusLabel->setText(QStringLiteral("● 服务器已连接"));
         ui->serverStatusLabel->setStyleSheet("color:#31b875; font-size:12px;");
+        appendSystemMessage(QStringLiteral("欢迎来到 VChat 聊天室"));
         appendSystemMessage("已连接到聊天服务器");
         statusBar()->showMessage("已连接到聊天服务器");
         sendJoinMessage();
@@ -320,6 +350,11 @@ void MainWindow::connectSlots()
     // 断开连接后，界面状态恢复为“未连接”，在线列表也只显示自己。
     connect(socket, &QTcpSocket::disconnected, this, [this]() {
         isConnected = false;
+        roomListLoaded = switchInFlight = roomHistoryLoading = false;
+        pendingRoomId.clear();
+        queuedRoomId.clear();
+        roomSidebar->setNotice(QStringLiteral("连接已断开"));
+        onlineRoomUserIds.clear();
         mentionProtocol = false;
         onlineMentionMembers.clear();
         streamedRequestIds.clear();
@@ -371,6 +406,10 @@ void MainWindow::on_sendButton_clicked()
 
     if (!isConnected || socket->state() != QAbstractSocket::ConnectedState) {
         appendSystemMessage("请先连接服务器");
+        return;
+    }
+    if (switchInFlight) {
+        roomSidebar->setNotice(QStringLiteral("聊天室正在加载，请稍候"));
         return;
     }
 
@@ -544,10 +583,158 @@ bool MainWindow::connectToServerAddress(const QString &address, bool showErrorMe
 void MainWindow::sendJoinMessage()
 {
     if (socket->state() == QAbstractSocket::ConnectedState) {
-        // JOIN 协议只负责“上线通知”，不保存到聊天记录表。
-        const QString join = sessionToken.isEmpty() ? QStringLiteral("JOIN|%1\n").arg(nickname)
-            : QStringLiteral("JOIN|%1|%2\n").arg(nickname, sessionToken);
-        socket->write(join.toUtf8());
+        if (sessionToken.isEmpty()) {
+            roomSidebar->setNotice(QStringLiteral("登录会话缺失，请重新登录"));
+            appendSystemMessage(QStringLiteral("登录会话缺失，请重新登录后进入聊天室。"));
+            return;
+        }
+        socket->write(QStringLiteral("JOIN|%1|%2\n").arg(nickname, sessionToken).toUtf8());
+    }
+}
+
+void MainWindow::sendRoomRequest(const QString &action, const QJsonObject &arguments)
+{
+    if (socket->state() != QAbstractSocket::ConnectedState || sessionToken.isEmpty()) return;
+    socket->write("ROOM|" + action.toUtf8() + '|' +
+        QJsonDocument(arguments).toJson(QJsonDocument::Compact).toBase64() + '\n');
+}
+
+void MainWindow::requestRoomSwitch(const QString &roomId)
+{
+    if (!roomListLoaded || roomId.isEmpty()) return;
+    bool allowed = false;
+    for (const QJsonValue &value : joinedRooms)
+        if (value.toObject().value(QStringLiteral("room_id")).toString() == roomId) allowed = true;
+    if (!allowed) return;
+    if (switchInFlight) {
+        queuedRoomId = roomId;
+        return;
+    }
+    if (roomId == currentRoomId) return;
+    switchInFlight = true;
+    pendingRoomId = roomId;
+    queuedRoomId.clear();
+    ui->messageInput->setEnabled(false);
+    ui->sendButton->setEnabled(false);
+    roomSidebar->setNotice(QStringLiteral("正在切换聊天室…"));
+    sendRoomRequest(QStringLiteral("switch"), {{QStringLiteral("room_id"), roomId}});
+}
+
+void MainWindow::clearMessageView()
+{
+    aiTypewriterTimer->stop();
+    aiStreams.clear();
+    aiThinkingRows.clear();
+    aiReplyTargets.clear();
+    streamedRequestIds.clear();
+    renderedUserMessageIds.clear();
+    bubbleColumns.clear();
+    messageBubbles.clear();
+    messageBodies.clear();
+    aiColumns.clear();
+    aiBubbles.clear();
+    aiBodies.clear();
+    systemPills.clear();
+    lastMessageKey.clear();
+    lastSystemDate = QDate();
+    // Keep the trailing stretch item; all message widgets belong to this layout.
+    while (ui->messageLayout->count() > 1) {
+        QLayoutItem *item = ui->messageLayout->takeAt(0);
+        delete item->widget();
+        delete item;
+    }
+}
+
+void MainWindow::updateRoomTitle()
+{
+    QString name = QStringLiteral("VChat 大厅");
+    for (const QJsonValue &value : joinedRooms) {
+        const QJsonObject room = value.toObject();
+        if (room.value(QStringLiteral("room_id")).toString() == currentRoomId) {
+            name = room.value(QStringLiteral("room_name")).toString(name);
+            break;
+        }
+    }
+    ui->subtitleLabel->setText(QStringLiteral("轻松连接每一次交流 · %1").arg(name));
+    setWindowTitle(QStringLiteral("VChat - %1").arg(name));
+}
+
+void MainWindow::requestRoomMembers()
+{
+    if (roomListLoaded && !currentRoomId.isEmpty())
+        sendRoomRequest(QStringLiteral("members"), {{QStringLiteral("room_id"), currentRoomId}});
+}
+
+void MainWindow::handleRoomResult(const QJsonObject &result)
+{
+    const QString action = result.value(QStringLiteral("action")).toString();
+    const bool ok = result.value(QStringLiteral("ok")).toBool();
+    if (action == QStringLiteral("list_mine")) {
+        if (!ok || !result.value(QStringLiteral("rooms")).isArray()) {
+            roomSidebar->setNotice(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("聊天室列表加载失败")));
+            return;
+        }
+        joinedRooms = result.value(QStringLiteral("rooms")).toArray();
+        roomListLoaded = true;
+        roomSidebar->setRooms(joinedRooms);
+        roomSidebar->setNotice(joinedRooms.isEmpty() ? QStringLiteral("尚未加入聊天室") : QString());
+        roomSidebar->setCurrentRoom(currentRoomId);
+        updateRoomTitle();
+        requestRoomMembers();
+        QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+        const QString saved = settings.value(roomSettingsKey).toString();
+        bool accessible = false;
+        for (const QJsonValue &value : joinedRooms)
+            if (value.toObject().value(QStringLiteral("room_id")).toString() == saved) accessible = true;
+        if (accessible && saved != currentRoomId) requestRoomSwitch(saved);
+        return;
+    }
+    if (action == QStringLiteral("switch")) {
+        if (!switchInFlight || (ok && result.value(QStringLiteral("room_id")).toString() != pendingRoomId))
+            return;
+        if (!ok) {
+            switchInFlight = false;
+            pendingRoomId.clear();
+            ui->messageInput->setEnabled(true);
+            ui->sendButton->setEnabled(!ui->messageInput->toPlainText().trimmed().isEmpty());
+            roomSidebar->setCurrentRoom(currentRoomId);
+            roomSidebar->setNotice(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("切换聊天室失败")));
+            if (!queuedRoomId.isEmpty() && queuedRoomId != currentRoomId) {
+                const QString next = queuedRoomId;
+                queuedRoomId.clear();
+                requestRoomSwitch(next);
+            }
+            return;
+        }
+        currentRoomId = pendingRoomId;
+        roomHistoryLoading = true;
+        clearMessageView();
+        selectedMentions.clear();
+        onlineMentionMembers.clear();
+        if (mentionPopup) mentionPopup->hide();
+        roomMembers.clear();
+        onlineRoomUserIds.clear();
+        onlineNames.clear();
+        renderRoomMembers();
+        roomSidebar->setCurrentRoom(currentRoomId);
+        updateRoomTitle();
+        requestRoomMembers();
+        return;
+    }
+    if (action == QStringLiteral("members")) {
+        if (!ok || result.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
+        roomMembers.clear();
+        for (const QJsonValue &value : result.value(QStringLiteral("members")).toArray()) {
+            const QJsonObject member = value.toObject();
+            bool valid = false;
+            const qint64 id = member.value(QStringLiteral("user_id")).toString().toLongLong(&valid);
+            const QString name = member.value(QStringLiteral("nickname")).toString();
+            if (valid && !name.isEmpty())
+                roomMembers.append({id, name, onlineRoomUserIds.contains(id)});
+        }
+        renderRoomMembers();
     }
 }
 
@@ -1332,10 +1519,16 @@ void MainWindow::appendPresenceNotice(const QString &name, bool joined)
 
 void MainWindow::appendIncomingLine(const QString &line)
 {
+    if (line.startsWith(QStringLiteral("ROOM|result|"))) {
+        const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(12).toLatin1()));
+        if (document.isObject()) handleRoomResult(document.object());
+        return;
+    }
     if (line.startsWith(QStringLiteral("HISTORY|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(8).toLatin1()));
         if (!document.isObject()) return;
         const QJsonObject item = document.object();
+        if (item.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
         const QString id = item.value(QStringLiteral("message_id")).toString();
         if (id.isEmpty()) return;
         const QString body = item.value(QStringLiteral("text")).toString();
@@ -1383,7 +1576,30 @@ void MainWindow::appendIncomingLine(const QString &line)
         }
         return;
     }
-    if (line == QStringLiteral("HISTORY_END")) return;
+    if (line == QStringLiteral("HISTORY_END")) {
+        if (roomHistoryLoading) {
+            roomHistoryLoading = false;
+            switchInFlight = false;
+            pendingRoomId.clear();
+            ui->messageInput->setEnabled(true);
+            ui->sendButton->setEnabled(!ui->messageInput->toPlainText().trimmed().isEmpty());
+            roomSidebar->setNotice({});
+            QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+            settings.setValue(roomSettingsKey, currentRoomId);
+            if (!queuedRoomId.isEmpty() && queuedRoomId != currentRoomId) {
+                const QString next = queuedRoomId;
+                queuedRoomId.clear();
+                requestRoomSwitch(next);
+            }
+        } else if (!initialHistoryDone) {
+            initialHistoryDone = true;
+            if (!roomListRequested) {
+                roomListRequested = true;
+                sendRoomRequest(QStringLiteral("list_mine"));
+            }
+        }
+        return;
+    }
     if (line.startsWith(QStringLiteral("USERLIST2|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(10).toLatin1()));
         if (!document.isArray()) return;
@@ -1396,6 +1612,13 @@ void MainWindow::appendIncomingLine(const QString &line)
             if (valid && !name.isEmpty()) members.append({id, name, false});
         }
         onlineMentionMembers = members;
+        onlineRoomUserIds.clear();
+        for (const MentionCandidate &member : members) onlineRoomUserIds.insert(member.id);
+        if (roomListLoaded) {
+            for (RoomMember &member : roomMembers) member.online = onlineRoomUserIds.contains(member.id);
+            renderRoomMembers();
+            requestRoomMembers(); // Membership may have changed since the last snapshot.
+        }
         mentionProtocol = true;
         if (mentionPopup && mentionPopup->isVisible()) updateMentionPopup();
         return;
@@ -1404,6 +1627,9 @@ void MainWindow::appendIncomingLine(const QString &line)
         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(6).toLatin1()));
         if (!document.isObject()) return;
         const QJsonObject payload = document.object();
+        const QString roomId = payload.value(QStringLiteral("room_id")).toString();
+        if ((!roomId.isEmpty() && roomId != currentRoomId) ||
+            (roomId.isEmpty() && currentRoomId != QStringLiteral("class-room"))) return;
         appendMessage(payload.value(QStringLiteral("sender")).toString(),
             payload.value(QStringLiteral("text")).toString(), false,
             payload.value(QStringLiteral("time")).toString(), false, {},
@@ -1419,7 +1645,9 @@ void MainWindow::appendIncomingLine(const QString &line)
         const QString content = QString::fromUtf8(QByteArray::fromBase64(parts.at(3).toLatin1()));
         if (state == QStringLiteral("stream")) {
             const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
-            if (document.isObject() && document.object().value(QStringLiteral("request_id")).toString() == id)
+            if (document.isObject() &&
+                document.object().value(QStringLiteral("room_id")).toString() == currentRoomId &&
+                document.object().value(QStringLiteral("request_id")).toString() == id)
                 appendAiStreamEvent(document.object());
             return;
         }
@@ -1509,6 +1737,11 @@ void MainWindow::appendIncomingLine(const QString &line)
 
 void MainWindow::updateUserList(const QStringList &users)
 {
+    if (roomListLoaded) {
+        onlineNames = users;
+        renderRoomMembers();
+        return;
+    }
     QStringList incomingNames;
     if (isConnected) {
         for (const QString &user : users) {
@@ -1573,10 +1806,65 @@ void MainWindow::updateUserList(const QStringList &users)
     if (mentionPopup && mentionPopup->isVisible()) updateMentionPopup();
 }
 
+void MainWindow::renderRoomMembers()
+{
+    if (!roomListLoaded) return;
+    QVector<RoomMember> display = roomMembers;
+    const auto own = std::find_if(display.begin(), display.end(), [this](const RoomMember &member) {
+        return member.id == ownAccountId;
+    });
+    if (own != display.end() && own != display.begin()) display.move(int(own - display.begin()), 0);
+    ui->userList->clear();
+    int onlineCount = 0;
+    for (const RoomMember &member : display) {
+        if (member.online) ++onlineCount;
+        const bool isSelf = member.id == ownAccountId;
+        auto *item = new QListWidgetItem(ui->userList);
+        item->setSizeHint(QSize(0, 72));
+        auto *row = new QFrame(ui->userList);
+        row->setObjectName(QStringLiteral("memberCard"));
+        row->setAttribute(Qt::WA_StyledBackground, true);
+        row->setAttribute(Qt::WA_Hover, true);
+        row->setStyleSheet(isSelf
+            ? QStringLiteral("QFrame#memberCard { background:#f5f0fd; border-radius:13px; } QFrame#memberCard:hover { background:#efe7fa; }")
+            : QStringLiteral("QFrame#memberCard { background:transparent; border-radius:13px; } QFrame#memberCard:hover { background:#f7f4fc; }"));
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(12, 8, 12, 8);
+        layout->setSpacing(12);
+        layout->addWidget(avatarLabel(member.name, row, 42));
+        auto *details = new QVBoxLayout;
+        details->setSpacing(4);
+        auto *name = new QLabel(isSelf ? member.name + QStringLiteral("（我）") : member.name, row);
+        name->setTextFormat(Qt::PlainText);
+        name->setStyleSheet(QStringLiteral("color:#252044; font-size:14px; font-weight:600;"));
+        details->addWidget(name);
+        auto *status = new QHBoxLayout;
+        status->setContentsMargins(0, 0, 0, 0);
+        status->setSpacing(6);
+        auto *dot = new QLabel(row);
+        dot->setFixedSize(8, 8);
+        dot->setStyleSheet(member.online
+            ? QStringLiteral("background:#31b875; border-radius:4px;")
+            : QStringLiteral("background:#b7afc6; border-radius:4px;"));
+        status->addWidget(dot);
+        auto *state = new QLabel(member.online ? QStringLiteral("在线") : QStringLiteral("离线"), row);
+        state->setStyleSheet(QStringLiteral("color:#79718f; font-size:12px;"));
+        status->addWidget(state);
+        status->addStretch();
+        details->addLayout(status);
+        layout->addLayout(details, 1);
+        ui->userList->setItemWidget(item, row);
+    }
+    ui->onlineTitle->setText(QStringLiteral("聊天室成员"));
+    ui->onlineBadge->setText(QStringLiteral("%1 人在线").arg(onlineCount));
+    ui->onlineCountLabel->setText(QStringLiteral("在线人数：%1").arg(onlineCount));
+    updateMemberListHeight();
+}
+
 void MainWindow::updateMemberListHeight()
 {
     // The real user list scrolls when crowded; Vivi stays in its own card below it.
-    const int needed = onlineNames.size() * 76;
+    const int needed = (roomListLoaded ? roomMembers.size() : onlineNames.size()) * 76;
     const int available = qMax(100, ui->rightPanel->height() - 215);
     ui->userList->setFixedHeight(qMin(needed, available));
 }

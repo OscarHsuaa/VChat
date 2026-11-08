@@ -12,6 +12,7 @@
     <file alias="exit.svg">icons/exit.svg</file>
     <file alias="send.svg">icons/send.svg</file>
     <file alias="members.svg">icons/members.svg</file>
+    <file alias="room.svg">icons/room.svg</file>
     <file alias="connected.svg">icons/connected.svg</file>
     <file alias="vivi-robot.svg">icons/vivi-robot.svg</file>
     <file alias="user-plus.svg">icons/user-plus.svg</file>
