@@ -2,9 +2,14 @@
 #include "aimarkdownwidget.h"
 #include "mentioninput.h"
 #include "roomsidebarwidget.h"
+#include "roomcreatedialog.h"
+#include "roominvitedialog.h"
+#include "roommanagementdialog.h"
 #include "ui_mainwindow.h"
 
 #include <QFont>
+#include <QFrame>
+#include <QApplication>
 #include <QEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -35,6 +40,7 @@
 #include <QTextDocument>
 #include <QTextBoundaryFinder>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 #include <QUuid>
 #include <algorithm>
 
@@ -47,6 +53,42 @@ QIcon iconFromSvg(const QString &path, int size = 20)
     pixmap.fill(Qt::transparent);
     QPainter painter(&pixmap);
     renderer.render(&painter, QRectF(0, 0, size, size));
+    return QIcon(pixmap);
+}
+
+QIcon inviteBellIcon(bool hasPending)
+{
+    QPixmap pixmap(44, 44);
+    pixmap.setDevicePixelRatio(2);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    QSvgRenderer renderer(QStringLiteral(":/login/bell.svg"));
+    renderer.render(&painter, QRectF(1, 2, 18, 18));
+    if (hasPending) {
+        painter.setBrush(QColor("#d85d83"));
+        painter.setPen(QPen(Qt::white, 1.2));
+        painter.drawEllipse(QPointF(17, 4), 3.3, 3.3);
+    }
+    return QIcon(pixmap);
+}
+
+QIcon memberChevron(bool pointsLeft)
+{
+    QPixmap pixmap(40, 40);
+    pixmap.setDevicePixelRatio(2);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    QPen pen(QColor("#7956d5"), 2.1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    painter.setPen(pen);
+    if (pointsLeft) {
+        painter.drawLine(QPointF(12, 5), QPointF(7, 10));
+        painter.drawLine(QPointF(7, 10), QPointF(12, 15));
+    } else {
+        painter.drawLine(QPointF(8, 5), QPointF(13, 10));
+        painter.drawLine(QPointF(13, 10), QPointF(8, 15));
+    }
     return QIcon(pixmap);
 }
 
@@ -202,19 +244,228 @@ void MainWindow::setupUI()
     ui->bodyLayout->setStretch(2, 1);
     QSettings roomSettings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
     roomSidebar->setCollapsed(roomSettings.value(QStringLiteral("rooms/sidebarCollapsed"), false).toBool());
-    connect(roomSidebar, &RoomSidebarWidget::collapsedChanged, this, [](bool collapsed) {
+    connect(roomSidebar, &RoomSidebarWidget::collapsedChanged, this, [this](bool collapsed) {
         QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
         settings.setValue(QStringLiteral("rooms/sidebarCollapsed"), collapsed);
+        QTimer::singleShot(0, this, &MainWindow::updateBubbleWidths);
     });
     connect(roomSidebar, &RoomSidebarWidget::roomSelected, this, &MainWindow::requestRoomSwitch);
+    connect(roomSidebar, &RoomSidebarWidget::createRequested, this, &MainWindow::openCreateRoomDialog);
+    roomCreateTimer = new QTimer(this);
+    roomCreateTimer->setSingleShot(true);
+    connect(roomCreateTimer, &QTimer::timeout, this, [this]() {
+        if (!createRoomInFlight) return;
+        if (roomCreateDialog) {
+            roomCreateDialog->setPending(false);
+            roomCreateDialog->showError(QStringLiteral("服务器响应超时，创建结果尚未确认。请检查聊天室列表；若持续无响应，请重新连接后再试。"));
+        }
+        sendRoomRequest(QStringLiteral("list_mine"));
+    });
+    memberCollapseButton = new QToolButton(ui->rightPanel);
+    memberCollapseButton->setObjectName(QStringLiteral("memberCollapseButton"));
+    memberCollapseButton->setIcon(memberChevron(false));
+    memberCollapseButton->setIconSize(QSize(20, 20));
+    memberCollapseButton->setToolTip(QStringLiteral("收起成员列表"));
+    memberCollapseButton->setCursor(Qt::PointingHandCursor);
+    memberCollapseButton->setFixedSize(28, 28);
+    memberCollapseButton->setStyleSheet(QStringLiteral(
+        "QToolButton { color:#7956d5; background:transparent; border:0; border-radius:8px; font-size:16px; }"
+        "QToolButton:hover { background:#f0e9fc; }"));
+    ui->memberHeader->addWidget(memberCollapseButton);
+    connect(memberCollapseButton, &QToolButton::clicked, this, [this]() { setMembersCollapsed(true); });
+    memberExpandButton = new QToolButton(ui->centralwidget);
+    memberExpandButton->setObjectName(QStringLiteral("memberExpandButton"));
+    memberExpandButton->setIcon(memberChevron(true));
+    memberExpandButton->setIconSize(QSize(20, 20));
+    memberExpandButton->setToolTip(QStringLiteral("展开成员列表"));
+    memberExpandButton->setCursor(Qt::PointingHandCursor);
+    memberExpandButton->setFixedWidth(40);
+    memberExpandButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    memberExpandButton->setStyleSheet(QStringLiteral(
+        "QToolButton { color:#7956d5; background:#fcfaff; border:1px solid #eee8f8; border-radius:13px; font-size:17px; }"
+        "QToolButton:hover { background:#f0e9fc; }"));
+    ui->bodyLayout->insertWidget(2, memberExpandButton);
+    connect(memberExpandButton, &QToolButton::clicked, this, [this]() { setMembersCollapsed(false); });
+    memberExpandButton->hide();
+    ui->bodyLayout->setStretch(3, 1);
+    setMembersCollapsed(roomSettings.value(QStringLiteral("members/collapsed/%1").arg(ownAccountId), false).toBool());
+    ui->memberHeader->setSpacing(4);
+    ui->memberSpacer->changeSize(0, 0, QSizePolicy::Minimum, QSizePolicy::Minimum);
+    ui->memberHeader->invalidate();
+    ui->rightLayout->setContentsMargins(12, 18, 12, 20);
+    ui->onlineBadge->setStyleSheet(QStringLiteral(
+        "color:#6c52bc; padding:4px 6px; font-size:11px; font-weight:600;"));
+    roomInfoBar = new QFrame(ui->chatPanel);
+    roomInfoBar->setObjectName(QStringLiteral("roomInfoBar"));
+    roomInfoBar->setStyleSheet(QStringLiteral(
+        "QFrame#roomInfoBar { background:#fdfbff; border-bottom:1px solid #eee8f8; }"
+        "QPushButton#inviteMembersButton { background:#8064d9; color:white; border:0;"
+        " border-radius:9px; padding:8px 13px; font-weight:600; }"
+        "QPushButton#inviteMembersButton:hover { background:#9275e8; }"
+        "QPushButton#inviteMembersButton:disabled { background:#d8d1e7; }"));
+    auto *roomBarLayout = new QHBoxLayout(roomInfoBar);
+    roomBarLayout->setContentsMargins(18, 10, 18, 10);
+    roomBarLayout->setSpacing(10);
+    auto *roomText = new QVBoxLayout;
+    roomText->setSpacing(2);
+    auto *roomTitleRow = new QHBoxLayout;
+    roomTitleRow->setSpacing(8);
+    roomNameLabel = new QLabel(roomInfoBar);
+    roomNameLabel->setObjectName(QStringLiteral("roomNameLabel"));
+    roomNameLabel->setStyleSheet(QStringLiteral("color:#252044; font-size:15px; font-weight:600;"));
+    roomTitleRow->addWidget(roomNameLabel);
+    roomTitleRow->addStretch();
+    roomText->addLayout(roomTitleRow);
+    roomDescriptionLabel = new QLabel(roomInfoBar);
+    roomDescriptionLabel->setStyleSheet(QStringLiteral("color:#827799; font-size:11px;"));
+    roomDescriptionLabel->setTextFormat(Qt::PlainText);
+    roomText->addWidget(roomDescriptionLabel);
+    roomBarLayout->addLayout(roomText, 1);
+    inviteMembersButton = new QPushButton(QStringLiteral("邀请成员"), roomInfoBar);
+    inviteMembersButton->setObjectName(QStringLiteral("inviteMembersButton"));
+    inviteMembersButton->setCursor(Qt::PointingHandCursor);
+    roomBarLayout->addWidget(inviteMembersButton);
+    connect(inviteMembersButton, &QPushButton::clicked, this, &MainWindow::openInviteDialog);
+    roomMoreButton = new QToolButton(roomInfoBar);
+    roomMoreButton->setObjectName(QStringLiteral("roomMoreButton"));
+    roomMoreButton->setText(QStringLiteral("···"));
+    roomMoreButton->setToolTip(QStringLiteral("聊天室管理"));
+    roomMoreButton->setCursor(Qt::PointingHandCursor);
+    roomMoreButton->setFixedSize(32, 32);
+    roomMoreButton->setStyleSheet(QStringLiteral(
+        "QToolButton { color:#705aab; background:#f4effb; border:1px solid #e8def6;"
+        " border-radius:9px; font-size:18px; } QToolButton:hover { background:#e9def9; }"));
+    roomBarLayout->addWidget(roomMoreButton);
+    connect(roomMoreButton, &QToolButton::clicked, this, [this]() {
+        if (!isConnected || switchInFlight || roomHistoryLoading ||
+            currentRoomId == QStringLiteral("class-room")) return;
+        auto *menu = new QMenu(roomMoreButton);
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        menu->setStyleSheet(QStringLiteral(
+            "QMenu { background:white; border:1px solid #e8def6; border-radius:11px;"
+            " padding:5px 0px; color:#352b59; font-family:'Microsoft YaHei UI'; font-size:13px; }"
+            "QPushButton#roomMenuRow { background:transparent; border:0; border-radius:7px; padding:0; }"
+            "QPushButton#roomMenuRow:hover { background:#f0e9fc; }"
+            "QPushButton#roomMenuRow:pressed { background:#e5daf9; }"
+            "QPushButton#roomMenuRow[danger='true']:hover { background:#fff0f3; }"
+            "QPushButton#roomMenuRow[danger='true']:pressed { background:#fce3ea; }"));
+        auto *shadow = new QGraphicsDropShadowEffect(menu);
+        shadow->setBlurRadius(18);
+        shadow->setOffset(0, 5);
+        shadow->setColor(QColor(73, 47, 129, 35));
+        menu->setGraphicsEffect(shadow);
+        auto addRow = [this, menu](const QString &text, const QString &page,
+                                   const QString &icon, bool danger = false) {
+            auto *button = new QPushButton(menu);
+            button->setObjectName(QStringLiteral("roomMenuRow"));
+            button->setProperty("danger", danger);
+            button->setAccessibleName(text);
+            button->setCursor(Qt::PointingHandCursor);
+            button->setFixedHeight(44);
+            button->setMinimumWidth(194);
+            auto *row = new QHBoxLayout(button);
+            row->setContentsMargins(16, 0, 16, 0);
+            row->setSpacing(12);
+            auto *iconArea = new QLabel(button);
+            iconArea->setObjectName(QStringLiteral("roomMenuIcon"));
+            iconArea->setFixedSize(20, 20);
+            iconArea->setAlignment(Qt::AlignCenter);
+            iconArea->setPixmap(iconFromSvg(QStringLiteral(":/login/") + icon, 18).pixmap(18, 18));
+            iconArea->setAttribute(Qt::WA_TransparentForMouseEvents);
+            row->addWidget(iconArea);
+            auto *caption = new QLabel(text, button);
+            caption->setObjectName(QStringLiteral("roomMenuText"));
+            caption->setStyleSheet(danger
+                ? QStringLiteral("color:#c44764; font-size:13px; background:transparent;")
+                : QStringLiteral("color:#352b59; font-size:13px; background:transparent;"));
+            caption->setAttribute(Qt::WA_TransparentForMouseEvents);
+            row->addWidget(caption, 1);
+            auto *action = new QWidgetAction(menu);
+            action->setText(text);
+            action->setDefaultWidget(button);
+            menu->addAction(action);
+            connect(button, &QPushButton::clicked, action, &QAction::trigger);
+            connect(action, &QAction::triggered, this, [this, menu, page]() {
+                menu->close();
+                openRoomManagement(page);
+            });
+        };
+        auto addDivider = [menu]() {
+            auto *container = new QWidget(menu);
+            container->setFixedHeight(11);
+            auto *lineLayout = new QHBoxLayout(container);
+            lineLayout->setContentsMargins(16, 5, 16, 5);
+            auto *line = new QFrame(container);
+            line->setFixedHeight(1);
+            line->setStyleSheet(QStringLiteral("background:#eee8f7; border:0;"));
+            lineLayout->addWidget(line);
+            auto *action = new QWidgetAction(menu);
+            action->setDefaultWidget(container);
+            menu->addAction(action);
+        };
+        addRow(QStringLiteral("聊天室详情"), QStringLiteral("details"), QStringLiteral("room.svg"));
+        if (canInviteToCurrentRoom()) {
+            addRow(QStringLiteral("成员管理"), QStringLiteral("members"), QStringLiteral("members.svg"));
+            addDivider();
+            addRow(QStringLiteral("解散聊天室"), QStringLiteral("dissolve"), QStringLiteral("trash.svg"), true);
+        } else {
+            addRow(QStringLiteral("查看成员"), QStringLiteral("members"), QStringLiteral("members.svg"));
+            addDivider();
+            addRow(QStringLiteral("退出聊天室"), QStringLiteral("leave"), QStringLiteral("log-out.svg"), true);
+        }
+        const QSize menuSize = menu->sizeHint();
+        const QRect bounds = screen() ? screen()->availableGeometry()
+                                      : QRect(mapToGlobal(QPoint(0, 0)), size());
+        QPoint pos = roomMoreButton->mapToGlobal(QPoint(roomMoreButton->width() - menuSize.width(),
+                                                       roomMoreButton->height() + 5));
+        pos.setX(qBound(bounds.left(), pos.x(), bounds.right() - menuSize.width() + 1));
+        if (pos.y() + menuSize.height() > bounds.bottom())
+            pos.setY(roomMoreButton->mapToGlobal(QPoint(0, -menuSize.height() - 5)).y());
+        pos.setY(qBound(bounds.top(), pos.y(), bounds.bottom() - menuSize.height() + 1));
+        menu->popup(pos);
+    });
+    managementTimer = new QTimer(this);
+    managementTimer->setSingleShot(true);
+    connect(managementTimer, &QTimer::timeout, this, [this]() {
+        if (!managementRequestId.isEmpty() && roomManagementDialog)
+            roomManagementDialog->showError(QStringLiteral(
+                "服务器尚未确认操作结果。请刷新聊天室列表核对状态，避免重复提交。"));
+    });
+    ui->chatPanelLayout->insertWidget(0, roomInfoBar);
+    inviteInboxButton = new QToolButton(ui->headerPanel);
+    inviteInboxButton->setObjectName(QStringLiteral("inviteInboxButton"));
+    inviteInboxButton->setText(QStringLiteral("邀请"));
+    inviteInboxButton->setIcon(inviteBellIcon(false));
+    inviteInboxButton->setIconSize(QSize(22, 22));
+    inviteInboxButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    inviteInboxButton->setToolTip(QStringLiteral("查看待处理的聊天室邀请"));
+    inviteInboxButton->setCursor(Qt::PointingHandCursor);
+    inviteInboxButton->setStyleSheet(QStringLiteral("QToolButton { color:#5f4a95; background:transparent;"
+        " border:0; border-radius:9px; padding:7px 9px; font-size:13px; }"
+        "QToolButton:hover { background:#eee8fb; }"));
+    ui->headerLayout->insertWidget(ui->headerLayout->count() - 3, inviteInboxButton);
+    connect(inviteInboxButton, &QToolButton::clicked, this, &MainWindow::openInviteInbox);
+    inviteSendTimer = new QTimer(this);
+    inviteSendTimer->setSingleShot(true);
+    connect(inviteSendTimer, &QTimer::timeout, this, [this]() {
+        if (inviteSendInFlight && roomInviteDialog)
+            roomInviteDialog->showError(QStringLiteral("服务器尚未确认邀请结果。为避免重复发送，请重新连接后刷新结果。"));
+    });
+    inviteDecisionTimer = new QTimer(this);
+    inviteDecisionTimer->setSingleShot(true);
+    connect(inviteDecisionTimer, &QTimer::timeout, this, [this]() {
+        if (inviteDecisionInFlight && roomInviteInboxDialog)
+            roomInviteInboxDialog->showError(QStringLiteral("服务器尚未确认处理结果，请重新连接后刷新邀请列表。"));
+    });
     updateRoomTitle();
     // QTextEdit advertises vertical expansion through its parent layout. Keep
     // the original one-line composer height and give spare space to messages.
     ui->messageScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->composer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     ui->composer->setFixedHeight(76);
-    ui->chatPanelLayout->setStretch(0, 1);
-    ui->chatPanelLayout->setStretch(1, 0);
+    ui->chatPanelLayout->setStretch(0, 0);
+    ui->chatPanelLayout->setStretch(1, 1);
+    ui->chatPanelLayout->setStretch(2, 0);
     ui->messageInput->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     ui->messageInput->setFixedHeight(50);
     ui->messageInput->setPlaceholderText(QStringLiteral("请输入消息..."));
@@ -327,6 +578,7 @@ void MainWindow::connectSlots()
     // 连接成功后，客户端会立刻发送 JOIN|昵称，让服务器知道这个用户正式进入聊天界面。
     connect(socket, &QTcpSocket::connected, this, [this]() {
         isConnected = true;
+        roomRestorePending = true;
         roomListRequested = roomListLoaded = switchInFlight = roomHistoryLoading = initialHistoryDone = false;
         pendingRoomId.clear();
         queuedRoomId.clear();
@@ -338,6 +590,8 @@ void MainWindow::connectSlots()
         roomSidebar->setRooms({});
         roomSidebar->setCurrentRoom(currentRoomId);
         roomSidebar->setNotice(QStringLiteral("正在加载聊天室…"));
+        pendingRoomInvites = {};
+        updateInviteBadge();
         updateRoomTitle();
         ui->serverStatusLabel->setText(QStringLiteral("● 服务器已连接"));
         ui->serverStatusLabel->setStyleSheet("color:#31b875; font-size:12px;");
@@ -350,9 +604,41 @@ void MainWindow::connectSlots()
     // 断开连接后，界面状态恢复为“未连接”，在线列表也只显示自己。
     connect(socket, &QTcpSocket::disconnected, this, [this]() {
         isConnected = false;
+        createRoomInFlight = false;
+        roomCreateTimer->stop();
+        inviteSendTimer->stop();
+        inviteDecisionTimer->stop();
+        inviteSendInFlight = inviteDecisionInFlight = false;
+        inviteSearchRequestId.clear();
+        inviteSendRequestId.clear();
+        inviteDecisionRequestId.clear();
+        managementTimer->stop();
+        managementRequestId.clear();
+        managementAction.clear();
+        managementRoomId.clear();
+        if (roomManagementDialog) {
+            roomManagementDialog->setPending(false);
+            roomManagementDialog->showError(QStringLiteral("连接已断开，请重新连接后核对操作结果。"));
+        }
+        pendingRoomInvites = {};
+        updateInviteBadge();
+        if (roomInviteDialog) {
+            roomInviteDialog->setPending(false);
+            roomInviteDialog->showError(QStringLiteral("服务器连接已断开，邀请结果请重新连接后核对。"));
+        }
+        if (roomInviteInboxDialog) {
+            roomInviteInboxDialog->setPending(false);
+            roomInviteInboxDialog->setInvites({});
+            roomInviteInboxDialog->showError(QStringLiteral("服务器连接已断开，请重新连接后刷新邀请。"));
+        }
+        if (roomCreateDialog) {
+            roomCreateDialog->setPending(false);
+            roomCreateDialog->showError(QStringLiteral("服务器连接已断开，请重新连接后再创建。"));
+        }
         roomListLoaded = switchInFlight = roomHistoryLoading = false;
         pendingRoomId.clear();
         queuedRoomId.clear();
+        updateRoomTitle();
         roomSidebar->setNotice(QStringLiteral("连接已断开"));
         onlineRoomUserIds.clear();
         mentionProtocol = false;
@@ -614,10 +900,273 @@ void MainWindow::requestRoomSwitch(const QString &roomId)
     switchInFlight = true;
     pendingRoomId = roomId;
     queuedRoomId.clear();
+    updateRoomTitle();
     ui->messageInput->setEnabled(false);
     ui->sendButton->setEnabled(false);
     roomSidebar->setNotice(QStringLiteral("正在切换聊天室…"));
     sendRoomRequest(QStringLiteral("switch"), {{QStringLiteral("room_id"), roomId}});
+}
+
+void MainWindow::openCreateRoomDialog()
+{
+    if (roomCreateDialog) { roomCreateDialog->raise(); roomCreateDialog->activateWindow(); return; }
+    if (!roomListLoaded || !isConnected || switchInFlight) {
+        roomSidebar->setNotice(QStringLiteral("请等待聊天室加载完成并确认服务器已连接"));
+        return;
+    }
+    auto *dialog = new RoomCreateDialog(this);
+    roomCreateDialog = dialog;
+    connect(dialog, &RoomCreateDialog::createSubmitted, this,
+        [this, dialog](const QString &name, const QString &description, const QString &type) {
+            if (createRoomInFlight) {
+                dialog->setPending(false);
+                dialog->showError(QStringLiteral("上一次创建请求结果尚未确认，不能重复提交。"));
+                return;
+            }
+            if (socket->state() != QAbstractSocket::ConnectedState) {
+                dialog->setPending(false);
+                dialog->showError(QStringLiteral("服务器未连接，请稍后重试。"));
+                return;
+            }
+            createRoomInFlight = true;
+            sendRoomRequest(QStringLiteral("create"),
+                {{QStringLiteral("room_name"), name},
+                 {QStringLiteral("description"), description},
+                 {QStringLiteral("room_type"), type}});
+            roomCreateTimer->start(15000);
+        });
+    dialog->open();
+}
+
+void MainWindow::openInviteDialog()
+{
+    if (roomInviteDialog) { roomInviteDialog->raise(); roomInviteDialog->activateWindow(); return; }
+    if (!canInviteToCurrentRoom() || switchInFlight || roomHistoryLoading) return;
+    QJsonObject selectedRoom;
+    for (const QJsonValue &value : joinedRooms) {
+        if (value.toObject().value(QStringLiteral("room_id")).toString() == currentRoomId) {
+            selectedRoom = value.toObject(); break;
+        }
+    }
+    auto *dialog = new RoomInviteDialog(currentRoomId,
+        selectedRoom.value(QStringLiteral("room_name")).toString(), this);
+    roomInviteDialog = dialog;
+    connect(dialog, &RoomInviteDialog::searchRequested, this,
+        [this](const QString &roomId, const QString &query) {
+            if (!isConnected) return;
+            inviteSearchRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            sendRoomRequest(QStringLiteral("search_users"), {{QStringLiteral("request_id"), inviteSearchRequestId},
+                {QStringLiteral("room_id"), roomId}, {QStringLiteral("query"), query}});
+        });
+    connect(dialog, &RoomInviteDialog::sendRequested, this,
+        [this, dialog](const QString &roomId, const QJsonArray &ids) {
+            if (inviteSendInFlight || !isConnected) {
+                dialog->setPending(inviteSendInFlight);
+                dialog->showError(QStringLiteral("上一次请求尚未确认，或服务器已断开。"));
+                return;
+            }
+            inviteSendInFlight = true;
+            inviteSendRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            sendRoomRequest(QStringLiteral("send_user_invites"),
+                {{QStringLiteral("request_id"), inviteSendRequestId},
+                 {QStringLiteral("room_id"), roomId}, {QStringLiteral("user_ids"), ids}});
+            inviteSendTimer->start(15000);
+        });
+    dialog->open();
+    dialog->requestSearch();
+}
+
+void MainWindow::openInviteInbox()
+{
+    if (roomInviteInboxDialog) { roomInviteInboxDialog->raise(); roomInviteInboxDialog->activateWindow(); return; }
+    auto *dialog = new RoomInviteInboxDialog(this);
+    roomInviteInboxDialog = dialog;
+    dialog->setInvites(pendingRoomInvites);
+    dialog->setPending(inviteDecisionInFlight);
+    connect(dialog, &RoomInviteInboxDialog::decisionRequested, this,
+        [this, dialog](const QString &inviteId, bool accept) {
+            if (inviteDecisionInFlight || !isConnected) {
+                dialog->showError(QStringLiteral("上一次处理尚未确认，或服务器已断开。"));
+                return;
+            }
+            inviteDecisionInFlight = true;
+            dialog->setPending(true);
+            dialog->showError({});
+            inviteDecisionRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            sendRoomRequest(QStringLiteral("respond_invite"),
+                {{QStringLiteral("request_id"), inviteDecisionRequestId},
+                 {QStringLiteral("invite_id"), inviteId},
+                 {QStringLiteral("decision"), accept ? QStringLiteral("accept") : QStringLiteral("decline")}});
+            inviteDecisionTimer->start(15000);
+        });
+    dialog->open();
+    refreshPendingInvites();
+}
+
+void MainWindow::openRoomManagement(const QString &page)
+{
+    if (!isConnected || switchInFlight || roomHistoryLoading ||
+        currentRoomId == QStringLiteral("class-room")) return;
+    if (roomManagementDialog && roomManagementDialog->roomId() != currentRoomId)
+        roomManagementDialog->close();
+    if (!roomManagementDialog) {
+        auto *dialog = new RoomManagementDialog(currentRoomId, ownAccountId, this);
+        roomManagementDialog = dialog;
+        connect(dialog, &RoomManagementDialog::saveRequested, this,
+            [this](const QString &roomId, const QString &name, const QString &description) {
+                submitRoomManagement(QStringLiteral("update_details"), roomId,
+                    {{QStringLiteral("room_name"), name}, {QStringLiteral("description"), description}});
+            });
+        connect(dialog, &RoomManagementDialog::removeRequested, this,
+            [this](const QString &roomId, const QString &userId) {
+                submitRoomManagement(QStringLiteral("remove_member"), roomId,
+                    {{QStringLiteral("user_id"), userId}});
+            });
+        connect(dialog, &RoomManagementDialog::leaveRequested, this,
+            [this](const QString &roomId) { submitRoomManagement(QStringLiteral("leave"), roomId); });
+        connect(dialog, &RoomManagementDialog::dissolveRequested, this,
+            [this](const QString &roomId) { submitRoomManagement(QStringLiteral("dissolve"), roomId); });
+        dialog->open();
+    } else {
+        roomManagementDialog->raise();
+        roomManagementDialog->activateWindow();
+    }
+    roomManagementDialog->showPage(page);
+    sendRoomRequest(QStringLiteral("details"), {{QStringLiteral("room_id"), currentRoomId},
+        {QStringLiteral("request_id"), QUuid::createUuid().toString(QUuid::WithoutBraces)}});
+    requestRoomMembers();
+}
+
+void MainWindow::submitRoomManagement(const QString &action, const QString &roomId,
+                                      const QJsonObject &arguments)
+{
+    if (!managementRequestId.isEmpty() || !isConnected || roomId.isEmpty()) {
+        if (roomManagementDialog) {
+            roomManagementDialog->setPending(!managementRequestId.isEmpty());
+            roomManagementDialog->showError(QStringLiteral("服务器未连接，或上一次操作尚未确认。"));
+        }
+        return;
+    }
+    managementRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    managementAction = action;
+    managementRoomId = roomId;
+    QJsonObject request = arguments;
+    request.insert(QStringLiteral("room_id"), roomId);
+    request.insert(QStringLiteral("request_id"), managementRequestId);
+    if (roomManagementDialog) roomManagementDialog->setPending(true);
+    sendRoomRequest(action, request);
+    managementTimer->start(15000);
+}
+
+void MainWindow::applyRoomUpdate(const QJsonObject &room)
+{
+    const QString roomId = room.value(QStringLiteral("room_id")).toString();
+    if (roomId.isEmpty()) return;
+    for (int i = 0; i < joinedRooms.size(); ++i) {
+        if (joinedRooms.at(i).toObject().value(QStringLiteral("room_id")).toString() != roomId) continue;
+        QJsonObject updated = joinedRooms.at(i).toObject();
+        for (auto it = room.begin(); it != room.end(); ++it) updated.insert(it.key(), it.value());
+        joinedRooms.replace(i, updated);
+        roomSidebar->setRooms(joinedRooms);
+        roomSidebar->setCurrentRoom(currentRoomId);
+        if (roomManagementDialog && roomManagementDialog->roomId() == roomId)
+            roomManagementDialog->setRoom(updated);
+        if (roomId == currentRoomId) updateRoomTitle();
+        return;
+    }
+}
+
+void MainWindow::revokeRoomAccess(const QString &roomId)
+{
+    if (roomId.isEmpty()) return;
+    if (currentRoomId == roomId && switchInFlight &&
+        pendingRoomId == QStringLiteral("class-room")) return;
+    for (int i = joinedRooms.size() - 1; i >= 0; --i)
+        if (joinedRooms.at(i).toObject().value(QStringLiteral("room_id")).toString() == roomId)
+            joinedRooms.removeAt(i);
+    roomSidebar->setRooms(joinedRooms);
+    if (roomManagementDialog && roomManagementDialog->roomId() == roomId)
+        roomManagementDialog->close();
+    if (currentRoomId == roomId || pendingRoomId == roomId) {
+        ui->messageInput->setEnabled(false);
+        ui->sendButton->setEnabled(false);
+        requestRoomSwitch(QStringLiteral("class-room"));
+    } else roomSidebar->setCurrentRoom(currentRoomId);
+    sendRoomRequest(QStringLiteral("list_mine"));
+}
+
+void MainWindow::refreshPendingInvites()
+{
+    if (isConnected && initialHistoryDone) sendRoomRequest(QStringLiteral("pending_invites"));
+}
+
+void MainWindow::updateInviteBadge()
+{
+    inviteInboxButton->setText(QStringLiteral("邀请"));
+    inviteInboxButton->setIcon(inviteBellIcon(!pendingRoomInvites.isEmpty()));
+    inviteInboxButton->setProperty("pendingCount", pendingRoomInvites.size());
+    inviteInboxButton->setProperty("hasPendingInvite", !pendingRoomInvites.isEmpty());
+}
+
+bool MainWindow::canInviteToCurrentRoom() const
+{
+    if (!isConnected || !roomListLoaded || ownAccountId <= 0 ||
+        currentRoomId == QStringLiteral("class-room")) return false;
+    for (const QJsonValue &value : joinedRooms) {
+        const QJsonObject room = value.toObject();
+        if (room.value(QStringLiteral("room_id")).toString() != currentRoomId) continue;
+        bool valid = false;
+        const QJsonValue rawOwner = room.value(QStringLiteral("owner_id"));
+        const qint64 ownerId = rawOwner.isString()
+            ? rawOwner.toString().toLongLong(&valid)
+            : rawOwner.toVariant().toLongLong(&valid);
+        if (valid && ownerId > 0) return ownerId == ownAccountId;
+        break; // Older ROOM servers may omit owner_id; use their members role.
+    }
+    for (const RoomMember &member : roomMembers)
+        if (member.id == ownAccountId && member.role == QStringLiteral("owner")) return true;
+    return false;
+}
+
+void MainWindow::handleRoomNotice(const QJsonObject &notice)
+{
+    const QString event = notice.value(QStringLiteral("event")).toString();
+    if (event == QStringLiteral("invite_received")) {
+        QApplication::alert(this);
+        refreshPendingInvites();
+    } else if (event == QStringLiteral("invites_updated")) {
+        refreshPendingInvites();
+    } else if (event == QStringLiteral("members_changed") &&
+               notice.value(QStringLiteral("room_id")).toString() == currentRoomId) {
+        requestRoomMembers();
+    } else if (event == QStringLiteral("room_updated")) {
+        applyRoomUpdate(notice.value(QStringLiteral("room")).toObject());
+    } else if (event == QStringLiteral("access_revoked") ||
+               event == QStringLiteral("room_dissolved")) {
+        revokeRoomAccess(notice.value(QStringLiteral("room_id")).toString());
+    }
+}
+
+void MainWindow::setMembersCollapsed(bool collapsed)
+{
+    membersCollapsed = collapsed;
+    QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
+    const int oldPosition = scroll->value();
+    const bool wasAtBottom = oldPosition >= scroll->maximum() - 40;
+    ui->rightPanel->setVisible(!collapsed);
+    memberExpandButton->setVisible(collapsed);
+    ui->bodyLayout->setStretch(1, 3);
+    ui->bodyLayout->setStretch(2, 0);
+    ui->bodyLayout->setStretch(3, collapsed ? 0 : 1);
+    QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+    settings.setValue(QStringLiteral("members/collapsed/%1").arg(ownAccountId), collapsed);
+    if (!collapsed) requestRoomMembers();
+    QTimer::singleShot(0, this, [this, oldPosition, wasAtBottom]() {
+        updateBubbleWidths();
+        if (!membersCollapsed) updateMemberListHeight();
+        QScrollBar *bar = ui->messageScroll->verticalScrollBar();
+        bar->setValue(wasAtBottom ? bar->maximum() : qMin(oldPosition, bar->maximum()));
+    });
 }
 
 void MainWindow::clearMessageView()
@@ -648,14 +1197,27 @@ void MainWindow::clearMessageView()
 void MainWindow::updateRoomTitle()
 {
     QString name = QStringLiteral("VChat 大厅");
+    QJsonObject active;
     for (const QJsonValue &value : joinedRooms) {
         const QJsonObject room = value.toObject();
         if (room.value(QStringLiteral("room_id")).toString() == currentRoomId) {
             name = room.value(QStringLiteral("room_name")).toString(name);
+            active = room;
             break;
         }
     }
-    ui->subtitleLabel->setText(QStringLiteral("轻松连接每一次交流 · %1").arg(name));
+    if (roomNameLabel) {
+        roomNameLabel->setText(name);
+        roomDescriptionLabel->setText(active.value(QStringLiteral("description")).toString());
+        roomDescriptionLabel->setVisible(!roomDescriptionLabel->text().isEmpty());
+        const bool owner = canInviteToCurrentRoom();
+        inviteMembersButton->setVisible(owner);
+        inviteMembersButton->setEnabled(owner && !switchInFlight && !roomHistoryLoading);
+        inviteMembersButton->setToolTip(QStringLiteral("邀请成员加入当前聊天室"));
+        roomMoreButton->setVisible(currentRoomId != QStringLiteral("class-room") && roomListLoaded);
+        roomMoreButton->setEnabled(isConnected && !switchInFlight && !roomHistoryLoading);
+    }
+    ui->subtitleLabel->setText(QStringLiteral("轻松连接每一次交流"));
     setWindowTitle(QStringLiteral("VChat - %1").arg(name));
 }
 
@@ -669,6 +1231,98 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
 {
     const QString action = result.value(QStringLiteral("action")).toString();
     const bool ok = result.value(QStringLiteral("ok")).toBool();
+    const QString requestId = result.value(QStringLiteral("request_id")).toString();
+    if (action == QStringLiteral("details")) {
+        const QJsonObject room = result.value(QStringLiteral("room")).toObject();
+        if (roomManagementDialog && roomManagementDialog->roomId() ==
+            (ok ? room.value(QStringLiteral("room_id")).toString()
+                : result.value(QStringLiteral("room_id")).toString())) {
+            if (ok) roomManagementDialog->setRoom(room);
+            else roomManagementDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("聊天室详情加载失败")));
+        }
+        return;
+    }
+    if (action == QStringLiteral("update_details") || action == QStringLiteral("remove_member") ||
+        action == QStringLiteral("leave") || action == QStringLiteral("dissolve")) {
+        if (requestId != managementRequestId || action != managementAction) return;
+        const QString operatedRoom = managementRoomId;
+        managementTimer->stop();
+        managementRequestId.clear();
+        managementAction.clear();
+        managementRoomId.clear();
+        if (roomManagementDialog && roomManagementDialog->roomId() == operatedRoom)
+            roomManagementDialog->setPending(false);
+        if (!ok) {
+            if (roomManagementDialog && roomManagementDialog->roomId() == operatedRoom)
+                roomManagementDialog->showError(result.value(QStringLiteral("error"))
+                    .toString(QStringLiteral("聊天室操作失败")));
+            else roomSidebar->setNotice(result.value(QStringLiteral("error"))
+                    .toString(QStringLiteral("聊天室操作失败")));
+            return;
+        }
+        if (action == QStringLiteral("update_details")) {
+            applyRoomUpdate(result.value(QStringLiteral("room")).toObject());
+            if (roomManagementDialog && roomManagementDialog->roomId() == operatedRoom)
+                roomManagementDialog->showPage(QStringLiteral("details"));
+        } else if (action == QStringLiteral("remove_member")) {
+            requestRoomMembers();
+            sendRoomRequest(QStringLiteral("details"), {{QStringLiteral("room_id"), operatedRoom}});
+        } else revokeRoomAccess(operatedRoom);
+        return;
+    }
+    if (action == QStringLiteral("search_users")) {
+        if (!roomInviteDialog || requestId != inviteSearchRequestId ||
+            result.value(QStringLiteral("room_id")).toString() != roomInviteDialog->roomId()) return;
+        if (ok) roomInviteDialog->setResults(result.value(QStringLiteral("users")).toArray());
+        else roomInviteDialog->showError(result.value(QStringLiteral("error"))
+            .toString(QStringLiteral("用户搜索失败")));
+        return;
+    }
+    if (action == QStringLiteral("pending_invites")) {
+        if (ok) {
+            pendingRoomInvites = result.value(QStringLiteral("invites")).toArray();
+            updateInviteBadge();
+            if (roomInviteInboxDialog) roomInviteInboxDialog->setInvites(pendingRoomInvites);
+        } else if (roomInviteInboxDialog) {
+            roomInviteInboxDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("邀请列表加载失败")));
+        }
+        return;
+    }
+    if (action == QStringLiteral("send_user_invites")) {
+        if (!inviteSendInFlight || requestId != inviteSendRequestId) return;
+        inviteSendInFlight = false;
+        inviteSendTimer->stop();
+        inviteSendRequestId.clear();
+        if (roomInviteDialog) {
+            roomInviteDialog->setPending(false);
+            if (ok) roomInviteDialog->showSuccess(result.value(QStringLiteral("sent")).toArray().size());
+            else roomInviteDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("发送邀请失败")));
+        } else {
+            roomSidebar->setNotice(ok
+                ? QStringLiteral("邀请已发送给 %1 位用户").arg(result.value(QStringLiteral("sent")).toArray().size())
+                : result.value(QStringLiteral("error")).toString(QStringLiteral("发送邀请失败")));
+        }
+        return;
+    }
+    if (action == QStringLiteral("respond_invite")) {
+        if (!inviteDecisionInFlight || requestId != inviteDecisionRequestId) return;
+        inviteDecisionInFlight = false;
+        inviteDecisionTimer->stop();
+        inviteDecisionRequestId.clear();
+        if (roomInviteInboxDialog) {
+            roomInviteInboxDialog->setPending(false);
+            if (ok) roomInviteInboxDialog->showError({});
+            else roomInviteInboxDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("处理邀请失败")));
+        }
+        refreshPendingInvites();
+        if (ok && result.value(QStringLiteral("decision")).toString() == QStringLiteral("accept"))
+            sendRoomRequest(QStringLiteral("list_mine"));
+        return;
+    }
     if (action == QStringLiteral("list_mine")) {
         if (!ok || !result.value(QStringLiteral("rooms")).isArray()) {
             roomSidebar->setNotice(result.value(QStringLiteral("error"))
@@ -687,7 +1341,42 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
         bool accessible = false;
         for (const QJsonValue &value : joinedRooms)
             if (value.toObject().value(QStringLiteral("room_id")).toString() == saved) accessible = true;
-        if (accessible && saved != currentRoomId) requestRoomSwitch(saved);
+        if (roomRestorePending) {
+            roomRestorePending = false;
+            if (accessible && saved != currentRoomId) requestRoomSwitch(saved);
+        }
+        return;
+    }
+    if (action == QStringLiteral("create")) {
+        if (!createRoomInFlight) return;
+        createRoomInFlight = false;
+        roomCreateTimer->stop();
+        if (!ok || !result.value(QStringLiteral("room")).isObject()) {
+            if (roomCreateDialog) {
+                roomCreateDialog->setPending(false);
+                roomCreateDialog->showError(result.value(QStringLiteral("error"))
+                    .toString(QStringLiteral("创建聊天室失败，请稍后重试。")));
+            }
+            return;
+        }
+        const QJsonObject room = result.value(QStringLiteral("room")).toObject();
+        const QString roomId = room.value(QStringLiteral("room_id")).toString();
+        if (roomId.isEmpty()) {
+            if (roomCreateDialog) {
+                roomCreateDialog->setPending(false);
+                roomCreateDialog->showError(QStringLiteral("服务器未返回聊天室 ID，请刷新聊天室列表。"));
+            }
+            return;
+        }
+        if (roomCreateDialog) roomCreateDialog->accept();
+        roomRestorePending = false;
+        bool found = false;
+        for (const QJsonValue &value : joinedRooms)
+            if (value.toObject().value(QStringLiteral("room_id")).toString() == roomId) found = true;
+        if (!found) joinedRooms.append(room);
+        roomSidebar->setRooms(joinedRooms);
+        requestRoomSwitch(roomId);
+        sendRoomRequest(QStringLiteral("list_mine"));
         return;
     }
     if (action == QStringLiteral("switch")) {
@@ -701,6 +1390,7 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
             roomSidebar->setCurrentRoom(currentRoomId);
             roomSidebar->setNotice(result.value(QStringLiteral("error"))
                 .toString(QStringLiteral("切换聊天室失败")));
+            updateRoomTitle();
             if (!queuedRoomId.isEmpty() && queuedRoomId != currentRoomId) {
                 const QString next = queuedRoomId;
                 queuedRoomId.clear();
@@ -725,6 +1415,8 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
     }
     if (action == QStringLiteral("members")) {
         if (!ok || result.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
+        if (roomManagementDialog && roomManagementDialog->roomId() == currentRoomId)
+            roomManagementDialog->setMembers(result.value(QStringLiteral("members")).toArray());
         roomMembers.clear();
         for (const QJsonValue &value : result.value(QStringLiteral("members")).toArray()) {
             const QJsonObject member = value.toObject();
@@ -732,9 +1424,13 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
             const qint64 id = member.value(QStringLiteral("user_id")).toString().toLongLong(&valid);
             const QString name = member.value(QStringLiteral("nickname")).toString();
             if (valid && !name.isEmpty())
-                roomMembers.append({id, name, onlineRoomUserIds.contains(id)});
+                roomMembers.append({id, name,
+                    member.contains(QStringLiteral("online")) ? member.value(QStringLiteral("online")).toBool()
+                        : onlineRoomUserIds.contains(id),
+                    member.value(QStringLiteral("role")).toString()});
         }
         renderRoomMembers();
+        updateRoomTitle();
     }
 }
 
@@ -1519,6 +2215,11 @@ void MainWindow::appendPresenceNotice(const QString &name, bool joined)
 
 void MainWindow::appendIncomingLine(const QString &line)
 {
+    if (line.startsWith(QStringLiteral("ROOM|notice|"))) {
+        const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(12).toLatin1()));
+        if (document.isObject()) handleRoomNotice(document.object());
+        return;
+    }
     if (line.startsWith(QStringLiteral("ROOM|result|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(12).toLatin1()));
         if (document.isObject()) handleRoomResult(document.object());
@@ -1590,13 +2291,14 @@ void MainWindow::appendIncomingLine(const QString &line)
                 const QString next = queuedRoomId;
                 queuedRoomId.clear();
                 requestRoomSwitch(next);
-            }
+            } else updateRoomTitle();
         } else if (!initialHistoryDone) {
             initialHistoryDone = true;
             if (!roomListRequested) {
                 roomListRequested = true;
                 sendRoomRequest(QStringLiteral("list_mine"));
             }
+            refreshPendingInvites();
         }
         return;
     }
@@ -1615,8 +2317,6 @@ void MainWindow::appendIncomingLine(const QString &line)
         onlineRoomUserIds.clear();
         for (const MentionCandidate &member : members) onlineRoomUserIds.insert(member.id);
         if (roomListLoaded) {
-            for (RoomMember &member : roomMembers) member.online = onlineRoomUserIds.contains(member.id);
-            renderRoomMembers();
             requestRoomMembers(); // Membership may have changed since the last snapshot.
         }
         mentionProtocol = true;
@@ -1810,10 +2510,14 @@ void MainWindow::renderRoomMembers()
 {
     if (!roomListLoaded) return;
     QVector<RoomMember> display = roomMembers;
-    const auto own = std::find_if(display.begin(), display.end(), [this](const RoomMember &member) {
-        return member.id == ownAccountId;
+    std::stable_sort(display.begin(), display.end(), [this](const RoomMember &a, const RoomMember &b) {
+        const auto rank = [this](const RoomMember &m) {
+            if (m.id == ownAccountId) return 0;
+            if (m.role == QStringLiteral("owner")) return 1;
+            return m.online ? 2 : 3;
+        };
+        return rank(a) < rank(b);
     });
-    if (own != display.end() && own != display.begin()) display.move(int(own - display.begin()), 0);
     ui->userList->clear();
     int onlineCount = 0;
     for (const RoomMember &member : display) {
@@ -1837,7 +2541,20 @@ void MainWindow::renderRoomMembers()
         auto *name = new QLabel(isSelf ? member.name + QStringLiteral("（我）") : member.name, row);
         name->setTextFormat(Qt::PlainText);
         name->setStyleSheet(QStringLiteral("color:#252044; font-size:14px; font-weight:600;"));
-        details->addWidget(name);
+        if (member.role == QStringLiteral("owner") && currentRoomId != QStringLiteral("class-room")) {
+            auto *nameRow = new QHBoxLayout;
+            nameRow->setContentsMargins(0, 0, 0, 0);
+            nameRow->setSpacing(4);
+            nameRow->addWidget(name);
+            auto *owner = new QLabel(QStringLiteral("房主"), row);
+            owner->setStyleSheet(QStringLiteral("color:#8058c9; background:#eee6fc;"
+                " border-radius:7px; padding:1px 3px; font-size:10px;"));
+            nameRow->addWidget(owner);
+            nameRow->addStretch();
+            details->addLayout(nameRow);
+        } else {
+            details->addWidget(name);
+        }
         auto *status = new QHBoxLayout;
         status->setContentsMargins(0, 0, 0, 0);
         status->setSpacing(6);
@@ -1857,7 +2574,8 @@ void MainWindow::renderRoomMembers()
     }
     ui->onlineTitle->setText(QStringLiteral("聊天室成员"));
     ui->onlineBadge->setText(QStringLiteral("%1 人在线").arg(onlineCount));
-    ui->onlineCountLabel->setText(QStringLiteral("在线人数：%1").arg(onlineCount));
+    ui->onlineCountLabel->setText(QStringLiteral("聊天室成员：%1 · 在线：%2")
+        .arg(display.size()).arg(onlineCount));
     updateMemberListHeight();
 }
 

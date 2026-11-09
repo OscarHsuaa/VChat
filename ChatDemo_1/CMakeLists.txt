@@ -21,6 +21,12 @@ qt_add_executable(ChatDemo_1
     mentioninput.h
     roomsidebarwidget.cpp
     roomsidebarwidget.h
+    roomcreatedialog.cpp
+    roomcreatedialog.h
+    roominvitedialog.cpp
+    roominvitedialog.h
+    roommanagementdialog.cpp
+    roommanagementdialog.h
     mainwindow.ui
 )
 

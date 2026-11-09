@@ -8,7 +8,7 @@ VChat 从 Qt 多人聊天室起步，采用独立客户端与服务器架构。�
 
 ## 项目简介
 
-客户端使用 Qt Widgets 构建桌面界面，通过 `QTcpSocket` 连接独立的 `ChatServer`。服务器使用 `QTcpServer` 维护成员连接，通过 MySQL 保存聊天历史，并使用 `QNetworkAccessManager` 异步调用 DeepSeek API。服务端支持房间、成员、邀请与消息隔离；客户端现已提供已加入房间的左侧导航、切换与历史恢复。创建房间、邀请和发现公开房间仍需后续界面。Vivi 是 AI 助手，不计入真人在线人数。
+客户端使用 Qt Widgets 构建桌面界面，通过 `QTcpSocket` 连接独立的 `ChatServer`。服务器使用 `QTcpServer` 维护成员连接，通过 MySQL 保存聊天历史，并使用 `QNetworkAccessManager` 异步调用 DeepSeek API。服务端支持房间、成员、邀请与消息隔离；客户端提供房间导航、创建、切换、历史恢复与定向成员邀请。公开房间发现界面仍待开发。Vivi 是 AI 助手，不计入真人在线人数。
 
 ## 核心功能
 
@@ -21,7 +21,7 @@ VChat 从 Qt 多人聊天室起步，采用独立客户端与服务器架构。�
 | AI 消息操作 | 复制全文、复制代码、重新生成、点赞/点踩本地反馈；重新生成沿用原 AI 消息 ID。 |
 | 多人并发 | 请求具有独立的请求 ID、消息 ID 和生成轮次；服务端限制并发数，并对超限、取消和超时给出反馈。 |
 | 历史恢复 | 普通消息与 Vivi 回复保存在 MySQL；登录后统一回放，按稳定序号及原提问关联排序。 |
-| 多任务聊天室基础 | 服务端可创建邀请制/公开房间，管理成员和一次性邀请，并隔离消息、历史与 Vivi 流；客户端可查看已加入房间并切换消息和成员，创建/加入界面尚未实现。 |
+| 多任务聊天室基础 | 服务端可创建邀请制/公开房间，管理成员、一次性令牌与定向邀请，并隔离消息、历史与 Vivi 流；客户端可创建房间、查看已加入房间、切换消息和成员、发送及处理定向邀请。公开房间发现界面尚未实现。 |
 
 Markdown 回复支持标题、列表、强调、行内代码和代码块；C++、Python、SQL、JSON 等代码块提供基础高亮与复制。模型输出按不执行原始 HTML 的方式渲染。重新生成、历史恢复和多人并发的桌面端最终验收状态见 [ROADMAP.md](ROADMAP.md)。
 
@@ -96,14 +96,16 @@ VChat/
 
 ### 2. 准备数据库
 
-服务器当前连接本机 MySQL 的 `vchat_demo` 数据库。仓库提供 [历史表迁移 001](ChatServer/migrations/001_chat_history.sql)、[AI 状态迁移 002](ChatServer/migrations/002_ai_history_state.sql) 和 [房间迁移 003](ChatServer/migrations/003_rooms.sql)，**没有提供包含 `users`、旧 `messages` 表的完整新库初始化脚本**。因此，新环境需先准备与当前服务器查询兼容的原有账号/消息库，不能仅运行迁移脚本就完成首次建库。`001` 会从已有 `messages` 表回填普通消息；`002` 增加 AI 状态列；`003` 创建房间、成员、邀请表及默认大厅，不改写原消息。请先备份数据库，再按顺序执行适用的迁移；房间协议和回滚说明见 [ROOM_PROTOCOL.md](ChatServer/ROOM_PROTOCOL.md)。
+服务器当前连接本机 MySQL 的 `vchat_demo` 数据库。仓库提供 [历史表迁移 001](ChatServer/migrations/001_chat_history.sql)、[AI 状态迁移 002](ChatServer/migrations/002_ai_history_state.sql)、[房间迁移 003](ChatServer/migrations/003_rooms.sql)、[定向邀请迁移 004](ChatServer/migrations/004_direct_room_invites.sql) 和 [聊天室管理迁移 005](ChatServer/migrations/005_room_management.sql)，**没有提供包含 `users`、旧 `messages` 表的完整新库初始化脚本**。因此，新环境需先准备与当前服务器查询兼容的原有账号/消息库，不能仅运行迁移脚本就完成首次建库。`001` 会从已有 `messages` 表回填普通消息；`002` 增加 AI 状态列；`003` 创建房间、成员、令牌邀请表及默认大厅；`004` 新增指定接收者的邀请表；`005` 仅添加房间软解散时间字段。请先备份数据库，再按顺序执行适用的迁移；房间协议和回滚说明见 [ROOM_PROTOCOL.md](ChatServer/ROOM_PROTOCOL.md)。
 
-对于已经具备原有表的数据库，可在项目根目录的 **cmd.exe** 中执行（MySQL 会交互提示输入密码）：
+对于已经具备原有表的数据库，可在项目根目录的 **cmd.exe** 中按缺失迁移顺序执行（MySQL 会交互提示输入密码）。已完成 001～004 的正式库备份后只需运行 005：
 
 ```bat
 mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\001_chat_history.sql
 mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\002_ai_history_state.sql
 mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\003_rooms.sql
+mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\004_direct_room_invites.sql
+mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\005_room_management.sql
 ```
 
 服务器的数据库连接参数目前写在 `ChatServer/main.cpp` 中；部署到其他环境前需核对本地数据库配置。**请勿把真实数据库密码提交到公开仓库。** 当前账号校验也依赖既有数据库中的账号记录，自助注册尚未实现。
@@ -169,7 +171,7 @@ cmake --build ChatDemo_1/build/local
 | 状态 | 范围 |
 | --- | --- |
 | 已实现 | 群聊、按房间导航与历史切换、房间成员状态、`@Vivi`、DeepSeek SSE、逐字显示、Markdown/代码块、消息持久化与回放，以及多任务聊天室的服务端基础；仍需实际桌面双窗口最终验收。 |
-| 继续完善 | 重新生成与并发请求的桌面验收、历史分页、房间创建/邀请/发现客户端界面、异常请求与断线重连等稳定性细节。 |
+| 继续完善 | 重新生成与并发请求的桌面验收、历史分页、房间邀请的真实双客户端验收、公开房间发现界面、异常请求与断线重连等稳定性细节。 |
 | 未来规划 | 更完整的聊天室成员权限、个人/团队 AI 模式、持久化上下文、AI 辅助任务管理、文件共享、代码协作和多专业智能体。 |
 
 当前没有发布版本号。Git 历史可见的主要开发阶段包括：**2026-11-06** 导入项目源码，**2026-11-07** 完善 Vivi 流式输出与历史恢复，**2026-11-08** 完善多人并发与历史排序。详细状态、验收边界和后续计划见 [ROADMAP.md](ROADMAP.md)。

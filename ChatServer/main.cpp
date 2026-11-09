@@ -100,6 +100,16 @@ bool openDatabase()
         qCritical() << "Room tables missing; apply ChatServer/migrations/003_rooms.sql";
         return false;
     }
+    if (!db.tables().contains(QStringLiteral("room_direct_invites")))
+        qWarning() << "Addressed invitations unavailable; apply ChatServer/migrations/004_direct_room_invites.sql";
+    QSqlQuery dissolvedColumn;
+    if (!dissolvedColumn.exec(QStringLiteral(
+            "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
+            "AND TABLE_NAME='rooms' AND COLUMN_NAME='dissolved_at' LIMIT 1")) ||
+        !dissolvedColumn.next()) {
+        qCritical() << "Room management migration missing; apply ChatServer/migrations/005_room_management.sql";
+        return false;
+    }
     QSqlQuery stateColumn;
     stateColumn.prepare(QStringLiteral(
         "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
@@ -511,6 +521,9 @@ int main(int argc, char *argv[])
                         }
 
                         broadcastUserList();
+                        sendLine(client, QStringLiteral("ROOM|notice|%1").arg(QString::fromLatin1(
+                            QJsonDocument(QJsonObject{{QStringLiteral("event"), QStringLiteral("invites_updated")}})
+                                .toJson(QJsonDocument::Compact).toBase64())));
                         continue;
                     }
 
@@ -536,9 +549,25 @@ int main(int argc, char *argv[])
                             respond(); continue;
                         }
                         const QJsonObject args = decoded.object();
+                        if (args.value(QStringLiteral("request_id")).isString())
+                            reply.insert(QStringLiteral("request_id"), args.value(QStringLiteral("request_id")));
                         const qint64 actor = onlineUserIds.value(client);
                         const QString roomId = args.value(QStringLiteral("room_id")).toString();
                         QString error;
+                        auto notifyAccount = [&](qint64 accountId, const QJsonObject &notice) {
+                            const QString line = QStringLiteral("ROOM|notice|%1").arg(
+                                QString::fromLatin1(QJsonDocument(notice)
+                                    .toJson(QJsonDocument::Compact).toBase64()));
+                            for (auto it = onlineUserIds.cbegin(); it != onlineUserIds.cend(); ++it)
+                                if (it.value() == accountId &&
+                                    it.key()->state() == QAbstractSocket::ConnectedState)
+                                    sendLine(it.key(), line);
+                        };
+                        auto notifyMembers = [&](const QJsonArray &members, const QJsonObject &notice) {
+                            for (const QJsonValue &value : members)
+                                notifyAccount(value.toObject().value(QStringLiteral("user_id"))
+                                    .toString().toLongLong(), notice);
+                        };
                         if (action == QStringLiteral("list_mine")) {
                             reply.insert(QStringLiteral("rooms"), RoomStore::myRooms(actor));
                             reply.insert(QStringLiteral("ok"), true);
@@ -575,16 +604,166 @@ int main(int argc, char *argv[])
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
                             }
+                        } else if (action == QStringLiteral("search_users")) {
+                            reply.insert(QStringLiteral("room_id"), roomId);
+                            QJsonArray users = RoomStore::searchInvitees(actor, roomId,
+                                args.value(QStringLiteral("query")).toString(), &error);
+                            if (error.isEmpty()) {
+                                for (int i = 0; i < users.size(); ++i) {
+                                    QJsonObject user = users.at(i).toObject();
+                                    user.insert(QStringLiteral("online"), onlineUserIds.values().contains(
+                                        user.value(QStringLiteral("user_id")).toString().toLongLong()));
+                                    users.replace(i, user);
+                                }
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("users"), users);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("pending_invites")) {
+                            const QJsonArray invites = RoomStore::pendingInvites(actor, &error);
+                            if (error.isEmpty()) {
+                                reply.insert(QStringLiteral("invites"), invites);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("send_user_invites")) {
+                            const QJsonArray sent = RoomStore::sendDirectInvites(actor, roomId,
+                                args.value(QStringLiteral("user_ids")).toArray(), &error);
+                            if (error.isEmpty()) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("sent"), sent);
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                for (const QJsonValue &entry : sent) {
+                                    const QJsonObject item = entry.toObject();
+                                    const qint64 recipient = item.value(QStringLiteral("user_id"))
+                                        .toString().toLongLong();
+                                    const QJsonObject notice{{QStringLiteral("event"), QStringLiteral("invite_received")},
+                                        {QStringLiteral("room_id"), roomId},
+                                        {QStringLiteral("invite_id"), item.value(QStringLiteral("invite_id"))}};
+                                    const QString noticeLine = QStringLiteral("ROOM|notice|%1").arg(
+                                        QString::fromLatin1(QJsonDocument(notice)
+                                            .toJson(QJsonDocument::Compact).toBase64()));
+                                    for (auto it = onlineUserIds.cbegin(); it != onlineUserIds.cend(); ++it)
+                                        if (it.value() == recipient &&
+                                            it.key()->state() == QAbstractSocket::ConnectedState)
+                                            sendLine(it.key(), noticeLine);
+                                }
+                                continue;
+                            }
+                        } else if (action == QStringLiteral("respond_invite")) {
+                            const QString decision = args.value(QStringLiteral("decision")).toString();
+                            if (decision != QStringLiteral("accept") && decision != QStringLiteral("decline")) {
+                                error = QStringLiteral("邀请处理方式无效");
+                            } else {
+                                QString acceptedRoom;
+                                if (RoomStore::respondDirectInvite(actor,
+                                        args.value(QStringLiteral("invite_id")).toString(),
+                                        decision == QStringLiteral("accept"), &acceptedRoom, &error)) {
+                                    reply.insert(QStringLiteral("room_id"), acceptedRoom);
+                                    reply.insert(QStringLiteral("decision"), decision);
+                                    reply.insert(QStringLiteral("ok"), true);
+                                    respond();
+                                    const QJsonObject inboxNotice{{QStringLiteral("event"), QStringLiteral("invites_updated")}};
+                                    const QJsonObject memberNotice{{QStringLiteral("event"), QStringLiteral("members_changed")},
+                                        {QStringLiteral("room_id"), acceptedRoom}};
+                                    for (auto it = onlineUserIds.cbegin(); it != onlineUserIds.cend(); ++it) {
+                                        if (it.key()->state() != QAbstractSocket::ConnectedState) continue;
+                                        if (it.value() == actor)
+                                            sendLine(it.key(), QStringLiteral("ROOM|notice|%1").arg(
+                                                QString::fromLatin1(QJsonDocument(inboxNotice)
+                                                    .toJson(QJsonDocument::Compact).toBase64())));
+                                        if (decision == QStringLiteral("accept") &&
+                                            activeRooms.value(it.key()) == acceptedRoom)
+                                            sendLine(it.key(), QStringLiteral("ROOM|notice|%1").arg(
+                                                QString::fromLatin1(QJsonDocument(memberNotice)
+                                                    .toJson(QJsonDocument::Compact).toBase64())));
+                                    }
+                                    continue;
+                                }
+                            }
+                        } else if (action == QStringLiteral("details")) {
+                            reply.insert(QStringLiteral("room_id"), roomId);
+                            const QJsonObject room = RoomStore::details(actor, roomId, &error);
+                            if (!room.isEmpty()) {
+                                reply.insert(QStringLiteral("room"), room);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("update_details")) {
+                            const QJsonObject room = RoomStore::updateDetails(actor, roomId,
+                                args.value(QStringLiteral("room_name")).toString(),
+                                args.value(QStringLiteral("description")).toString(), &error);
+                            if (!room.isEmpty()) {
+                                reply.insert(QStringLiteral("room"), room);
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                notifyMembers(RoomStore::members(roomId),
+                                    {{QStringLiteral("event"), QStringLiteral("room_updated")},
+                                     {QStringLiteral("room_id"), roomId},
+                                     {QStringLiteral("room"), room}});
+                                continue;
+                            }
+                        } else if (action == QStringLiteral("remove_member")) {
+                            bool valid = false;
+                            const qint64 target = args.value(QStringLiteral("user_id"))
+                                .toString().toLongLong(&valid);
+                            if (valid && RoomStore::removeMember(actor, roomId, target, &error)) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("user_id"), QString::number(target));
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                for (auto it = activeRooms.begin(); it != activeRooms.end(); ++it)
+                                    if (it.value() == roomId && onlineUserIds.value(it.key()) == target)
+                                        it.value() = QString::fromLatin1(RoomStore::LobbyId);
+                                notifyAccount(target, {{QStringLiteral("event"), QStringLiteral("access_revoked")},
+                                    {QStringLiteral("room_id"), roomId}});
+                                notifyMembers(RoomStore::members(roomId),
+                                    {{QStringLiteral("event"), QStringLiteral("members_changed")},
+                                     {QStringLiteral("room_id"), roomId}});
+                                broadcastUserList();
+                                continue;
+                            }
+                            if (!valid) error = QStringLiteral("目标成员标识无效");
                         } else if (action == QStringLiteral("leave")) {
-                            if (activeRooms.value(client) == roomId) {
-                                error = QStringLiteral("请先切换到其他聊天室");
-                            } else if (RoomStore::leave(actor, roomId, &error)) {
+                            if (RoomStore::leave(actor, roomId, &error)) {
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                for (auto it = activeRooms.begin(); it != activeRooms.end(); ++it)
+                                    if (it.value() == roomId && onlineUserIds.value(it.key()) == actor)
+                                        it.value() = QString::fromLatin1(RoomStore::LobbyId);
+                                notifyAccount(actor, {{QStringLiteral("event"), QStringLiteral("access_revoked")},
+                                    {QStringLiteral("room_id"), roomId}});
+                                notifyMembers(RoomStore::members(roomId),
+                                    {{QStringLiteral("event"), QStringLiteral("members_changed")},
+                                     {QStringLiteral("room_id"), roomId}});
+                                broadcastUserList();
+                                continue;
+                            }
+                        } else if (action == QStringLiteral("dissolve")) {
+                            const QJsonArray affected = RoomStore::members(roomId);
+                            if (RoomStore::dissolve(actor, roomId, &error)) {
+                                reply.insert(QStringLiteral("room_id"), roomId);
+                                reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                for (auto it = activeRooms.begin(); it != activeRooms.end(); ++it)
+                                    if (it.value() == roomId)
+                                        it.value() = QString::fromLatin1(RoomStore::LobbyId);
+                                if (AiRoom *ai = aiRooms.value(roomId, nullptr)) ai->cancelAll();
+                                notifyMembers(affected, {{QStringLiteral("event"), QStringLiteral("room_dissolved")},
+                                    {QStringLiteral("room_id"), roomId}});
+                                broadcastUserList();
+                                continue;
                             }
                         } else if (action == QStringLiteral("members")) {
                             if (RoomStore::isMember(roomId, actor)) {
-                                reply.insert(QStringLiteral("members"), RoomStore::members(roomId));
+                                QJsonArray members = RoomStore::members(roomId);
+                                for (int i = 0; i < members.size(); ++i) {
+                                    QJsonObject item = members.at(i).toObject();
+                                    item.insert(QStringLiteral("online"), onlineUserIds.values().contains(
+                                        item.value(QStringLiteral("user_id")).toString().toLongLong()));
+                                    members.replace(i, item);
+                                }
+                                reply.insert(QStringLiteral("members"), members);
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
                             } else error = QStringLiteral("无权查看聊天室成员");
@@ -628,6 +807,7 @@ int main(int argc, char *argv[])
                         bool validId = false;
                         const quint64 requestId = text.mid(10).toULongLong(&validId);
                         if (!onlineUsers.contains(client) || !validId ||
+                            !RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client)) ||
                             !roomFor(activeRooms.value(client))->cancel(requestId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("[System] 无法取消：请求不存在或不属于当前账号"));
                         continue;
@@ -638,6 +818,7 @@ int main(int argc, char *argv[])
                         const quint64 originalId = text.mid(14).toULongLong(&validId);
                         // Only the account that asked the original question may replace its shared answer.
                         if (!onlineUsers.contains(client) || !validId ||
+                            !RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client)) ||
                             !roomFor(activeRooms.value(client))->regenerate(originalId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("AI|error|0|%1")
                                 .arg(QString::fromLatin1(QStringLiteral("无法重新生成：请求不可用、正在生成或不属于当前账号。")
@@ -647,6 +828,10 @@ int main(int argc, char *argv[])
 
                     if (text.startsWith(QStringLiteral("CHAT2|"))) {
                         if (!modernPeers.contains(client) || !onlineUsers.contains(client)) continue;
+                        if (!RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client))) {
+                            sendLine(client, QStringLiteral("[System] 已无权向当前聊天室发送消息"));
+                            continue;
+                        }
                         const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(text.mid(6).toLatin1()));
                         if (!document.isObject()) continue;
                         const QJsonObject request = document.object();
@@ -732,6 +917,10 @@ int main(int argc, char *argv[])
                     // authenticated JOIN; anonymous sockets cannot enter a room.
                     if (!modernPeers.contains(client) || !onlineUsers.contains(client)) {
                         sendLine(client, QStringLiteral("[System] 请先登录后进入聊天室"));
+                        continue;
+                    }
+                    if (!RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client))) {
+                        sendLine(client, QStringLiteral("[System] 已无权向当前聊天室发送消息"));
                         continue;
                     }
                     // 走到这里说明既不是 LOGIN，也不是 JOIN，而是一条普通聊天消息。

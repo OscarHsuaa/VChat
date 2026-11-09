@@ -21,6 +21,7 @@ public:
 
 signals:
     void roomSelected(const QString &roomId);
+    void createRequested();
     void collapsedChanged(bool collapsed);
 
 private:

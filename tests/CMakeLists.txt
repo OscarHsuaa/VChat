@@ -18,6 +18,9 @@ qt_add_executable(VChatStreamUiTest ui_stream_test.cpp
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
     ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
     ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
+    ../ChatDemo_1/roomcreatedialog.cpp ../ChatDemo_1/roomcreatedialog.h
+    ../ChatDemo_1/roominvitedialog.cpp ../ChatDemo_1/roominvitedialog.h
+    ../ChatDemo_1/roommanagementdialog.cpp ../ChatDemo_1/roommanagementdialog.h
     ../ChatDemo_1/login_icons.qrc)
 target_include_directories(VChatStreamUiTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatStreamUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)
@@ -26,6 +29,9 @@ qt_add_executable(VChatRoomUiIntegrationTest rooms_client_live_test.cpp
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
     ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
     ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
+    ../ChatDemo_1/roomcreatedialog.cpp ../ChatDemo_1/roomcreatedialog.h
+    ../ChatDemo_1/roominvitedialog.cpp ../ChatDemo_1/roominvitedialog.h
+    ../ChatDemo_1/roommanagementdialog.cpp ../ChatDemo_1/roommanagementdialog.h
     ../ChatDemo_1/login_icons.qrc)
 target_include_directories(VChatRoomUiIntegrationTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatRoomUiIntegrationTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)

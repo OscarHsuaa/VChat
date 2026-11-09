@@ -15,6 +15,7 @@
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QPalette>
+#include <QPointer>
 #include <QScrollBar>
 #include <QStringList>
 #include <QTcpSocket>
@@ -35,6 +36,11 @@ class QListWidget;
 class QEvent;
 class QTimer;
 class RoomSidebarWidget;
+class RoomCreateDialog;
+class RoomInviteDialog;
+class RoomInviteInboxDialog;
+class RoomManagementDialog;
+class QPushButton;
 
 class HeaderWaveFrame : public QFrame
 {
@@ -155,13 +161,41 @@ private:
     QLabel *viviStatusDot = nullptr;
     QDate lastSystemDate;
     RoomSidebarWidget *roomSidebar = nullptr;
+    QPointer<RoomCreateDialog> roomCreateDialog;
+    QTimer *roomCreateTimer = nullptr;
+    QToolButton *memberCollapseButton = nullptr;
+    QToolButton *memberExpandButton = nullptr;
+    bool createRoomInFlight = false;
+    bool roomRestorePending = true;
+    bool membersCollapsed = false;
     QString currentRoomId = QStringLiteral("class-room");
     QString pendingRoomId;
     QString queuedRoomId;
     QString roomSettingsKey;
     QJsonArray joinedRooms;
-    struct RoomMember { qint64 id = 0; QString name; bool online = false; };
+    struct RoomMember { qint64 id = 0; QString name; bool online = false; QString role; };
     QVector<RoomMember> roomMembers;
+    QFrame *roomInfoBar = nullptr;
+    QLabel *roomNameLabel = nullptr;
+    QLabel *roomDescriptionLabel = nullptr;
+    QPushButton *inviteMembersButton = nullptr;
+    QToolButton *inviteInboxButton = nullptr;
+    QPointer<RoomInviteDialog> roomInviteDialog;
+    QPointer<RoomInviteInboxDialog> roomInviteInboxDialog;
+    QPointer<RoomManagementDialog> roomManagementDialog;
+    QToolButton *roomMoreButton = nullptr;
+    QTimer *managementTimer = nullptr;
+    QString managementRequestId;
+    QString managementAction;
+    QString managementRoomId;
+    QJsonArray pendingRoomInvites;
+    QString inviteSearchRequestId;
+    QString inviteSendRequestId;
+    QString inviteDecisionRequestId;
+    QTimer *inviteSendTimer = nullptr;
+    QTimer *inviteDecisionTimer = nullptr;
+    bool inviteSendInFlight = false;
+    bool inviteDecisionInFlight = false;
     QSet<qint64> onlineRoomUserIds;
     bool roomListRequested = false;
     bool roomListLoaded = false;
@@ -182,6 +216,19 @@ private:
     void sendJoinMessage();
     void sendRoomRequest(const QString &action, const QJsonObject &arguments = {});
     void requestRoomSwitch(const QString &roomId);
+    void openCreateRoomDialog();
+    void setMembersCollapsed(bool collapsed);
+    void openInviteDialog();
+    void openInviteInbox();
+    void openRoomManagement(const QString &page = QStringLiteral("details"));
+    void submitRoomManagement(const QString &action, const QString &roomId,
+                              const QJsonObject &arguments = {});
+    void applyRoomUpdate(const QJsonObject &room);
+    void revokeRoomAccess(const QString &roomId);
+    void refreshPendingInvites();
+    void updateInviteBadge();
+    bool canInviteToCurrentRoom() const;
+    void handleRoomNotice(const QJsonObject &notice);
     void handleRoomResult(const QJsonObject &result);
     void clearMessageView();
     void updateRoomTitle();

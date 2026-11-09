@@ -25,6 +25,7 @@ public:
                         bool askVivi, const QString &replyToMessageId = {});
     bool regenerate(quint64 originalId, qint64 accountId);
     bool cancel(quint64 requestId, qint64 accountId);
+    void cancelAll();
     ReplyTarget replyTarget(quint64 requestId) const { return requestTargets.value(requestId); }
     QJsonObject streamEvent(quint64 requestId, const QString &state, const QString &text = {}) const;
     QList<QJsonObject> snapshots() const;

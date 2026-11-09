@@ -8,6 +8,7 @@ import base64
 import json
 import os
 import socket
+import threading
 import time
 import uuid
 
@@ -152,7 +153,113 @@ try:
     assert request(b, "join_invite", token=token)["ok"]
     assert not request(b, "join_invite", token=token)["ok"]
     assert request(b, "members", room_id=private)["ok"]
-    print("PASS: room permissions, public/private joins, single-use invite, message isolation"
+    directed = request(a, "create", room_name="定向邀请测试", room_type="invite_only")["room"]["room_id"]
+    a_members = request(a, "members", room_id=directed)["members"]
+    assert len(a_members) == 1
+    search = request(a, "search_users", room_id=directed, query=os.environ["VCHAT_TEST_USER_B"])
+    assert search["ok"]
+    recipient_id = next(x["user_id"] for x in search["users"]
+                        if x["username"] == os.environ["VCHAT_TEST_USER_B"])
+    assert not request(b, "search_users", room_id=directed, query="")["ok"]
+    assert not request(b, "send_user_invites", room_id=directed, user_ids=[recipient_id])["ok"]
+    sent = request(a, "send_user_invites", room_id=directed, user_ids=[recipient_id])
+    assert sent["ok"] and len(sent["sent"]) == 1
+    invite_id = sent["sent"][0]["invite_id"]
+    assert not request(a, "send_user_invites", room_id=directed, user_ids=[recipient_id])["ok"]
+    assert not request(a, "respond_invite", invite_id=invite_id, decision="accept")["ok"]
+    b.close()  # The pending invitation must survive a disconnected recipient.
+    b = login(os.environ["VCHAT_TEST_USER_B"], os.environ["VCHAT_TEST_PASS_B"])
+    inbox = request(b, "pending_invites")
+    assert inbox["ok"] and any(x["invite_id"] == invite_id for x in inbox["invites"])
+    assert request(b, "respond_invite", invite_id=invite_id, decision="decline")["ok"]
+    assert not request(b, "respond_invite", invite_id=invite_id, decision="accept")["ok"]
+    assert all(x["invite_id"] != invite_id for x in request(b, "pending_invites")["invites"])
+    new_invite = request(a, "send_user_invites", room_id=directed, user_ids=[recipient_id])
+    assert new_invite["ok"] and len(new_invite["sent"]) == 1
+    new_id = new_invite["sent"][0]["invite_id"]
+    assert new_id != invite_id
+    assert request(b, "respond_invite", invite_id=new_id, decision="accept")["ok"]
+    assert not request(b, "respond_invite", invite_id=new_id, decision="accept")["ok"]
+    assert not request(a, "send_user_invites", room_id=directed, user_ids=[recipient_id])["ok"]
+    assert any(x["room_id"] == directed for x in request(b, "list_mine")["rooms"])
+    members = request(b, "members", room_id=directed)["members"]
+    assert len(members) == 2 and any(x["user_id"] == recipient_id for x in members)
+    if os.environ.get("VCHAT_TEST_USER_C") and os.environ.get("VCHAT_TEST_PASS_C"):
+        batch_room = request(a, "create", room_name="批量邀请测试", room_type="invite_only")["room"]["room_id"]
+        third = request(a, "search_users", room_id=batch_room,
+                        query=os.environ["VCHAT_TEST_USER_C"])
+        third_id = next(x["user_id"] for x in third["users"]
+                        if x["username"] == os.environ["VCHAT_TEST_USER_C"])
+        batch = request(a, "send_user_invites", room_id=batch_room,
+                        user_ids=[recipient_id, third_id])
+        assert batch["ok"] and len(batch["sent"]) == 2
+        third_peer = login(os.environ["VCHAT_TEST_USER_C"], os.environ["VCHAT_TEST_PASS_C"])
+        try:
+            third_inbox = request(third_peer, "pending_invites")
+            third_invite = next(x["invite_id"] for x in third_inbox["invites"]
+                                if x["room_id"] == batch_room)
+            assert request(third_peer, "respond_invite", invite_id=third_invite,
+                           decision="accept")["ok"]
+            second_invite = next(x["invite_id"] for x in request(b, "pending_invites")["invites"]
+                                 if x["room_id"] == batch_room)
+            assert request(b, "respond_invite", invite_id=second_invite,
+                           decision="decline")["ok"]
+            assert len(request(a, "members", room_id=batch_room)["members"]) == 2
+        finally:
+            third_peer.close()
+        race_room = request(a, "create", room_name="并发接受测试", room_type="invite_only")["room"]["room_id"]
+        race_invite = request(a, "send_user_invites", room_id=race_room,
+                              user_ids=[recipient_id])["sent"][0]["invite_id"]
+        second_session = login(os.environ["VCHAT_TEST_USER_B"], os.environ["VCHAT_TEST_PASS_B"])
+        try:
+            gate = threading.Barrier(2)
+            outcomes = []
+            def accept_from(peer):
+                gate.wait()
+                outcomes.append(request(peer, "respond_invite", invite_id=race_invite,
+                                        decision="accept")["ok"])
+            first = threading.Thread(target=accept_from, args=(b,))
+            second = threading.Thread(target=accept_from, args=(second_session,))
+            first.start(); second.start()
+            first.join(timeout=8); second.join(timeout=8)
+            assert not first.is_alive() and not second.is_alive()
+            assert sorted(outcomes) == [False, True]
+            assert len(request(a, "members", room_id=race_room)["members"]) == 2
+        finally:
+            second_session.close()
+    # Room management always uses the authenticated account, not a client
+    # supplied owner ID. These rooms and accounts exist only in the test DB.
+    details = request(a, "details", room_id=public)
+    assert details["ok"] and details["room"]["room_type"] == "public"
+    assert details["room"]["member_count"] == 2
+    assert not request(b, "update_details", room_id=public,
+                       room_name="伪造房主", description="无权限")["ok"]
+    assert not request(b, "remove_member", room_id=public,
+                       user_id=details["room"]["owner_id"])["ok"]
+    updated = request(a, "update_details", room_id=public,
+                      room_name="公开房间已更新", description="新的简介")
+    assert updated["ok"] and updated["room"]["room_name"] == "公开房间已更新"
+    assert request(b, "details", room_id=public)["room"]["description"] == "新的简介"
+    assert not request(a, "leave", room_id=public)["ok"]
+    assert request(a, "remove_member", room_id=public, user_id=recipient_id)["ok"]
+    assert not request(a, "remove_member", room_id=public, user_id=recipient_id)["ok"]
+    assert not request(b, "history", room_id=public)["ok"]
+    assert not request(b, "details", room_id=public)["ok"]
+    assert request(b, "join_public", room_id=public)["ok"]
+    assert request(b, "leave", room_id=public)["ok"]
+    assert all(x["room_id"] != public for x in request(b, "list_mine")["rooms"])
+    assert request(b, "join_public", room_id=public)["ok"]
+    assert not request(b, "dissolve", room_id=public)["ok"]
+    assert request(a, "dissolve", room_id=public)["ok"]
+    assert not request(a, "dissolve", room_id=public)["ok"]
+    assert not request(a, "history", room_id=public)["ok"]
+    assert not request(b, "history", room_id=public)["ok"]
+    assert not request(b, "join_public", room_id=public)["ok"]
+    assert all(x["room_id"] != public for x in request(a, "list_mine")["rooms"])
+    assert all(x["room_id"] != public for x in request(b, "list_mine")["rooms"])
+    print("PASS: room permissions, public/private joins, single-use and directed invites,"
+          " offline recovery, decline/accept, batch send, concurrent accept,"
+          " details/edit/remove/leave/dissolve, message isolation"
           + (", real AI stream isolation" if os.environ.get("VCHAT_TEST_AI") == "1" else ""))
 finally:
     a.close()

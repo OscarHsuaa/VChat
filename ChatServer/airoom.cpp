@@ -111,6 +111,14 @@ bool AiRoom::cancel(quint64 requestId, qint64 accountId)
     return false;
 }
 
+void AiRoom::cancelAll()
+{
+    QList<quint64> active;
+    for (auto it = streams.cbegin(); it != streams.cend(); ++it)
+        if (!it.value().finished) active.append(it.key());
+    for (quint64 id : active) cancel(id, streams.value(id).target.accountId);
+}
+
 QJsonObject AiRoom::streamEvent(quint64 requestId, const QString &state, const QString &text) const
 {
     const StreamInfo info = streams.value(requestId);

@@ -20,6 +20,24 @@ QIcon sidebarIcon(const QString &path)
     renderer.render(&painter, QRectF(0, 0, 22, 22));
     return QIcon(image);
 }
+
+QIcon sidebarChevron(bool pointsRight)
+{
+    QPixmap image(40, 40);
+    image.setDevicePixelRatio(2);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QColor("#7956d5"), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    if (pointsRight) {
+        painter.drawLine(QPointF(7, 5), QPointF(12, 10));
+        painter.drawLine(QPointF(12, 10), QPointF(7, 15));
+    } else {
+        painter.drawLine(QPointF(12, 5), QPointF(7, 10));
+        painter.drawLine(QPointF(7, 10), QPointF(12, 15));
+    }
+    return QIcon(image);
+}
 }
 
 RoomSidebarWidget::RoomSidebarWidget(QWidget *parent) : QFrame(parent)
@@ -43,7 +61,8 @@ RoomSidebarWidget::RoomSidebarWidget(QWidget *parent) : QFrame(parent)
     title_->setStyleSheet(QStringLiteral("color:#252044; font-size:15px; font-weight:600;"));
     heading->addWidget(title_, 1);
     toggle_ = new QToolButton(this);
-    toggle_->setText(QStringLiteral("❮❮"));
+    toggle_->setIcon(sidebarChevron(false));
+    toggle_->setIconSize(QSize(20, 20));
     toggle_->setToolTip(QStringLiteral("收起聊天室导航"));
     toggle_->setCursor(Qt::PointingHandCursor);
     heading->addWidget(toggle_);
@@ -73,12 +92,14 @@ RoomSidebarWidget::RoomSidebarWidget(QWidget *parent) : QFrame(parent)
     divider->setStyleSheet(QStringLiteral("background:#eee8f8; border:0;"));
     root->addWidget(divider);
     create_ = new QToolButton(this);
+    create_->setObjectName(QStringLiteral("createRoomButton"));
     create_->setText(QStringLiteral("＋  创建聊天室"));
     create_->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    create_->setToolTip(QStringLiteral("创建聊天室将在后续版本开放"));
-    create_->setEnabled(false);
+    create_->setToolTip(QStringLiteral("创建聊天室"));
+    create_->setCursor(Qt::PointingHandCursor);
     create_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     root->addWidget(create_);
+    connect(create_, &QToolButton::clicked, this, &RoomSidebarWidget::createRequested);
     discover_ = new QToolButton(this);
     discover_->setText(QStringLiteral("◇  发现公开聊天室"));
     discover_->setToolButtonStyle(Qt::ToolButtonTextOnly);
@@ -110,7 +131,7 @@ void RoomSidebarWidget::setCollapsed(bool collapsed)
     setFixedWidth(collapsed ? 62 : 230);
     title_->setVisible(!collapsed);
     notice_->setVisible(!collapsed && !notice_->text().isEmpty());
-    toggle_->setText(collapsed ? QStringLiteral("❯") : QStringLiteral("❮❮"));
+    toggle_->setIcon(sidebarChevron(collapsed));
     toggle_->setToolTip(collapsed ? QStringLiteral("展开聊天室导航") : QStringLiteral("收起聊天室导航"));
     create_->setText(collapsed ? QStringLiteral("＋") : QStringLiteral("＋  创建聊天室"));
     discover_->setText(collapsed ? QStringLiteral("◇") : QStringLiteral("◇  发现公开聊天室"));
