@@ -100,8 +100,10 @@ inline void centerOnParent(QDialog *dialog)
     QPoint topLeft = center - QPoint(dialog->width() / 2, dialog->height() / 2);
     if (QScreen *screen = QGuiApplication::screenAt(center)) {
         const QRect available = screen->availableGeometry();
-        topLeft.setX(qBound(available.left(), topLeft.x(), available.right() - dialog->width() + 1));
-        topLeft.setY(qBound(available.top(), topLeft.y(), available.bottom() - dialog->height() + 1));
+        topLeft.setX(qBound(available.left(), topLeft.x(),
+                             qMax(available.left(), available.right() - dialog->width() + 1)));
+        topLeft.setY(qBound(available.top(), topLeft.y(),
+                             qMax(available.top(), available.bottom() - dialog->height() + 1)));
     }
     dialog->move(topLeft);
 }

@@ -4,6 +4,9 @@
     <file alias="user.svg">icons/user.svg</file>
     <file alias="lock.svg">icons/lock.svg</file>
     <file alias="shield.svg">icons/shield.svg</file>
+    <file alias="check.svg">icons/check.svg</file>
+    <file alias="radio-selected.svg">icons/radio-selected.svg</file>
+    <file alias="radio-empty.svg">icons/radio-empty.svg</file>
     <file alias="eye-open.svg">icons/eye-open.svg</file>
     <file alias="eye-closed.svg">icons/eye-closed.svg</file>
     <file alias="refresh.svg">icons/refresh.svg</file>

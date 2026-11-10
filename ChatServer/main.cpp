@@ -569,11 +569,17 @@ int main(int argc, char *argv[])
                                     .toString().toLongLong(), notice);
                         };
                         if (action == QStringLiteral("list_mine")) {
-                            reply.insert(QStringLiteral("rooms"), RoomStore::myRooms(actor));
-                            reply.insert(QStringLiteral("ok"), true);
+                            const QJsonArray rooms = RoomStore::myRooms(actor, &error);
+                            if (error.isEmpty()) {
+                                reply.insert(QStringLiteral("rooms"), rooms);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
                         } else if (action == QStringLiteral("list_public")) {
-                            reply.insert(QStringLiteral("rooms"), RoomStore::publicRooms(actor));
-                            reply.insert(QStringLiteral("ok"), true);
+                            const QJsonArray rooms = RoomStore::publicRooms(actor, &error);
+                            if (error.isEmpty()) {
+                                reply.insert(QStringLiteral("rooms"), rooms);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
                         } else if (action == QStringLiteral("create")) {
                             const QString type = args.value(QStringLiteral("room_type"))
                                 .toString(QStringLiteral("invite_only"));
@@ -687,6 +693,29 @@ int main(int argc, char *argv[])
                             if (!room.isEmpty()) {
                                 reply.insert(QStringLiteral("room"), room);
                                 reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("permissions")) {
+                            reply.insert(QStringLiteral("room_id"), roomId);
+                            const QJsonObject settings = RoomStore::permissions(actor, roomId, &error);
+                            if (!settings.isEmpty()) {
+                                reply.insert(QStringLiteral("permissions"), settings);
+                                reply.insert(QStringLiteral("ok"), true);
+                            }
+                        } else if (action == QStringLiteral("update_permissions")) {
+                            reply.insert(QStringLiteral("room_id"), roomId);
+                            const QJsonObject settings = RoomStore::updatePermissions(actor, roomId,
+                                args.value(QStringLiteral("permissions")).toObject(), &error);
+                            if (!settings.isEmpty()) {
+                                reply.insert(QStringLiteral("permissions"), settings);
+                                reply.insert(QStringLiteral("ok"), true);
+                                const QJsonObject room = RoomStore::details(actor, roomId, &error);
+                                respond();
+                                notifyMembers(RoomStore::members(roomId),
+                                    {{QStringLiteral("event"), QStringLiteral("permissions_updated")},
+                                     {QStringLiteral("room_id"), roomId},
+                                     {QStringLiteral("room"), room},
+                                     {QStringLiteral("permissions"), settings}});
+                                continue;
                             }
                         } else if (action == QStringLiteral("update_details")) {
                             const QJsonObject room = RoomStore::updateDetails(actor, roomId,

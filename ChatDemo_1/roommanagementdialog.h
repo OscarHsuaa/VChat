@@ -30,6 +30,7 @@ signals:
     void removeRequested(const QString &roomId, const QString &userId);
     void leaveRequested(const QString &roomId);
     void dissolveRequested(const QString &roomId);
+    void permissionsRequested(const QString &roomId);
 
 private:
     void showEvent(QShowEvent *event) override;
@@ -64,6 +65,7 @@ private:
     QScrollArea *membersScroll_ = nullptr;
     QPushButton *saveButton_ = nullptr;
     QPushButton *editButton_ = nullptr;
+    QPushButton *privacyButton_ = nullptr;
     QPushButton *manageButton_ = nullptr;
     QPushButton *leaveButton_ = nullptr;
     QPushButton *dissolveButton_ = nullptr;

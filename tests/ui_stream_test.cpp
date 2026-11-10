@@ -4,6 +4,7 @@
 #include "roomcreatedialog.h"
 #include "roominvitedialog.h"
 #include "roommanagementdialog.h"
+#include "roompermissionsdialog.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QCheckBox>
@@ -26,6 +27,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStackedWidget>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -483,8 +485,15 @@ int main(int argc, char **argv)
                     {"description", QStringLiteral("隔离测试")}, {"owner_id", QStringLiteral("11")}}};
     peers.first()->write("HISTORY_END\n");
     if (!waitUntil([&]() { return roomCommands.join('\n').contains(QStringLiteral("ROOM|list_mine|")); })) return 46;
-    peers.first()->write(roomResult(QJsonObject{{"action", "list_mine"}, {"ok", true}, {"rooms", rooms}}));
+    peers.first()->write(roomResult(QJsonObject{{"action", "list_mine"}, {"ok", false},
+        {"error", QStringLiteral("聊天室列表查询失败，请检查数据库结构和连接")}}));
     auto *sidebar = a.findChild<RoomSidebarWidget *>();
+    if (!sidebar || !waitUntil([&]() {
+        for (QLabel *label : sidebar->findChildren<QLabel *>())
+            if (label->text().contains(QStringLiteral("聊天室列表查询失败"))) return true;
+        return false;
+    })) return 129;
+    peers.first()->write(roomResult(QJsonObject{{"action", "list_mine"}, {"ok", true}, {"rooms", rooms}}));
     if (!sidebar || !waitUntil([&]() { return sidebar->findChild<QListWidget *>()->count() == 2; })) return 47;
     auto *roomList = sidebar->findChild<QListWidget *>();
     roomList->itemClicked(roomList->item(1));
@@ -934,6 +943,60 @@ int main(int argc, char **argv)
             if (label->text() == QStringLiteral("测试公开房间")) return true;
         return false;
     })) return 122;
+    QPushButton *privacyRow = nullptr;
+    for (QPushButton *button : management->findChildren<QPushButton *>())
+        if (button->accessibleName() == QStringLiteral("聊天室权限与隐私")) privacyRow = button;
+    if (!privacyRow || !privacyRow->isEnabled()) return 130;
+    privacyRow->click();
+    if (!waitUntil([&]() { return lastRoomRequest(QStringLiteral("permissions"))
+        .value(QStringLiteral("room_id")) == QStringLiteral("room-created"); })) return 131;
+    QPointer<RoomPermissionsDialog> privacy = a.findChild<RoomPermissionsDialog *>();
+    if (!privacy || !privacy->windowFlags().testFlag(Qt::FramelessWindowHint)) return 132;
+    auto *permissionsPages = privacy->findChild<QStackedWidget *>();
+    QList<QPushButton *> navigation;
+    for (QPushButton *button : privacy->findChildren<QPushButton *>())
+        if (button->objectName() == QStringLiteral("permissionsNav")) navigation.append(button);
+    if (!permissionsPages || permissionsPages->count() != 3 || navigation.size() != 3) return 138;
+    for (QLabel *label : privacy->findChildren<QLabel *>())
+        if (label->text() == QStringLiteral("可见范围与加入权限") ||
+            label->text() == QStringLiteral("公开聊天室的加入方式") ||
+            label->text() == QStringLiteral("普通成员的管理权限")) return 139;
+    const QStringList navTitles = {QStringLiteral("聊天室隐私"), QStringLiteral("加入规则"),
+                                   QStringLiteral("成员权限")};
+    for (int i = 0; i < 3; ++i) {
+        QPushButton *button = nullptr;
+        for (auto *candidate : navigation)
+            if (candidate->text() == navTitles.at(i)) button = candidate;
+        if (!button || button->icon().isNull()) return 140;
+        button->click();
+        if (permissionsPages->currentIndex() != i) return 141;
+    }
+    const QJsonObject readRequest = lastRoomRequest(QStringLiteral("permissions"));
+    const QJsonObject initialPermissions{{"room_type", "public"}, {"join_policy", "direct"},
+        {"allow_member_invite", false}, {"allow_member_edit", false},
+        {"allow_member_kick", false}, {"allow_member_manage_permissions", false}};
+    peers.first()->write(roomResult(QJsonObject{{"action", "permissions"}, {"ok", true},
+        {"request_id", readRequest.value(QStringLiteral("request_id"))},
+        {"room_id", "room-created"}, {"permissions", initialPermissions}}));
+    QCheckBox *memberInviteOption = nullptr;
+    for (QCheckBox *box : privacy->findChildren<QCheckBox *>())
+        if (box->text() == QStringLiteral("允许成员邀请他人")) memberInviteOption = box;
+    if (!waitUntil([&]() { return memberInviteOption && memberInviteOption->isEnabled(); })) return 133;
+    memberInviteOption->setChecked(true);
+    QPushButton *savePermissions = nullptr;
+    for (QPushButton *button : privacy->findChildren<QPushButton *>())
+        if (button->text() == QStringLiteral("保存设置")) savePermissions = button;
+    if (!savePermissions || !savePermissions->isEnabled()) return 134;
+    savePermissions->click();
+    if (!waitUntil([&]() { return lastRoomRequest(QStringLiteral("update_permissions"))
+        .value(QStringLiteral("room_id")) == QStringLiteral("room-created"); })) return 135;
+    const QJsonObject saveRequest = lastRoomRequest(QStringLiteral("update_permissions"));
+    if (!saveRequest.value(QStringLiteral("permissions")).toObject()
+            .value(QStringLiteral("allow_member_invite")).toBool()) return 136;
+    peers.first()->write(roomResult(QJsonObject{{"action", "update_permissions"}, {"ok", true},
+        {"request_id", saveRequest.value(QStringLiteral("request_id"))},
+        {"room_id", "room-created"}}));
+    if (!waitUntil([&]() { return !privacy; })) return 137;
     if (argc > 8) management->grab().save(QString::fromLocal8Bit(argv[8]));
     management->showPage(QStringLiteral("members"));
     if (argc > 10) management->grab().save(QString::fromLocal8Bit(argv[10]));

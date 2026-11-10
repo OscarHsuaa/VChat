@@ -27,6 +27,8 @@ qt_add_executable(ChatDemo_1
     roominvitedialog.h
     roommanagementdialog.cpp
     roommanagementdialog.h
+    roompermissionsdialog.cpp
+    roompermissionsdialog.h
     mainwindow.ui
 )
 

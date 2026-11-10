@@ -5,6 +5,7 @@
 #include "roomcreatedialog.h"
 #include "roominvitedialog.h"
 #include "roommanagementdialog.h"
+#include "roompermissionsdialog.h"
 #include "ui_mainwindow.h"
 
 #include <QFont>
@@ -404,15 +405,21 @@ void MainWindow::setupUI()
             menu->addAction(action);
         };
         addRow(QStringLiteral("聊天室详情"), QStringLiteral("details"), QStringLiteral("room.svg"));
-        if (canInviteToCurrentRoom()) {
-            addRow(QStringLiteral("成员管理"), QStringLiteral("members"), QStringLiteral("members.svg"));
-            addDivider();
-            addRow(QStringLiteral("解散聊天室"), QStringLiteral("dissolve"), QStringLiteral("trash.svg"), true);
-        } else {
-            addRow(QStringLiteral("查看成员"), QStringLiteral("members"), QStringLiteral("members.svg"));
-            addDivider();
-            addRow(QStringLiteral("退出聊天室"), QStringLiteral("leave"), QStringLiteral("log-out.svg"), true);
+        bool owner = false;
+        bool canKick = false;
+        for (const QJsonValue &value : joinedRooms) {
+            const QJsonObject room = value.toObject();
+            if (room.value(QStringLiteral("room_id")).toString() != currentRoomId) continue;
+            owner = room.value(QStringLiteral("owner_id")).toString().toLongLong() == ownAccountId;
+            canKick = owner || room.value(QStringLiteral("allow_member_kick")).toBool();
+            break;
         }
+        addRow(canKick ? QStringLiteral("成员管理") : QStringLiteral("查看成员"),
+            QStringLiteral("members"), QStringLiteral("members.svg"));
+        addDivider();
+        addRow(owner ? QStringLiteral("解散聊天室") : QStringLiteral("退出聊天室"),
+            owner ? QStringLiteral("dissolve") : QStringLiteral("leave"),
+            owner ? QStringLiteral("trash.svg") : QStringLiteral("log-out.svg"), true);
         const QSize menuSize = menu->sizeHint();
         const QRect bounds = screen() ? screen()->availableGeometry()
                                       : QRect(mapToGlobal(QPoint(0, 0)), size());
@@ -430,6 +437,16 @@ void MainWindow::setupUI()
         if (!managementRequestId.isEmpty() && roomManagementDialog)
             roomManagementDialog->showError(QStringLiteral(
                 "服务器尚未确认操作结果。请刷新聊天室列表核对状态，避免重复提交。"));
+    });
+    permissionsTimer = new QTimer(this);
+    permissionsTimer->setSingleShot(true);
+    connect(permissionsTimer, &QTimer::timeout, this, [this]() {
+        if (!permissionsSaveId.isEmpty() && roomPermissionsDialog) {
+            roomPermissionsDialog->setPending(false);
+            roomPermissionsDialog->showError(QStringLiteral(
+                "服务器尚未确认保存结果，请刷新权限配置后再修改，避免覆盖未知状态。"));
+        }
+        permissionsSaveId.clear();
     });
     ui->chatPanelLayout->insertWidget(0, roomInfoBar);
     inviteInboxButton = new QToolButton(ui->headerPanel);
@@ -616,6 +633,13 @@ void MainWindow::connectSlots()
         managementRequestId.clear();
         managementAction.clear();
         managementRoomId.clear();
+        permissionsTimer->stop();
+        permissionsReadId.clear();
+        permissionsSaveId.clear();
+        if (roomPermissionsDialog) {
+            roomPermissionsDialog->setPending(false);
+            roomPermissionsDialog->showError(QStringLiteral("连接已断开，权限保存结果尚未确认。"));
+        }
         if (roomManagementDialog) {
             roomManagementDialog->setPending(false);
             roomManagementDialog->showError(QStringLiteral("连接已断开，请重新连接后核对操作结果。"));
@@ -1026,6 +1050,8 @@ void MainWindow::openRoomManagement(const QString &page)
             [this](const QString &roomId) { submitRoomManagement(QStringLiteral("leave"), roomId); });
         connect(dialog, &RoomManagementDialog::dissolveRequested, this,
             [this](const QString &roomId) { submitRoomManagement(QStringLiteral("dissolve"), roomId); });
+        connect(dialog, &RoomManagementDialog::permissionsRequested, this,
+            &MainWindow::openRoomPermissions);
         dialog->open();
     } else {
         roomManagementDialog->raise();
@@ -1035,6 +1061,56 @@ void MainWindow::openRoomManagement(const QString &page)
     sendRoomRequest(QStringLiteral("details"), {{QStringLiteral("room_id"), currentRoomId},
         {QStringLiteral("request_id"), QUuid::createUuid().toString(QUuid::WithoutBraces)}});
     requestRoomMembers();
+}
+
+void MainWindow::openRoomPermissions(const QString &roomId)
+{
+    if (!isConnected || roomId.isEmpty() || roomId == QStringLiteral("class-room")) return;
+    if (roomPermissionsDialog && roomPermissionsDialog->roomId() != roomId)
+        roomPermissionsDialog->close();
+    if (roomPermissionsDialog) {
+        roomPermissionsDialog->raise();
+        return;
+    }
+    bool owner = false;
+    for (const QJsonValue &value : joinedRooms) {
+        const QJsonObject room = value.toObject();
+        if (room.value(QStringLiteral("room_id")).toString() == roomId) {
+            owner = room.value(QStringLiteral("owner_id")).toString().toLongLong() == ownAccountId;
+            break;
+        }
+    }
+    QWidget *dialogParent = roomManagementDialog && roomManagementDialog->roomId() == roomId
+        ? static_cast<QWidget *>(roomManagementDialog.data()) : static_cast<QWidget *>(this);
+    auto *dialog = new RoomPermissionsDialog(roomId, owner, dialogParent);
+    roomPermissionsDialog = dialog;
+    connect(dialog, &RoomPermissionsDialog::saveRequested, this,
+        [this](const QString &id, const QJsonObject &settings) {
+            if (!isConnected || !permissionsSaveId.isEmpty() || !roomPermissionsDialog ||
+                roomPermissionsDialog->roomId() != id) {
+                if (roomPermissionsDialog) {
+                    roomPermissionsDialog->setPending(false);
+                    roomPermissionsDialog->showError(QStringLiteral("当前无法保存权限配置，请检查连接。"));
+                }
+                return;
+            }
+            permissionsSaveId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            sendRoomRequest(QStringLiteral("update_permissions"),
+                {{QStringLiteral("room_id"), id}, {QStringLiteral("permissions"), settings},
+                 {QStringLiteral("request_id"), permissionsSaveId}});
+            permissionsTimer->start(15000);
+        });
+    dialog->open();
+    permissionsReadId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QString readId = permissionsReadId;
+    sendRoomRequest(QStringLiteral("permissions"), {{QStringLiteral("room_id"), roomId},
+        {QStringLiteral("request_id"), permissionsReadId}});
+    QTimer::singleShot(15000, this, [this, readId, roomId]() {
+        if (permissionsReadId != readId) return;
+        permissionsReadId.clear();
+        if (roomPermissionsDialog && roomPermissionsDialog->roomId() == roomId)
+            roomPermissionsDialog->showError(QStringLiteral("读取权限配置超时，请关闭后重试。"));
+    });
 }
 
 void MainWindow::submitRoomManagement(const QString &action, const QString &roomId,
@@ -1120,7 +1196,8 @@ bool MainWindow::canInviteToCurrentRoom() const
         const qint64 ownerId = rawOwner.isString()
             ? rawOwner.toString().toLongLong(&valid)
             : rawOwner.toVariant().toLongLong(&valid);
-        if (valid && ownerId > 0) return ownerId == ownAccountId;
+        if (valid && ownerId > 0)
+            return ownerId == ownAccountId || room.value(QStringLiteral("allow_member_invite")).toBool();
         break; // Older ROOM servers may omit owner_id; use their members role.
     }
     for (const RoomMember &member : roomMembers)
@@ -1141,6 +1218,13 @@ void MainWindow::handleRoomNotice(const QJsonObject &notice)
         requestRoomMembers();
     } else if (event == QStringLiteral("room_updated")) {
         applyRoomUpdate(notice.value(QStringLiteral("room")).toObject());
+    } else if (event == QStringLiteral("permissions_updated")) {
+        const QString changedRoom = notice.value(QStringLiteral("room_id")).toString();
+        applyRoomUpdate(notice.value(QStringLiteral("room")).toObject());
+        if (roomPermissionsDialog && roomPermissionsDialog->roomId() == changedRoom &&
+            permissionsSaveId.isEmpty())
+            roomPermissionsDialog->setPermissions(notice.value(QStringLiteral("permissions")).toObject());
+        sendRoomRequest(QStringLiteral("list_mine"));
     } else if (event == QStringLiteral("access_revoked") ||
                event == QStringLiteral("room_dissolved")) {
         revokeRoomAccess(notice.value(QStringLiteral("room_id")).toString());
@@ -1210,9 +1294,9 @@ void MainWindow::updateRoomTitle()
         roomNameLabel->setText(name);
         roomDescriptionLabel->setText(active.value(QStringLiteral("description")).toString());
         roomDescriptionLabel->setVisible(!roomDescriptionLabel->text().isEmpty());
-        const bool owner = canInviteToCurrentRoom();
-        inviteMembersButton->setVisible(owner);
-        inviteMembersButton->setEnabled(owner && !switchInFlight && !roomHistoryLoading);
+        const bool canInvite = canInviteToCurrentRoom();
+        inviteMembersButton->setVisible(canInvite);
+        inviteMembersButton->setEnabled(canInvite && !switchInFlight && !roomHistoryLoading);
         inviteMembersButton->setToolTip(QStringLiteral("邀请成员加入当前聊天室"));
         roomMoreButton->setVisible(currentRoomId != QStringLiteral("class-room") && roomListLoaded);
         roomMoreButton->setEnabled(isConnected && !switchInFlight && !roomHistoryLoading);
@@ -1232,6 +1316,35 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
     const QString action = result.value(QStringLiteral("action")).toString();
     const bool ok = result.value(QStringLiteral("ok")).toBool();
     const QString requestId = result.value(QStringLiteral("request_id")).toString();
+    if (action == QStringLiteral("permissions")) {
+        if (requestId == permissionsReadId && roomPermissionsDialog &&
+            roomPermissionsDialog->roomId() == result.value(QStringLiteral("room_id")).toString()) {
+            permissionsReadId.clear();
+            if (ok) roomPermissionsDialog->setPermissions(result.value(QStringLiteral("permissions")).toObject());
+            else roomPermissionsDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("权限配置读取失败")));
+        }
+        return;
+    }
+    if (action == QStringLiteral("update_permissions")) {
+        if (requestId != permissionsSaveId) return;
+        permissionsTimer->stop();
+        permissionsSaveId.clear();
+        if (roomPermissionsDialog &&
+            roomPermissionsDialog->roomId() == result.value(QStringLiteral("room_id")).toString()) {
+            roomPermissionsDialog->setPending(false);
+            if (ok) roomPermissionsDialog->accept();
+            else roomPermissionsDialog->showError(result.value(QStringLiteral("error"))
+                .toString(QStringLiteral("保存权限配置失败")));
+        }
+        if (ok) {
+            sendRoomRequest(QStringLiteral("list_mine"));
+            if (roomManagementDialog)
+                sendRoomRequest(QStringLiteral("details"),
+                    {{QStringLiteral("room_id"), result.value(QStringLiteral("room_id"))}});
+        }
+        return;
+    }
     if (action == QStringLiteral("details")) {
         const QJsonObject room = result.value(QStringLiteral("room")).toObject();
         if (roomManagementDialog && roomManagementDialog->roomId() ==

@@ -13,12 +13,17 @@ public:
     static bool ensureLobbyMember(qint64 userId);
     static bool isMember(const QString &roomId, qint64 userId);
     static QJsonObject details(qint64 userId, const QString &roomId, QString *error);
+    static QJsonObject permissions(qint64 userId, const QString &roomId, QString *error);
+    static QJsonObject updatePermissions(qint64 actorId, const QString &roomId,
+                                         const QJsonObject &settings, QString *error);
+    static bool canManage(qint64 actorId, const QString &roomId, const QString &permission,
+                          QString *error = nullptr);
     static QJsonObject updateDetails(qint64 actorId, const QString &roomId,
                                      const QString &name, const QString &description, QString *error);
     static bool removeMember(qint64 actorId, const QString &roomId, qint64 targetId, QString *error);
     static bool dissolve(qint64 actorId, const QString &roomId, QString *error);
-    static QJsonArray myRooms(qint64 userId);
-    static QJsonArray publicRooms(qint64 userId);
+    static QJsonArray myRooms(qint64 userId, QString *error = nullptr);
+    static QJsonArray publicRooms(qint64 userId, QString *error = nullptr);
     static QJsonArray members(const QString &roomId);
     static QJsonObject create(qint64 ownerId, const QString &name, const QString &description,
                               const QString &type, QString *error);

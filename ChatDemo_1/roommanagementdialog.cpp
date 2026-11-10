@@ -233,18 +233,16 @@ RoomManagementDialog::RoomManagementDialog(const QString &roomId, qint64 account
     detailLayout->addWidget(editButton_);
     detailLayout->addWidget(divider(details));
     detailLayout->addWidget(manageButton_);
-    auto *privacyRow = actionRow(QStringLiteral("聊天室权限与隐私"), QStringLiteral("shield.svg"),
-                                 details, QStringLiteral("暂未开放"), false);
-    privacyRow->setEnabled(false);
-    privacyRow->setToolTip(QStringLiteral("当前仅展示房间类型，暂不支持修改加入方式"));
+    privacyButton_ = actionRow(QStringLiteral("聊天室权限与隐私"), QStringLiteral("shield.svg"), details);
     detailLayout->addWidget(divider(details));
-    detailLayout->addWidget(privacyRow);
+    detailLayout->addWidget(privacyButton_);
     detailLayout->addSpacing(16);
     detailLayout->addWidget(leaveButton_);
     detailLayout->addWidget(dissolveButton_);
     pages_->addWidget(details);
     connect(editButton_, &QPushButton::clicked, this, [this]() { showPage(QStringLiteral("edit")); });
     connect(manageButton_, &QPushButton::clicked, this, [this]() { showPage(QStringLiteral("members")); });
+    connect(privacyButton_, &QPushButton::clicked, this, [this]() { emit permissionsRequested(id_); });
     connect(leaveButton_, &QPushButton::clicked, this, [this]() {
         if (confirm(QStringLiteral("退出聊天室"),
                     QStringLiteral("退出后，你将无法继续查看该聊天室的新消息。确定退出吗？")))
@@ -358,6 +356,7 @@ void RoomManagementDialog::setPending(bool pending)
     descriptionEdit_->setEnabled(!pending);
     leaveButton_->setEnabled(!pending);
     dissolveButton_->setEnabled(!pending);
+    privacyButton_->setEnabled(!pending);
     for (QToolButton *button : pages_->widget(2)->findChildren<QToolButton *>())
         if (button->objectName() == QStringLiteral("memberMore")) button->setEnabled(!pending);
 }
@@ -445,11 +444,13 @@ void RoomManagementDialog::refreshDetails()
                       descriptionLabel_->text()).height();
     descriptionLabel_->setMinimumHeight(textHeight + 4);
     const bool owner = room_.value(QStringLiteral("owner_id")).toString().toLongLong() == accountId_;
-    editButton_->setVisible(owner);
-    manageButton_->setAccessibleName(owner ? QStringLiteral("成员管理") : QStringLiteral("查看成员"));
+    const bool canEdit = owner || room_.value(QStringLiteral("allow_member_edit")).toBool();
+    const bool canKick = owner || room_.value(QStringLiteral("allow_member_kick")).toBool();
+    editButton_->setVisible(canEdit);
+    manageButton_->setAccessibleName(canKick ? QStringLiteral("成员管理") : QStringLiteral("查看成员"));
     for (QLabel *label : manageButton_->findChildren<QLabel *>())
         if (label->text() == QStringLiteral("成员管理") || label->text() == QStringLiteral("查看成员"))
-            label->setText(owner ? QStringLiteral("成员管理") : QStringLiteral("查看成员"));
+            label->setText(canKick ? QStringLiteral("成员管理") : QStringLiteral("查看成员"));
     leaveButton_->setVisible(!owner && id_ != QStringLiteral("class-room"));
     dissolveButton_->setVisible(owner && id_ != QStringLiteral("class-room"));
     refreshMembers();
@@ -480,8 +481,9 @@ void RoomManagementDialog::refreshMembers()
         return rankA < rankB;
     });
     const bool owner = room_.value(QStringLiteral("owner_id")).toString().toLongLong() == accountId_;
+    const bool canKick = owner || room_.value(QStringLiteral("allow_member_kick")).toBool();
     memberTitle_->setText(QStringLiteral("%1（%2 人）")
-        .arg(owner ? QStringLiteral("成员管理") : QStringLiteral("查看成员"))
+        .arg(canKick ? QStringLiteral("成员管理") : QStringLiteral("查看成员"))
         .arg(sorted.size()));
     membersScroll_->setVerticalScrollBarPolicy(sorted.size() > 5
         ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
@@ -545,7 +547,7 @@ void RoomManagementDialog::refreshMembers()
         actionSlot->setFixedSize(32, 32);
         auto *actionLayout = new QHBoxLayout(actionSlot);
         actionLayout->setContentsMargins(0, 0, 0, 0);
-        if (owner && !memberOwner && id.toLongLong() != accountId_) {
+        if (canKick && !memberOwner && id.toLongLong() != accountId_) {
             auto *more = new QToolButton(actionSlot);
             more->setObjectName(QStringLiteral("memberMore"));
             more->setIcon(memberMoreIcon());

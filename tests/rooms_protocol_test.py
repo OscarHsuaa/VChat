@@ -232,6 +232,34 @@ try:
     details = request(a, "details", room_id=public)
     assert details["ok"] and details["room"]["room_type"] == "public"
     assert details["room"]["member_count"] == 2
+    base_permissions = request(a, "permissions", room_id=public)
+    assert base_permissions["ok"] and not base_permissions["permissions"]["allow_member_edit"]
+    assert request(b, "permissions", room_id=public)["ok"]
+    settings = {"room_type": "public", "join_policy": "direct",
+                "allow_member_invite": True, "allow_member_edit": True,
+                "allow_member_kick": False,
+                "allow_member_manage_permissions": False}
+    assert not request(b, "update_permissions", room_id=public,
+                       permissions=settings, user_id=details["room"]["owner_id"])["ok"]
+    assert request(a, "update_permissions", room_id=public, permissions=settings)["ok"]
+    assert request(b, "update_details", room_id=public,
+                   room_name="成员授权编辑", description="授权测试")["ok"]
+    assert request(b, "invite", room_id=public, expires_minutes=1)["ok"]
+    assert not request(b, "remove_member", room_id=public,
+                       user_id=details["room"]["owner_id"])["ok"]
+    approval = dict(settings, join_policy="approval")
+    assert not request(a, "update_permissions", room_id=public,
+                       permissions=approval)["ok"]
+    private_settings = dict(settings, room_type="invite_only",
+                            allow_member_invite=False, allow_member_edit=False)
+    assert request(a, "update_permissions", room_id=public,
+                   permissions=private_settings)["ok"]
+    assert not request(b, "update_details", room_id=public,
+                       room_name="撤销后应拒绝", description="test")["ok"]
+    assert not request(b, "invite", room_id=public, expires_minutes=1)["ok"]
+    assert request(a, "update_permissions", room_id=public,
+                   permissions=dict(private_settings, room_type="public"))["ok"]
+    assert request(a, "permissions", room_id=public)["permissions"]["room_type"] == "public"
     assert not request(b, "update_details", room_id=public,
                        room_name="伪造房主", description="无权限")["ok"]
     assert not request(b, "remove_member", room_id=public,

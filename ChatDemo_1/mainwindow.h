@@ -40,6 +40,7 @@ class RoomCreateDialog;
 class RoomInviteDialog;
 class RoomInviteInboxDialog;
 class RoomManagementDialog;
+class RoomPermissionsDialog;
 class QPushButton;
 
 class HeaderWaveFrame : public QFrame
@@ -183,6 +184,10 @@ private:
     QPointer<RoomInviteDialog> roomInviteDialog;
     QPointer<RoomInviteInboxDialog> roomInviteInboxDialog;
     QPointer<RoomManagementDialog> roomManagementDialog;
+    QPointer<RoomPermissionsDialog> roomPermissionsDialog;
+    QTimer *permissionsTimer = nullptr;
+    QString permissionsReadId;
+    QString permissionsSaveId;
     QToolButton *roomMoreButton = nullptr;
     QTimer *managementTimer = nullptr;
     QString managementRequestId;
@@ -221,6 +226,7 @@ private:
     void openInviteDialog();
     void openInviteInbox();
     void openRoomManagement(const QString &page = QStringLiteral("details"));
+    void openRoomPermissions(const QString &roomId);
     void submitRoomManagement(const QString &action, const QString &roomId,
                               const QJsonObject &arguments = {});
     void applyRoomUpdate(const QJsonObject &room);

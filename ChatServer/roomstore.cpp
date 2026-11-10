@@ -1,12 +1,38 @@
 #include "roomstore.h"
 #include <QCryptographicHash>
+#include <QDebug>
 #include <QRandomGenerator>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QSet>
 #include <QUuid>
 
 namespace {
+bool permissionSchemaReady()
+{
+    const QSqlRecord columns = QSqlDatabase::database().record(QStringLiteral("rooms"));
+    return columns.indexOf(QStringLiteral("join_policy")) >= 0 &&
+        columns.indexOf(QStringLiteral("allow_member_invite")) >= 0 &&
+        columns.indexOf(QStringLiteral("allow_member_edit")) >= 0 &&
+        columns.indexOf(QStringLiteral("allow_member_kick")) >= 0 &&
+        columns.indexOf(QStringLiteral("allow_member_manage_permissions")) >= 0;
+}
+
+bool joinPolicyColumnExists()
+{
+    return QSqlDatabase::database().record(QStringLiteral("rooms"))
+        .indexOf(QStringLiteral("join_policy")) >= 0;
+}
+
+QString permissionProjection(const QString &alias)
+{
+    if (!permissionSchemaReady()) return QStringLiteral("'direct',0,0,0");
+    return QStringLiteral("%1.join_policy,%1.allow_member_invite,%1.allow_member_edit,"
+                          "%1.allow_member_kick").arg(alias);
+}
+
 QString tokenHash(const QString &token)
 {
     return QString::fromLatin1(QCryptographicHash::hash(token.toUtf8(), QCryptographicHash::Sha256).toHex());
@@ -17,7 +43,21 @@ QJsonObject roomRow(const QSqlQuery &q)
             {QStringLiteral("room_name"),q.value(1).toString()},
             {QStringLiteral("description"),q.value(2).toString()},
             {QStringLiteral("room_type"),q.value(3).toString()},
-            {QStringLiteral("owner_id"),q.value(4).toString()}};
+            {QStringLiteral("owner_id"),q.value(4).toString()},
+            {QStringLiteral("join_policy"),q.value(5).toString()},
+            {QStringLiteral("allow_member_invite"),q.value(6).toBool()},
+            {QStringLiteral("allow_member_edit"),q.value(7).toBool()},
+            {QStringLiteral("allow_member_kick"),q.value(8).toBool()},
+            {QStringLiteral("allow_member_manage_permissions"),false}};
+}
+QJsonObject permissionFields(const QSqlQuery &q, int offset = 0)
+{
+    return {{QStringLiteral("room_type"),q.value(offset).toString()},
+            {QStringLiteral("join_policy"),q.value(offset+1).toString()},
+            {QStringLiteral("allow_member_invite"),q.value(offset+2).toBool()},
+            {QStringLiteral("allow_member_edit"),q.value(offset+3).toBool()},
+            {QStringLiteral("allow_member_kick"),q.value(offset+4).toBool()},
+            {QStringLiteral("allow_member_manage_permissions"),false}};
 }
 }
 
@@ -48,8 +88,9 @@ QJsonObject RoomStore::details(qint64 userId, const QString &roomId, QString *er
     }
     QSqlQuery q;
     q.prepare(QStringLiteral("SELECT r.room_id,r.room_name,r.description,r.room_type,r.owner_id,"
-        "r.created_at,u.nickname,(SELECT COUNT(*) FROM room_members m WHERE m.room_id=r.room_id) "
-        "FROM rooms r LEFT JOIN users u ON u.id=r.owner_id WHERE r.room_id=? AND r.dissolved_at IS NULL"));
+        "r.created_at,u.nickname,(SELECT COUNT(*) FROM room_members m WHERE m.room_id=r.room_id),%1 "
+        "FROM rooms r LEFT JOIN users u ON u.id=r.owner_id WHERE r.room_id=? AND r.dissolved_at IS NULL")
+        .arg(permissionProjection(QStringLiteral("r"))));
     q.addBindValue(roomId);
     if (!q.exec() || !q.next()) { *error = QStringLiteral("聊天室详情读取失败"); return {}; }
     return {{QStringLiteral("room_id"), q.value(0).toString()},
@@ -59,7 +100,104 @@ QJsonObject RoomStore::details(qint64 userId, const QString &roomId, QString *er
             {QStringLiteral("owner_id"), q.value(4).toString()},
             {QStringLiteral("created_at"), q.value(5).toDateTime().toString(Qt::ISODateWithMs)},
             {QStringLiteral("owner_name"), q.value(6).toString()},
-            {QStringLiteral("member_count"), q.value(7).toInt()}};
+            {QStringLiteral("member_count"), q.value(7).toInt()},
+            {QStringLiteral("join_policy"),q.value(8).toString()},
+            {QStringLiteral("allow_member_invite"),q.value(9).toBool()},
+            {QStringLiteral("allow_member_edit"),q.value(10).toBool()},
+            {QStringLiteral("allow_member_kick"),q.value(11).toBool()},
+            {QStringLiteral("allow_member_manage_permissions"),false}};
+}
+
+QJsonObject RoomStore::permissions(qint64 userId, const QString &roomId, QString *error)
+{
+    if (!permissionSchemaReady()) {
+        *error = QStringLiteral("权限配置尚未部署：请先执行 006_room_permissions.sql"); return {};
+    }
+    if (!isMember(roomId, userId)) {
+        *error = QStringLiteral("无权查看聊天室权限或聊天室已解散"); return {};
+    }
+    QSqlQuery q;
+    q.prepare(QStringLiteral("SELECT room_type,join_policy,allow_member_invite,allow_member_edit,"
+        "allow_member_kick FROM rooms WHERE room_id=? AND dissolved_at IS NULL"));
+    q.addBindValue(roomId);
+    if (!q.exec() || !q.next()) { *error = QStringLiteral("聊天室权限读取失败"); return {}; }
+    return permissionFields(q);
+}
+
+bool RoomStore::canManage(qint64 actorId, const QString &roomId,
+                          const QString &permission, QString *error)
+{
+    if (roomId == QString::fromLatin1(LobbyId)) {
+        if (error) *error = QStringLiteral("VChat 大厅不支持此管理操作");
+        return false;
+    }
+    const QString column = permission == QStringLiteral("invite") ? QStringLiteral("allow_member_invite")
+        : permission == QStringLiteral("edit") ? QStringLiteral("allow_member_edit")
+        : permission == QStringLiteral("kick") ? QStringLiteral("allow_member_kick") : QString();
+    if (column.isEmpty()) { if (error) *error = QStringLiteral("未知的聊天室权限"); return false; }
+    QSqlQuery q;
+    q.prepare(QStringLiteral("SELECT r.owner_id,m.role,%1 FROM rooms r "
+        "JOIN room_members m ON m.room_id=r.room_id AND m.user_id=? "
+        "WHERE r.room_id=? AND r.dissolved_at IS NULL")
+        .arg(permissionSchemaReady() ? QStringLiteral("r.%1").arg(column) : QStringLiteral("0")));
+    q.addBindValue(actorId); q.addBindValue(roomId);
+    if (!q.exec()) { if (error) *error = QStringLiteral("聊天室权限检查失败"); return false; }
+    if (!q.next()) { if (error) *error = QStringLiteral("不是该聊天室成员或聊天室已解散"); return false; }
+    if (q.value(0).toLongLong() == actorId && q.value(1).toString() == QStringLiteral("owner")) return true;
+    if (q.value(1).toString() == QStringLiteral("member") && q.value(2).toBool()) return true;
+    if (error) *error = QStringLiteral("当前账号没有此聊天室管理权限");
+    return false;
+}
+
+QJsonObject RoomStore::updatePermissions(qint64 actorId, const QString &roomId,
+                                          const QJsonObject &settings, QString *error)
+{
+    if (!permissionSchemaReady()) {
+        *error = QStringLiteral("权限配置尚未部署：请先执行 006_room_permissions.sql"); return {};
+    }
+    const QString type = settings.value(QStringLiteral("room_type")).toString();
+    const QString policy = settings.value(QStringLiteral("join_policy")).toString();
+    if ((type != QStringLiteral("invite_only") && type != QStringLiteral("public")) ||
+        (policy != QStringLiteral("direct") && policy != QStringLiteral("approval"))) {
+        *error = QStringLiteral("聊天室隐私或加入规则无效"); return {};
+    }
+    if (policy == QStringLiteral("approval")) {
+        *error = QStringLiteral("加入申请与房主审核流程尚未开放，不能保存审核模式"); return {};
+    }
+    const QStringList flags{QStringLiteral("allow_member_invite"), QStringLiteral("allow_member_edit"),
+        QStringLiteral("allow_member_kick"), QStringLiteral("allow_member_manage_permissions")};
+    for (const QString &key : flags) if (!settings.value(key).isBool()) {
+        *error = QStringLiteral("成员权限字段无效"); return {};
+    }
+    if (settings.value(QStringLiteral("allow_member_manage_permissions")).toBool()) {
+        *error = QStringLiteral("当前版本仅房主可以管理聊天室权限"); return {};
+    }
+    if (roomId == QString::fromLatin1(LobbyId)) {
+        *error = QStringLiteral("不能修改 VChat 大厅权限"); return {};
+    }
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!db.transaction()) { *error = QStringLiteral("数据库事务无法启动"); return {}; }
+    QSqlQuery q;
+    q.prepare(QStringLiteral("SELECT r.owner_id,m.role FROM rooms r "
+        "LEFT JOIN room_members m ON m.room_id=r.room_id AND m.user_id=? "
+        "WHERE r.room_id=? AND r.dissolved_at IS NULL FOR UPDATE"));
+    q.addBindValue(actorId); q.addBindValue(roomId);
+    if (!q.exec() || !q.next() || q.value(0).toLongLong() != actorId ||
+        q.value(1).toString() != QStringLiteral("owner")) {
+        db.rollback(); *error = QStringLiteral("只有房主可以修改聊天室权限与隐私"); return {};
+    }
+    QSqlQuery update;
+    update.prepare(QStringLiteral("UPDATE rooms SET room_type=?,join_policy=?,allow_member_invite=?,"
+        "allow_member_edit=?,allow_member_kick=?,allow_member_manage_permissions=0 WHERE room_id=?"));
+    update.addBindValue(type); update.addBindValue(policy);
+    update.addBindValue(settings.value(flags[0]).toBool());
+    update.addBindValue(settings.value(flags[1]).toBool());
+    update.addBindValue(settings.value(flags[2]).toBool());
+    update.addBindValue(roomId);
+    if (!update.exec() || !db.commit()) {
+        db.rollback(); *error = QStringLiteral("保存聊天室权限失败"); return {};
+    }
+    return permissions(actorId, roomId, error);
 }
 
 QJsonObject RoomStore::updateDetails(qint64 actorId, const QString &roomId,
@@ -71,18 +209,16 @@ QJsonObject RoomStore::updateDetails(qint64 actorId, const QString &roomId,
         cleanDescription.toUcs4().size() > 200) {
         *error = QStringLiteral("聊天室名称应为 2～30 字，简介不能超过 200 字"); return {};
     }
-    QSqlQuery owner;
-    owner.prepare(QStringLiteral("SELECT 1 FROM rooms WHERE room_id=? AND owner_id=? "
-                                 "AND room_id<>'class-room' AND dissolved_at IS NULL"));
-    owner.addBindValue(roomId); owner.addBindValue(actorId);
-    if (!owner.exec() || !owner.next()) {
-        *error = QStringLiteral("只有房主可以修改聊天室信息"); return {};
-    }
+    if (!canManage(actorId, roomId, QStringLiteral("edit"), error)) return {};
     QSqlQuery q;
-    q.prepare(QStringLiteral("UPDATE rooms SET room_name=?,description=? "
-        "WHERE room_id=? AND owner_id=? AND room_id<>'class-room' AND dissolved_at IS NULL"));
-    q.addBindValue(cleanName); q.addBindValue(cleanDescription); q.addBindValue(roomId); q.addBindValue(actorId);
-    if (!q.exec()) { *error = QStringLiteral("修改聊天室信息失败"); return {}; }
+    q.prepare(QStringLiteral("UPDATE rooms r JOIN room_members m ON m.room_id=r.room_id "
+        "AND m.user_id=? SET r.room_name=?,r.description=? WHERE r.room_id=? "
+        "AND r.room_id<>'class-room' AND r.dissolved_at IS NULL "
+        "AND ((m.role='owner' AND r.owner_id=?) OR (m.role='member' AND %1))")
+        .arg(permissionSchemaReady() ? QStringLiteral("r.allow_member_edit=1") : QStringLiteral("0=1")));
+    q.addBindValue(actorId); q.addBindValue(cleanName); q.addBindValue(cleanDescription);
+    q.addBindValue(roomId); q.addBindValue(actorId);
+    if (!q.exec() || q.numRowsAffected() < 0) { *error = QStringLiteral("修改聊天室信息失败"); return {}; }
     return details(actorId, roomId, error);
 }
 
@@ -94,10 +230,19 @@ bool RoomStore::removeMember(qint64 actorId, const QString &roomId, qint64 targe
     QSqlDatabase db = QSqlDatabase::database();
     if (!db.transaction()) { *error = QStringLiteral("数据库事务无法启动"); return false; }
     QSqlQuery room;
-    room.prepare(QStringLiteral("SELECT owner_id FROM rooms WHERE room_id=? AND dissolved_at IS NULL FOR UPDATE"));
+    room.prepare(QStringLiteral("SELECT owner_id,%1 FROM rooms WHERE room_id=? "
+                                "AND dissolved_at IS NULL FOR UPDATE")
+                 .arg(permissionSchemaReady() ? QStringLiteral("allow_member_kick") : QStringLiteral("0")));
     room.addBindValue(roomId);
-    if (!room.exec() || !room.next() || room.value(0).toLongLong() != actorId) {
-        db.rollback(); *error = QStringLiteral("只有房主可以移除成员"); return false;
+    if (!room.exec() || !room.next()) {
+        db.rollback(); *error = QStringLiteral("聊天室不存在或已解散"); return false;
+    }
+    QSqlQuery actor;
+    actor.prepare(QStringLiteral("SELECT role FROM room_members WHERE room_id=? AND user_id=?"));
+    actor.addBindValue(roomId); actor.addBindValue(actorId);
+    if (!actor.exec() || !actor.next() ||
+        (actor.value(0).toString() != QStringLiteral("owner") && !room.value(1).toBool())) {
+        db.rollback(); *error = QStringLiteral("当前账号没有移除成员权限"); return false;
     }
     QSqlQuery member;
     member.prepare(QStringLiteral("DELETE FROM room_members WHERE room_id=? AND user_id=? AND role='member'"));
@@ -123,27 +268,41 @@ bool RoomStore::dissolve(qint64 actorId, const QString &roomId, QString *error)
     return true;
 }
 
-QJsonArray RoomStore::myRooms(qint64 userId)
+QJsonArray RoomStore::myRooms(qint64 userId, QString *error)
 {
     QJsonArray rooms;
     QSqlQuery q;
-    q.prepare(QStringLiteral("SELECT r.room_id,r.room_name,r.description,r.room_type,r.owner_id "
+    q.prepare(QStringLiteral("SELECT r.room_id,r.room_name,r.description,r.room_type,r.owner_id,%1 "
         "FROM room_members m JOIN rooms r ON r.room_id=m.room_id WHERE m.user_id=? AND r.dissolved_at IS NULL "
-        "ORDER BY (r.room_id='class-room') DESC,m.joined_at,r.room_id"));
+        "ORDER BY (r.room_id='class-room') DESC,m.joined_at,r.room_id")
+        .arg(permissionProjection(QStringLiteral("r"))));
     q.addBindValue(userId);
-    if (q.exec()) while (q.next()) rooms.append(roomRow(q));
+    if (!q.exec()) {
+        qWarning() << "ROOM list_mine SQL failed:" << q.lastError().nativeErrorCode()
+                   << q.lastError().driverText();
+        if (error) *error = QStringLiteral("聊天室列表查询失败，请检查数据库结构和连接");
+        return {};
+    }
+    while (q.next()) rooms.append(roomRow(q));
     return rooms;
 }
 
-QJsonArray RoomStore::publicRooms(qint64 userId)
+QJsonArray RoomStore::publicRooms(qint64 userId, QString *error)
 {
     QJsonArray rooms;
     QSqlQuery q;
-    q.prepare(QStringLiteral("SELECT r.room_id,r.room_name,r.description,r.room_type,r.owner_id "
+    q.prepare(QStringLiteral("SELECT r.room_id,r.room_name,r.description,r.room_type,r.owner_id,%1 "
         "FROM rooms r LEFT JOIN room_members m ON m.room_id=r.room_id AND m.user_id=? "
-        "WHERE r.room_type='public' AND r.dissolved_at IS NULL AND m.user_id IS NULL ORDER BY r.created_at,r.room_id"));
+        "WHERE r.room_type='public' AND r.dissolved_at IS NULL AND m.user_id IS NULL ORDER BY r.created_at,r.room_id")
+        .arg(permissionProjection(QStringLiteral("r"))));
     q.addBindValue(userId);
-    if (q.exec()) while (q.next()) rooms.append(roomRow(q));
+    if (!q.exec()) {
+        qWarning() << "ROOM list_public SQL failed:" << q.lastError().nativeErrorCode()
+                   << q.lastError().driverText();
+        if (error) *error = QStringLiteral("公开聊天室查询失败，请检查数据库结构和连接");
+        return {};
+    }
+    while (q.next()) rooms.append(roomRow(q));
     return rooms;
 }
 
@@ -188,7 +347,12 @@ QJsonObject RoomStore::create(qint64 ownerId, const QString &name, const QString
     }
     return {{QStringLiteral("room_id"),id},{QStringLiteral("room_name"),cleanName},
             {QStringLiteral("description"),cleanDescription},{QStringLiteral("room_type"),type},
-            {QStringLiteral("owner_id"),QString::number(ownerId)}};
+            {QStringLiteral("owner_id"),QString::number(ownerId)},
+            {QStringLiteral("join_policy"),QStringLiteral("direct")},
+            {QStringLiteral("allow_member_invite"),false},
+            {QStringLiteral("allow_member_edit"),false},
+            {QStringLiteral("allow_member_kick"),false},
+            {QStringLiteral("allow_member_manage_permissions"),false}};
 }
 
 QString RoomStore::invite(qint64 actorId, const QString &roomId, int validMinutes, QString *error)
@@ -199,9 +363,13 @@ QString RoomStore::invite(qint64 actorId, const QString &roomId, int validMinute
         QString::number(QRandomGenerator::system()->generate64(),16).rightJustified(16,QLatin1Char('0'));
     QSqlQuery q;
     q.prepare(QStringLiteral("INSERT INTO room_invites(token_hash,room_id,created_by,expires_at) "
-                             "SELECT ?,room_id,?,DATE_ADD(NOW(3),INTERVAL ? MINUTE) "
-                             "FROM rooms WHERE room_id=? AND dissolved_at IS NULL"));
-    q.addBindValue(tokenHash(token)); q.addBindValue(actorId); q.addBindValue(validMinutes); q.addBindValue(roomId);
+        "SELECT ?,r.room_id,?,DATE_ADD(NOW(3),INTERVAL ? MINUTE) "
+        "FROM rooms r JOIN room_members m ON m.room_id=r.room_id AND m.user_id=? "
+        "WHERE r.room_id=? AND r.dissolved_at IS NULL AND r.room_id<>'class-room' "
+        "AND ((m.role='owner' AND r.owner_id=?) OR (m.role='member' AND %1))")
+        .arg(permissionSchemaReady() ? QStringLiteral("r.allow_member_invite=1") : QStringLiteral("0=1")));
+    q.addBindValue(tokenHash(token)); q.addBindValue(actorId); q.addBindValue(validMinutes);
+    q.addBindValue(actorId); q.addBindValue(roomId); q.addBindValue(actorId);
     if (!q.exec() || q.numRowsAffected() != 1) { *error=QStringLiteral("创建邀请失败"); return {}; }
     return token;
 }
@@ -240,41 +408,7 @@ QString RoomStore::redeem(qint64 userId, const QString &token, QString *error)
 
 bool RoomStore::canInvite(qint64 actorId, const QString &roomId, QString *error)
 {
-    if (actorId <= 0 || roomId.isEmpty()) {
-        if (error) *error = QStringLiteral("账号或聊天室标识无效");
-        return false;
-    }
-    QSqlQuery room;
-    room.prepare(QStringLiteral("SELECT 1 FROM rooms WHERE room_id=? AND dissolved_at IS NULL LIMIT 1"));
-    room.addBindValue(roomId);
-    if (!room.exec()) {
-        if (error) *error = QStringLiteral("聊天室权限检查失败");
-        return false;
-    }
-    if (!room.next()) {
-        if (error) *error = QStringLiteral("聊天室不存在");
-        return false;
-    }
-    if (roomId == QString::fromLatin1(LobbyId)) {
-        if (error) *error = QStringLiteral("VChat 大厅不支持定向邀请");
-        return false;
-    }
-    QSqlQuery q;
-    q.prepare(QStringLiteral("SELECT 1 FROM room_members m JOIN rooms r ON r.room_id=m.room_id "
-                             "WHERE m.room_id=? AND m.user_id=? AND m.role='owner' "
-                             "AND r.owner_id=? AND r.dissolved_at IS NULL LIMIT 1"));
-    q.addBindValue(roomId);
-    q.addBindValue(actorId);
-    q.addBindValue(actorId);
-    if (!q.exec()) {
-        if (error) *error = QStringLiteral("聊天室权限检查失败");
-        return false;
-    }
-    if (!q.next()) {
-        if (error) *error = QStringLiteral("只有聊天室房主可以邀请成员");
-        return false;
-    }
-    return true;
+    return canManage(actorId, roomId, QStringLiteral("invite"), error);
 }
 
 QJsonArray RoomStore::searchInvitees(qint64 actorId, const QString &roomId,
@@ -365,10 +499,19 @@ QJsonArray RoomStore::sendDirectInvites(qint64 actorId, const QString &roomId,
     QSqlDatabase db = QSqlDatabase::database();
     if (!db.transaction()) { *error = QStringLiteral("数据库事务无法启动"); return {}; }
     QSqlQuery roomLock;
-    roomLock.prepare(QStringLiteral("SELECT owner_id FROM rooms WHERE room_id=? AND dissolved_at IS NULL FOR UPDATE"));
+    roomLock.prepare(QStringLiteral("SELECT owner_id,%1 FROM rooms WHERE room_id=? "
+                                    "AND dissolved_at IS NULL FOR UPDATE")
+                     .arg(permissionSchemaReady() ? QStringLiteral("allow_member_invite") : QStringLiteral("0")));
     roomLock.addBindValue(roomId);
-    if (!roomLock.exec() || !roomLock.next() || roomLock.value(0).toLongLong() != actorId) {
+    if (!roomLock.exec() || !roomLock.next()) {
         db.rollback(); *error = QStringLiteral("聊天室已解散或无邀请权限"); return {};
+    }
+    QSqlQuery membership;
+    membership.prepare(QStringLiteral("SELECT role FROM room_members WHERE room_id=? AND user_id=?"));
+    membership.addBindValue(roomId); membership.addBindValue(actorId);
+    if (!membership.exec() || !membership.next() ||
+        (membership.value(0).toString() != QStringLiteral("owner") && !roomLock.value(1).toBool())) {
+        db.rollback(); *error = QStringLiteral("当前账号没有邀请权限"); return {};
     }
     for (qint64 id : ids) {
         QSqlQuery user;
@@ -471,9 +614,13 @@ bool RoomStore::joinPublic(qint64 userId, const QString &roomId, QString *error)
     if (isMember(roomId,userId)) { *error=QStringLiteral("已经是该聊天室成员"); return false; }
     QSqlQuery q;
     q.prepare(QStringLiteral("INSERT INTO room_members(room_id,user_id,role) "
-        "SELECT room_id,?,'member' FROM rooms WHERE room_id=? AND room_type='public' AND dissolved_at IS NULL"));
+        "SELECT room_id,?,'member' FROM rooms WHERE room_id=? AND room_type='public' "
+        "AND %1 AND dissolved_at IS NULL")
+        .arg(joinPolicyColumnExists() ? QStringLiteral("join_policy='direct'") : QStringLiteral("1=1")));
     q.addBindValue(userId); q.addBindValue(roomId);
-    if (!q.exec() || q.numRowsAffected()!=1) { *error=QStringLiteral("公开聊天室不存在或无法加入"); return false; }
+    if (!q.exec() || q.numRowsAffected()!=1) {
+        *error=QStringLiteral("聊天室不可直接加入；请检查公开状态和加入规则"); return false;
+    }
     return true;
 }
 
