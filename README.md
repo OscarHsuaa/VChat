@@ -14,7 +14,7 @@ VChat 从 Qt 多人聊天室起步，采用独立客户端与服务器架构。�
 
 | 功能 | 当前实现 |
 | --- | --- |
-| 账号登录 | 客户端验证账号、密码和验证码；服务器校验已有 MySQL 账号并发放会话标识。当前未提供自助注册流程。 |
+| 登录与注册 | 客户端提供登录、验证码、记住账号和自助注册页；服务器校验账号并发放会话标识。新注册密码以 PBKDF2-SHA256 哈希存储，旧账号仍沿用原有校验方式。 |
 | 多人群聊 | TCP 传输文本消息，广播给在线成员；显示在线列表、加入/离开提示和连接状态。 |
 | 智能提及 | 输入 `@` 可搜索在线成员和 Vivi；提及普通成员仍是群聊消息，`@Vivi` 可触发 AI 请求。 |
 | Vivi 流式回答 | 服务器解析 DeepSeek SSE 增量并转发；客户端在同一气泡中逐字显示，完成后渲染 Markdown。 |
@@ -53,7 +53,7 @@ flowchart LR
 VChat/
 ├─ ChatDemo_1/                 # Qt Widgets 客户端
 │  ├─ CMakeLists.txt
-│  ├─ logindialog.{h,cpp,ui}   # 登录与验证码
+│  ├─ logindialog.{h,cpp,ui}   # 登录、注册与验证码
 │  ├─ mainwindow.{h,cpp,ui}    # 聊天界面、消息与在线成员
 │  ├─ aimarkdownwidget.{h,cpp} # Vivi Markdown 与代码块
 │  ├─ mentioninput.{h,cpp}    # @成员输入
@@ -80,7 +80,7 @@ VChat/
 
 | 建议截图 | 展示重点 |
 | --- | --- |
-| 登录页面 | 登录表单、验证码和服务器设置；当前无自助注册页。 |
+| 登录与注册页面 | 共用浅紫色品牌背景；服务器设置位于右上角齿轮菜单。 |
 | 聊天主界面 | 双栏布局、在线成员与消息气泡。 |
 | Vivi 流式回答 | 同一气泡中的生成过程。 |
 | 多人同时使用 Vivi | 两个客户端、独立请求与共享回复。 |
@@ -108,7 +108,15 @@ mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrati
 mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\005_room_management.sql
 ```
 
-服务器的数据库连接参数目前写在 `ChatServer/main.cpp` 中；部署到其他环境前需核对本地数据库配置。**请勿把真实数据库密码提交到公开仓库。** 当前账号校验也依赖既有数据库中的账号记录，自助注册尚未实现。
+服务器的数据库连接参数目前写在 `ChatServer/main.cpp` 中；部署到其他环境前需核对本地数据库配置。**请勿把真实数据库密码提交到公开仓库。** 现有账号保持原登录方式；新账号注册需要下述 007 迁移。当前登录与注册的 TCP 连接尚未使用 TLS，勿在不可信网络中传输真实密码。
+
+### 注册功能数据库迁移
+
+注册功能需要先备份数据库，再执行 [007_user_registration.sql](ChatServer/migrations/007_user_registration.sql)。该迁移仅为 `users` 增加可空的 `password_hash` 列；若尚无单列唯一用户名约束，才补建该约束。已有用户记录和密码字段不作批量改写。正式 `vchat_demo` 已于 2026-11-10 完成这项迁移；其他环境仍需自行检查并执行：
+
+```bat
+mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\007_user_registration.sql
+```
 
 ### 3. 配置 AI 服务
 

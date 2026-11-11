@@ -43,3 +43,8 @@ qt_add_executable(VChatRoomSchemaTest room_schema_test.cpp
     ../ChatServer/roomstore.cpp ../ChatServer/roomstore.h)
 target_include_directories(VChatRoomSchemaTest PRIVATE ../ChatServer)
 target_link_libraries(VChatRoomSchemaTest PRIVATE Qt::Core Qt::Sql)
+qt_add_executable(VChatLoginUiTest login_ui_test.cpp
+    ../ChatDemo_1/logindialog.cpp ../ChatDemo_1/logindialog.h
+    ../ChatDemo_1/logindialog.ui ../ChatDemo_1/login_icons.qrc)
+target_include_directories(VChatLoginUiTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatLoginUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)

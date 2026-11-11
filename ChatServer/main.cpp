@@ -4,6 +4,7 @@
 #include "roomstore.h"
 #include <QDateTime>
 #include <QDebug>
+#include <QCryptographicHash>
 #include <QHostAddress>
 #include <QHash>
 #include <QJsonArray>
@@ -11,12 +12,15 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMap>
+#include <QPasswordDigestor>
+#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QSet>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QSslSocket>
 #include <QStringList>
 #include <QTcpServer>
@@ -240,6 +244,99 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId)
 }
 
 // 查询 users 表，检查账号密码是否正确。
+bool passwordHashAvailable()
+{
+    return QSqlDatabase::database().record(QStringLiteral("users")).indexOf(QStringLiteral("password_hash")) >= 0;
+}
+
+bool registrationSchemaReady()
+{
+    if (!passwordHashAvailable()) return false;
+    QSqlQuery index;
+    index.prepare(QStringLiteral(
+        "SELECT 1 FROM information_schema.STATISTICS AS s WHERE s.TABLE_SCHEMA=DATABASE() "
+        "AND s.TABLE_NAME='users' AND s.COLUMN_NAME='username' AND s.NON_UNIQUE=0 "
+        "AND (SELECT COUNT(*) FROM information_schema.STATISTICS AS u "
+        "WHERE u.TABLE_SCHEMA=DATABASE() AND u.TABLE_NAME='users' "
+        "AND u.INDEX_NAME=s.INDEX_NAME)=1 LIMIT 1"));
+    return index.exec() && index.next();
+}
+
+QString hashPassword(const QString &password)
+{
+    QByteArray salt(16, Qt::Uninitialized);
+    for (char &byte : salt) byte = char(QRandomGenerator::system()->bounded(256));
+    constexpr int iterations = 210000;
+    const QByteArray digest = QPasswordDigestor::deriveKeyPbkdf2(
+        QCryptographicHash::Sha256, password.toUtf8(), salt, iterations, 32);
+    return QStringLiteral("pbkdf2_sha256$%1$%2$%3").arg(iterations)
+        .arg(QString::fromLatin1(salt.toHex()), QString::fromLatin1(digest.toHex()));
+}
+
+bool verifyPassword(const QString &password, const QString &stored)
+{
+    const QStringList parts = stored.split(QLatin1Char('$'));
+    if (parts.size() != 4 || parts.at(0) != QStringLiteral("pbkdf2_sha256")) return false;
+    bool ok = false;
+    const int rounds = parts.at(1).toInt(&ok);
+    if (!ok || rounds < 100000 || rounds > 1000000) return false;
+    const QByteArray salt = QByteArray::fromHex(parts.at(2).toLatin1());
+    const QByteArray expected = QByteArray::fromHex(parts.at(3).toLatin1());
+    if (salt.size() != 16 || expected.size() != 32) return false;
+    const QByteArray actual = QPasswordDigestor::deriveKeyPbkdf2(
+        QCryptographicHash::Sha256, password.toUtf8(), salt, rounds, 32);
+    unsigned char difference = 0;
+    for (int i = 0; i < expected.size(); ++i)
+        difference |= static_cast<unsigned char>(actual.at(i) ^ expected.at(i));
+    return difference == 0;
+}
+
+bool registerUser(const QString &username, const QString &password, QString *error)
+{
+    static const QRegularExpression validName(QStringLiteral("^[A-Za-z0-9_]{4,20}$"));
+    if (!validName.match(username).hasMatch() || password.size() < 6 || password.size() > 32 ||
+        password.contains(QLatin1Char('|')) ||
+        password.contains(QLatin1Char('\n')) || password.contains(QLatin1Char('\r'))) {
+        *error = QStringLiteral("用户名须为 4–20 位字母、数字或下划线；密码须为 6–32 位且不能包含 | 或换行。");
+        return false;
+    }
+    if (!registrationSchemaReady()) {
+        *error = QStringLiteral("注册功能尚未部署：请先执行 007_user_registration.sql。");
+        return false;
+    }
+    const QString digest = hashPassword(password);
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!db.isOpen() || !db.transaction()) {
+        *error = QStringLiteral("数据库暂时不可用，请稍后重试。");
+        return false;
+    }
+    QSqlQuery query;
+    query.prepare(QStringLiteral("INSERT INTO users(username,nickname,password,password_hash) VALUES(?,?,?,?)"));
+    query.addBindValue(username);
+    query.addBindValue(username);
+    query.addBindValue(QStringLiteral("!")); // Legacy NOT NULL column, never stores the real password.
+    query.addBindValue(digest);
+    if (!query.exec()) {
+        const QString code = query.lastError().nativeErrorCode();
+        db.rollback();
+        *error = code == QStringLiteral("1062")
+            ? QStringLiteral("用户名已存在，请更换。") : QStringLiteral("注册失败，请稍后重试。");
+        qWarning() << "Registration insert failed, SQL code:" << code;
+        return false;
+    }
+    QSqlQuery lobby;
+    lobby.prepare(QStringLiteral(
+        "INSERT INTO room_members(room_id,user_id,role) VALUES('class-room',?,'member')"));
+    lobby.addBindValue(query.lastInsertId());
+    if (!lobby.exec() || !db.commit()) {
+        db.rollback();
+        *error = QStringLiteral("注册失败：无法加入默认聊天室。");
+        qWarning() << "Registration lobby membership failed:" << lobby.lastError().nativeErrorCode();
+        return false;
+    }
+    return true;
+}
+
 bool authenticateUser(const QString &username, const QString &password, QString *nickname, qint64 *accountId)
 {
     if (!QSqlDatabase::database().isOpen()) {
@@ -249,11 +346,11 @@ bool authenticateUser(const QString &username, const QString &password, QString 
 
     // 使用 prepare + addBindValue，可以避免直接拼接 SQL 字符串造成安全问题。
     QSqlQuery query;
-    query.prepare(QStringLiteral(
-        "SELECT id, nickname FROM users "
-        "WHERE username = ? AND password = ?"));
+    const bool hashed = passwordHashAvailable();
+    query.prepare(hashed
+        ? QStringLiteral("SELECT id,nickname,password,password_hash FROM users WHERE username=?")
+        : QStringLiteral("SELECT id,nickname,password FROM users WHERE username=?"));
     query.addBindValue(username);
-    query.addBindValue(password);
 
     if (!query.exec()) {
         qDebug() << "Login query failed:" << query.lastError().text();
@@ -265,6 +362,9 @@ bool authenticateUser(const QString &username, const QString &password, QString 
         return false;
     }
 
+    const QString storedHash = hashed ? query.value(3).toString() : QString();
+    if (!storedHash.isEmpty() ? !verifyPassword(password, storedHash)
+                              : query.value(2).toString() != password) return false;
     // 查到记录后，把数据库里的 nickname 返回给客户端。
     *accountId = query.value(0).toLongLong();
     *nickname = query.value(1).toString();
@@ -305,6 +405,7 @@ int main(int argc, char *argv[])
     QMap<QTcpSocket *, QString> activeRooms;
     QSet<QTcpSocket *> modernPeers;
     QHash<QString, LoginSession> loginSessions;
+    QHash<QString, QList<QDateTime>> registrationAttempts;
 
     AiService aiService(&app);
     const QString idleAiState = aiService.isConfigured()
@@ -410,7 +511,7 @@ int main(int argc, char *argv[])
 
             // 某个客户端发来数据时执行。这里统一处理登录、上线和聊天消息。
             QObject::connect(client, &QTcpSocket::readyRead, [client, &clients, &buffers, &onlineUsers,
-                &onlineUserIds, &modernPeers, &loginSessions,
+                &onlineUserIds, &modernPeers, &loginSessions, &registrationAttempts,
                 &broadcastUserList, &roomFor, &aiRooms, &aiStates, &idleAiState, &activeRooms]() {
                 // TCP 数据不一定一次收到完整一行，所以先放进该客户端自己的缓存。
                 QByteArray &buffer = buffers[client];
@@ -428,6 +529,36 @@ int main(int argc, char *argv[])
                     }
 
                     const QString text = QString::fromUtf8(line);
+
+                    if (text.startsWith(QStringLiteral("REGISTER|"))) {
+                        const QString peer = client->peerAddress().toString();
+                        auto &attempts = registrationAttempts[peer];
+                        const QDateTime now = QDateTime::currentDateTimeUtc();
+                        while (!attempts.isEmpty() && attempts.first().secsTo(now) >= 600)
+                            attempts.removeFirst();
+                        if (attempts.size() >= 5) {
+                            sendLine(client, QStringLiteral("REGISTER_FAIL|请求过于频繁，请稍后重试。"));
+                            continue;
+                        }
+                        attempts.append(now);
+                        if (line.size() > 1024) {
+                            sendLine(client, QStringLiteral("REGISTER_FAIL|请求格式错误。"));
+                            continue;
+                        }
+                        const QJsonDocument request = QJsonDocument::fromJson(
+                            QByteArray::fromBase64(text.mid(9).toLatin1()));
+                        if (!request.isObject()) {
+                            sendLine(client, QStringLiteral("REGISTER_FAIL|请求格式错误。"));
+                            continue;
+                        }
+                        const QJsonObject data = request.object();
+                        QString error;
+                        if (registerUser(data.value(QStringLiteral("username")).toString(),
+                                         data.value(QStringLiteral("password")).toString(), &error))
+                            sendLine(client, QStringLiteral("REGISTER_OK"));
+                        else sendLine(client, QStringLiteral("REGISTER_FAIL|%1").arg(error));
+                        continue;
+                    }
 
                     // 登录请求格式：LOGIN|username|password。
                     // 登录请求只查 users 表，不加入在线列表，也不广播给其他客户端。
