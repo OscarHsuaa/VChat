@@ -475,17 +475,20 @@ void MainWindow::setupUI()
             roomInviteInboxDialog->showError(QStringLiteral("服务器尚未确认处理结果，请重新连接后刷新邀请列表。"));
     });
     updateRoomTitle();
-    // QTextEdit advertises vertical expansion through its parent layout. Keep
-    // the original one-line composer height and give spare space to messages.
+    // Let the composer follow the input's content height while the message
+    // area continues to take all remaining vertical space.
     ui->messageScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     ui->composer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    ui->composer->setFixedHeight(76);
+    ui->composer->setMinimumHeight(76);
+    ui->composer->setMaximumHeight(QWIDGETSIZE_MAX);
     ui->chatPanelLayout->setStretch(0, 0);
     ui->chatPanelLayout->setStretch(1, 1);
     ui->chatPanelLayout->setStretch(2, 0);
     ui->messageInput->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    ui->messageInput->setFixedHeight(50);
-    ui->messageInput->setPlaceholderText(QStringLiteral("请输入消息..."));
+    ui->messageInput->setMinimumHeight(50);
+    ui->messageInput->setMaximumHeight(QWIDGETSIZE_MAX);
+    ui->inputLayout->setAlignment(ui->sendButton, Qt::AlignBottom);
+    ui->sendButton->setFixedHeight(50);
     ui->memberIcon->setPixmap(iconFromSvg(QStringLiteral(":/login/members.svg"), 22).pixmap(22, 22));
     ui->settingsButton->setIcon(iconFromSvg(QStringLiteral(":/login/settings.svg")));
     ui->helpButton->setIcon(iconFromSvg(QStringLiteral(":/login/help.svg")));
@@ -509,6 +512,18 @@ void MainWindow::setupUI()
     connect(ui->messageInput, &QTextEdit::textChanged, this, [this]() {
         ui->sendButton->setEnabled(!ui->messageInput->toPlainText().trimmed().isEmpty());
         updateMentionPopup();
+    });
+    connect(ui->messageInput, &MentionInput::inputHeightChanged, this, [this]() {
+        const QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
+        const bool followBottom = scroll->value() >= scroll->maximum() - 24;
+        ui->chatPanelLayout->activate();
+        QTimer::singleShot(0, this, [this, followBottom]() {
+            if (followBottom) {
+                QScrollBar *bar = ui->messageScroll->verticalScrollBar();
+                bar->setValue(bar->maximum());
+            }
+            positionMentionPopup();
+        });
     });
     connect(ui->messageInput, &QTextEdit::cursorPositionChanged, this, &MainWindow::updateMentionPopup);
     connect(ui->messageInput, &MentionInput::compositionFinished, this, &MainWindow::updateMentionPopup);
@@ -720,6 +735,10 @@ void MainWindow::on_sendButton_clicked()
     }
     if (switchInFlight) {
         roomSidebar->setNotice(QStringLiteral("聊天室正在加载，请稍候"));
+        return;
+    }
+    if (!mentionProtocol && message.contains(QLatin1Char('\n'))) {
+        appendSystemMessage(QStringLiteral("正在确认服务器的多行消息能力，请稍后重试"));
         return;
     }
 

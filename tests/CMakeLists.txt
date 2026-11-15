@@ -13,6 +13,11 @@ qt_add_executable(VChatConcurrentAiTest concurrent_ai_test.cpp
     ../ChatServer/airoom.cpp ../ChatServer/airoom.h)
 target_include_directories(VChatConcurrentAiTest PRIVATE ../ChatServer)
 target_link_libraries(VChatConcurrentAiTest PRIVATE Qt::Core Qt::Network)
+qt_add_executable(VChatAiContextTest ai_context_test.cpp
+    ../ChatServer/aiservice.cpp ../ChatServer/aiservice.h
+    ../ChatServer/airoom.cpp ../ChatServer/airoom.h)
+target_include_directories(VChatAiContextTest PRIVATE ../ChatServer)
+target_link_libraries(VChatAiContextTest PRIVATE Qt::Core Qt::Network)
 qt_add_executable(VChatStreamUiTest ui_stream_test.cpp
     ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
@@ -48,3 +53,7 @@ qt_add_executable(VChatLoginUiTest login_ui_test.cpp
     ../ChatDemo_1/logindialog.ui ../ChatDemo_1/login_icons.qrc)
 target_include_directories(VChatLoginUiTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatLoginUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)
+qt_add_executable(VChatComposerTest mention_input_test.cpp
+    ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h)
+target_include_directories(VChatComposerTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatComposerTest PRIVATE Qt::Core Qt::Widgets)

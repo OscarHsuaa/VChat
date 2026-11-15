@@ -3,6 +3,7 @@
 #include "aiservice.h"
 #include "roomstore.h"
 #include <QDateTime>
+#include <QFutureWatcher>
 #include <QDebug>
 #include <QCryptographicHash>
 #include <QHostAddress>
@@ -26,6 +27,7 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QUuid>
+#include <QtConcurrent>
 
 namespace {
 // 服务器监听端口。客户端连接服务器时填写：服务器IP:8080。
@@ -39,6 +41,51 @@ const QString kDbUser = QStringLiteral("root");
 const QString kDbPassword = QStringLiteral("123456");
 
 struct LoginSession { qint64 accountId; QString nickname; QDateTime issuedAt; };
+
+// Each query owns a connection created and destroyed on its worker thread.
+// No QSqlDatabase handle from the network thread crosses this boundary.
+AiRoom::HistoryResult readAiHistory(const QString &databaseName, const QString &roomId,
+                                    qint64 cutoff, int limit)
+{
+    AiRoom::HistoryResult result;
+    const QString connectionName = QStringLiteral("vivi-history-%1")
+        .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QMYSQL"), connectionName);
+        db.setHostName(kDbHost);
+        db.setPort(kDbPort);
+        db.setDatabaseName(databaseName);
+        db.setUserName(kDbUser);
+        db.setPassword(kDbPassword);
+        db.setConnectOptions(QStringLiteral("MYSQL_OPT_CONNECT_TIMEOUT=5;MYSQL_OPT_READ_TIMEOUT=5"));
+        if (!db.open()) result.error = db.lastError().text();
+        else {
+            QSqlQuery query(db);
+            query.prepare(QStringLiteral(
+                "SELECT sequence_id,message_id,sender_id,sender_name,message_type,content,created_at "
+                "FROM chat_history WHERE room_id=? AND sequence_id<=? AND visibility='team' "
+                "AND TRIM(content)<>'' AND (message_type='user' OR "
+                "(message_type='ai' AND (ai_state='completed' OR ai_state IS NULL))) "
+                "ORDER BY sequence_id DESC LIMIT %1").arg(qBound(1, limit, 51)));
+            query.addBindValue(roomId);
+            query.addBindValue(cutoff);
+            if (!query.exec()) result.error = query.lastError().text();
+            else while (query.next()) {
+                const qint64 sequenceId = query.value(0).toLongLong();
+                const QString role = query.value(4).toString() == QStringLiteral("ai")
+                    ? QStringLiteral("assistant") : QStringLiteral("user");
+                QString content = query.value(5).toString();
+                if (role == QStringLiteral("user"))
+                    content = AiRoom::memberContent(query.value(2).toLongLong(), query.value(3).toString(),
+                        content, query.value(6).toDateTime().toString(Qt::ISODateWithMs), sequenceId);
+                result.messages.prepend({sequenceId, query.value(1).toString(), role, content});
+            }
+        }
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connectionName);
+    return result;
+}
 
 // Qt Creator can keep an old process environment after the Windows user
 // environment changes. Read the existing user-scoped variable only when the
@@ -144,7 +191,7 @@ bool openDatabase()
 
 // All new chat messages share stable IDs and a room-scoped order.
 bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, const QString &sender,
-                     const QString &content)
+                     const QString &content, qint64 *sequenceId)
 {
     QSqlQuery query;
     query.prepare(QStringLiteral(
@@ -155,7 +202,22 @@ bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, 
     query.addBindValue(senderId > 0 ? QVariant(senderId) : QVariant());
     query.addBindValue(sender);
     query.addBindValue(content);
-    if (query.exec()) return true;
+    if (query.exec()) {
+        if (sequenceId) {
+            *sequenceId = query.lastInsertId().toLongLong();
+            if (*sequenceId <= 0) {
+                QSqlQuery lookup;
+                lookup.prepare(QStringLiteral("SELECT sequence_id FROM chat_history WHERE message_id=?"));
+                lookup.addBindValue(id);
+                if (!lookup.exec() || !lookup.next()) {
+                    qCritical() << "History sequence lookup failed:" << lookup.lastError().text();
+                    return true; // The insert succeeded; AiRoom will reject an AI request without a boundary.
+                }
+                *sequenceId = lookup.value(0).toLongLong();
+            }
+        }
+        return true;
+    }
     qWarning() << "History user insert failed:" << query.lastError().text();
     return false;
 }
@@ -469,6 +531,19 @@ int main(int argc, char *argv[])
         auto *created = new AiRoom(&aiService, [&, roomId](const QString &state, quint64 id, const QString &text) {
             broadcastAi(roomId, state, id, text);
         }, &app, 3, 12, 90000, firstRequestId);
+        created->setHistoryLoader([&, roomId, created](qint64 cutoff, int limit,
+                std::function<void(AiRoom::HistoryResult)> done) {
+            const QString databaseName = QSqlDatabase::database().databaseName();
+            auto *watcher = new QFutureWatcher<AiRoom::HistoryResult>(&app);
+            QObject::connect(watcher, &QFutureWatcher<AiRoom::HistoryResult>::finished,
+                created, [watcher, done = std::move(done)]() mutable {
+                    done(watcher->result());
+                    watcher->deleteLater();
+                });
+            watcher->setFuture(QtConcurrent::run([databaseName, roomId, cutoff, limit] {
+                return readAiHistory(databaseName, roomId, cutoff, limit);
+            }));
+        });
         aiRooms.insert(roomId, created);
         return created;
     };
@@ -1041,8 +1116,9 @@ int main(int argc, char *argv[])
                             {QStringLiteral("mentions"), validated}};
                         const QString modernLine = QStringLiteral("CHAT2|%1")
                             .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
+                        qint64 sequenceId = 0;
                         if (!saveUserHistory(activeRooms.value(client), userMessageId,
-                                             onlineUserIds.value(client), sender, content)) {
+                                             onlineUserIds.value(client), sender, content, &sequenceId)) {
                             sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                             continue;
                         }
@@ -1068,7 +1144,8 @@ int main(int argc, char *argv[])
                             if (!ordinaryVivi) askVivi = true;
                         }
                         if (!roomFor(activeRooms.value(client))->addUserMessage(
-                                onlineUserIds.value(client), sender, content, askVivi, userMessageId))
+                                onlineUserIds.value(client), sender, content, askVivi, userMessageId,
+                                sequenceId, QDateTime::currentDateTime().toString(Qt::ISODateWithMs)))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                         continue;
                     }
@@ -1092,8 +1169,9 @@ int main(int argc, char *argv[])
                     const QString legacyMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                     const QString prefix = sender + QStringLiteral(": ");
                     const QString content = text.startsWith(prefix) ? text.mid(prefix.size()) : text;
+                    qint64 sequenceId = 0;
                     if (!saveUserHistory(activeRooms.value(client, QString::fromLatin1(RoomStore::LobbyId)),
-                                         legacyMessageId, onlineUserIds.value(client), sender, content)) {
+                                         legacyMessageId, onlineUserIds.value(client), sender, content, &sequenceId)) {
                         sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                         continue;
                     }
@@ -1110,7 +1188,8 @@ int main(int argc, char *argv[])
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
                             QRegularExpression::CaseInsensitiveOption);
                         if (!roomFor(activeRooms.value(client))->addUserMessage(onlineUserIds.value(client), sender, content,
-                                                  mention.match(content).hasMatch(), legacyMessageId))
+                                                  mention.match(content).hasMatch(), legacyMessageId,
+                                                  sequenceId, QDateTime::currentDateTime().toString(Qt::ISODateWithMs)))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                     }
                 }

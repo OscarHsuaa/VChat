@@ -12,13 +12,19 @@ public:
 signals:
     void returnPressed();
     void compositionFinished();
+    void inputHeightChanged();
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void inputMethodEvent(QInputMethodEvent *event) override;
     void insertFromMimeData(const QMimeData *source) override;
+    void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
+    void scheduleHeightUpdate();
+    void updateInputHeight();
     bool preediting = false;
+    bool heightUpdatePending = false;
+    bool suppressImeReturn = false;
 };
