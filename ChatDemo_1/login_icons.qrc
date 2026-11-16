@@ -32,5 +32,6 @@
     <file alias="ai-copy.svg">icons/ai-copy.svg</file>
     <file alias="ai-up.svg">icons/ai-up.svg</file>
     <file alias="ai-down.svg">icons/ai-down.svg</file>
+    <file alias="summary-document.svg">icons/summary-document.svg</file>
   </qresource>
 </RCC>

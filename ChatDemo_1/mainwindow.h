@@ -134,11 +134,22 @@ private:
     QTimer *viviSummaryRenderTimer = nullptr;
     QPushButton *viviSummaryCopy = nullptr;
     QPushButton *viviSummaryRegenerate = nullptr;
+    QPushButton *viviSummaryShare = nullptr;
     QHash<QWidget *, bool> viviSummaryMemberVisibility;
     QString viviSummaryRequestId;
     QString viviSummaryRoomId;
     QString viviSummaryText;
+    QString viviSummaryGeneratedAt;
+    int viviSummaryMessageCount = 0;
+    QString viviSummaryFirstSequence;
+    QString viviSummaryLastSequence;
+    QString viviSummaryShareRequestId;
+    QString viviSummaryViewedText;
+    bool viviSummaryReadOnly = false;
+    bool viviSummarySharePending = false;
+    bool viviSummaryShared = false;
     bool viviSummaryPending = false;
+    bool viviSummaryCompleted = false;
     bool viviSummarySupported = false;
     bool viviSummaryWasCollapsed = false;
 
@@ -190,6 +201,8 @@ private:
     QTimer *aiTypewriterTimer = nullptr;
     QSet<QString> streamedRequestIds;
     QSet<QString> renderedUserMessageIds;
+    QSet<QString> renderedSummaryMessageIds;
+    QList<QFrame *> summaryCards;
     QLabel *viviStatusLabel = nullptr;
     QLabel *viviStatusDot = nullptr;
     QDate lastSystemDate;
@@ -282,6 +295,9 @@ private:
                        const QString &streamMessageId = {},
                        const QString &userMessageId = {});
     void appendAiStreamEvent(const QJsonObject &event);
+    void appendSharedSummary(const QJsonObject &message);
+    void openSharedSummary(const QJsonObject &message);
+    void handleSummaryShare(const QJsonObject &event);
     void flushAiStream(const QString &messageId);
     void advanceAiTypewriter();
     void finalizeAiStream(const QString &messageId);
@@ -303,6 +319,7 @@ private:
     void setupMentionPopup();
     void setupViviComposer();
     void setupViviSummary();
+    void showViviSummaryPanel();
     void openViviSummary();
     void closeViviSummary();
     void requestViviSummary();

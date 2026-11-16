@@ -43,6 +43,8 @@
 #include <QTextCursor>
 #include <QTextBrowser>
 #include <QTextDocument>
+#include <QTextList>
+#include <QTextFragment>
 #include <QTextBoundaryFinder>
 #include <QVBoxLayout>
 #include <QWidgetAction>
@@ -244,39 +246,114 @@ static QVector<QString> splitSummarySections(const QString &markdown)
     return sections;
 }
 
+static QString summaryPreview(const QString &markdown, int maximum = 82)
+{
+    QTextDocument document;
+    document.setMarkdown(markdown, QTextDocument::MarkdownFeatures(
+        QTextDocument::MarkdownDialectGitHub | QTextDocument::MarkdownNoHTML));
+    QString plain = document.toPlainText().simplified();
+    if (plain.isEmpty()) return QStringLiteral("本次讨论暂无明确记录");
+    if (plain.size() <= maximum) return plain;
+    QTextBoundaryFinder finder(QTextBoundaryFinder::Grapheme, plain);
+    finder.setPosition(maximum);
+    const int end = finder.toPreviousBoundary();
+    int cut = end > 0 ? end : maximum;
+    // Prefer a completed thought when the overview has a sentence boundary.
+    for (int i = cut - 1; i >= cut / 2; --i) {
+        if (QStringLiteral("。！？!?；;").contains(plain.at(i))) {
+            cut = i + 1;
+            break;
+        }
+    }
+    return plain.left(cut).trimmed() + QChar(0x2026);
+}
+
+static QStringList summaryPreviewItems(const QString &markdown)
+{
+    QTextDocument document;
+    document.setMarkdown(markdown, QTextDocument::MarkdownFeatures(
+        QTextDocument::MarkdownDialectGitHub | QTextDocument::MarkdownNoHTML));
+    QStringList items;
+    for (QTextBlock block = document.begin(); block.isValid(); block = block.next()) {
+        if (block.textList() && block.textList()->format().indent() == 1 &&
+            !block.text().trimmed().isEmpty())
+            items.append(block.text().trimmed());
+    }
+    return items;
+}
+
+static QString localSummaryTime(const QString &isoTime)
+{
+    QDateTime time = QDateTime::fromString(isoTime, Qt::ISODateWithMs);
+    if (!time.isValid()) time = QDateTime::fromString(isoTime, Qt::ISODate);
+    return time.isValid() ? time.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))
+                          : QStringLiteral("时间未知");
+}
+
+// Summary preview and simple-list rows stay plain text and use QLabel's
+// height-for-width wrapping. The outer chat/panel scroll areas own scrolling.
+class SummaryBodyLabel final : public QLabel
+{
+public:
+    explicit SummaryBodyLabel(const QString &text, QWidget *parent = nullptr)
+        : QLabel(text, parent)
+    {
+        setTextFormat(Qt::PlainText);
+        setWordWrap(true);
+        QFont body(QStringLiteral("Microsoft YaHei UI"));
+        body.setPixelSize(14);
+        setFont(body);
+        setStyleSheet(QStringLiteral("color:#30234e; background:transparent;"));
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    }
+};
+
 class SummarySection final : public QFrame
 {
 public:
     SummarySection(const QString &title, const QString &symbol, const QString &accent,
                    const QString &background, QWidget *parent)
-        : QFrame(parent)
+        : QFrame(parent), titleText(title), symbolText(symbol)
     {
         setObjectName(QStringLiteral("viviSummarySection") + title);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         setStyleSheet(QStringLiteral(
-            "QFrame#%1 { background:#fdfcff; border:1px solid #ebe5f5; border-radius:11px; }"
+            "QFrame#%1 { background:transparent; border:0; }"
             "QLabel#viviSectionTitle { background:transparent; color:#282043;"
-            " font-size:13px; font-weight:700; }"
-            "QLabel#viviSectionEmpty { background:#f6f3fc; color:#817696;"
-            " border-radius:7px; padding:6px 8px; font-size:12px; }")
+            " font-size:15px; font-weight:700; }"
+            "QLabel#viviSectionCount { color:#8b75ad; background:transparent; font-size:12px; }"
+            "QLabel#viviSectionEmpty { background:transparent; color:#817696;"
+            " font-size:14px; }")
             .arg(objectName()));
         column = new QVBoxLayout(this);
-        column->setContentsMargins(11, 11, 11, 12);
-        column->setSpacing(7);
+        column->setContentsMargins(0, 0, 0, 0);
+        column->setSpacing(8);
         auto *header = new QHBoxLayout;
         header->setContentsMargins(0, 0, 0, 0);
         header->setSpacing(8);
         auto *badge = new QLabel(symbol, this);
         badge->setAlignment(Qt::AlignCenter);
-        badge->setFixedSize(25, 25);
-        badge->setStyleSheet(QStringLiteral("background:%1; color:%2; border-radius:8px;"
-                                            "font-size:15px; font-weight:700;")
+        badge->setFixedSize(21, 21);
+        badge->setStyleSheet(QStringLiteral("background:%1; color:%2; border-radius:7px;"
+                                            "font-size:13px; font-weight:700;")
                              .arg(background, accent));
         header->addWidget(badge);
         auto *heading = new QLabel(title, this);
         heading->setObjectName(QStringLiteral("viviSectionTitle"));
         header->addWidget(heading, 1);
+        count = new QLabel(this);
+        count->setObjectName(QStringLiteral("viviSectionCount"));
+        count->hide();
+        header->addWidget(count);
         column->addLayout(header);
+        rows = new QWidget(this);
+        rows->setObjectName(QStringLiteral("viviSummaryRows"));
+        rows->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        rowLayout = new QVBoxLayout(rows);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(11);
+        column->addWidget(rows);
+        rows->hide();
         empty = new QLabel(QStringLiteral("等待整理…"), this);
         empty->setObjectName(QStringLiteral("viviSectionEmpty"));
         empty->setWordWrap(true);
@@ -286,6 +363,8 @@ public:
     void reset()
     {
         if (body) { body->beginStreaming(); body->hide(); }
+        rows->hide();
+        count->hide();
         empty->setText(QStringLiteral("等待整理…"));
         empty->show();
         hasContent = false;
@@ -295,10 +374,27 @@ public:
     {
         if (markdown.trimmed().isEmpty()) {
             if (body) body->hide();
-            empty->setText(completed ? QStringLiteral("暂无明确内容") : QStringLiteral("等待整理…"));
+            rows->hide();
+            count->hide();
+            empty->setText(completed ? QStringLiteral("本次讨论暂无明确记录")
+                                     : QStringLiteral("等待整理…"));
             empty->show();
             return;
         }
+        if (completed && titleText != QStringLiteral("讨论概览")) {
+            const SimpleList parsed = parseSimpleList(markdown);
+            if (parsed.count > 0) {
+                count->setText(QString::number(parsed.count));
+                count->show();
+            } else count->hide();
+            if (parsed.simple && !parsed.items.isEmpty()) {
+                showRows(parsed.items);
+                if (body) body->hide();
+                empty->hide();
+                return;
+            }
+        } else count->hide();
+        rows->hide();
         if (!body) {
             body = new AiMarkdownWidget({}, this, true);
             body->setObjectName(QStringLiteral("viviSummarySectionBody"));
@@ -319,13 +415,117 @@ protected:
     {
         QFrame::resizeEvent(event);
         updateBodyWidth();
+        updateRowHeights();
+        QTimer::singleShot(0, this, [this] {
+            QWidget *content = parentWidget();
+            if (content && content->layout()) {
+                setMinimumHeight(column->sizeHint().height());
+                content->setMinimumHeight(content->layout()->sizeHint().height());
+            }
+        });
     }
 
 private:
+    struct SimpleList {
+        QStringList items;
+        int count = 0;
+        bool simple = true;
+    };
+
+    static SimpleList parseSimpleList(const QString &markdown)
+    {
+        QTextDocument document;
+        document.setMarkdown(markdown,
+            QTextDocument::MarkdownFeatures(QTextDocument::MarkdownDialectGitHub)
+                | QTextDocument::MarkdownFeatures(QTextDocument::MarkdownNoHTML));
+        SimpleList result;
+        for (QTextBlock block = document.begin(); block.isValid(); block = block.next()) {
+            const QString text = block.text().trimmed();
+            if (text.isEmpty()) continue;
+            QTextList *list = block.textList();
+            if (!list) { result.simple = false; continue; }
+            ++result.count;
+            const QTextListFormat::Style style = list->format().style();
+            if (list->format().indent() != 1 ||
+                (style != QTextListFormat::ListDisc &&
+                 style != QTextListFormat::ListCircle &&
+                 style != QTextListFormat::ListSquare) ||
+                text.contains(QChar::ObjectReplacementCharacter)) result.simple = false;
+            for (auto fragment = block.begin(); !fragment.atEnd(); ++fragment) {
+                const QTextCharFormat format = fragment.fragment().charFormat();
+                if (format.isAnchor() || format.fontWeight() >= QFont::Bold ||
+                    format.fontItalic() || format.fontFixedPitch() ||
+                    format.fontUnderline() || format.fontStrikeOut()) result.simple = false;
+            }
+            result.items.append(text);
+        }
+        return result;
+    }
+
+    void showRows(const QStringList &items)
+    {
+        while (QLayoutItem *item = rowLayout->takeAt(0)) {
+            delete item->widget();
+            delete item;
+        }
+        for (const QString &itemText : items) {
+            auto *row = new QWidget(rows);
+            row->setObjectName(QStringLiteral("viviSummaryRow"));
+            row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            auto *line = new QHBoxLayout(row);
+            line->setContentsMargins(0, 0, 0, 0);
+            line->setSpacing(8);
+            auto *mark = new QLabel(symbolText, row);
+            mark->setAlignment(Qt::AlignCenter);
+            mark->setFixedSize(17, 17);
+            mark->setStyleSheet(QStringLiteral("background:#efe8ff; color:#7954d4;"
+                                               "border-radius:8px; font-size:11px; font-weight:700;"));
+            line->addWidget(mark, 0, Qt::AlignTop);
+            auto *text = new SummaryBodyLabel(itemText, row);
+            text->setObjectName(QStringLiteral("viviSummaryRowText"));
+            line->addWidget(text, 1);
+            rowLayout->addWidget(row);
+        }
+        rows->show();
+        rowLayout->invalidate();
+        column->invalidate();
+        updateRowHeights();
+        rows->updateGeometry();
+        updateGeometry();
+    }
+
+    void updateRowHeights()
+    {
+        if (rows->isHidden()) return;
+        const int textWidth = qMax(40, width() - 17 - 8);
+        bool changed = false;
+        for (QWidget *row : rows->findChildren<QWidget *>(
+                 QStringLiteral("viviSummaryRow"), Qt::FindDirectChildrenOnly)) {
+            QLabel *text = row->findChild<QLabel *>(QStringLiteral("viviSummaryRowText"));
+            if (!text) continue;
+            const int needed = qMax(17, text->heightForWidth(textWidth));
+            if (row->minimumHeight() == needed) continue;
+            row->setMinimumHeight(needed);
+            changed = true;
+        }
+        rowLayout->invalidate();
+        const int totalHeight = rowLayout->sizeHint().height();
+        if (rows->minimumHeight() != totalHeight) {
+            rows->setMinimumHeight(totalHeight);
+            changed = true;
+        }
+        if (changed) {
+            rows->updateGeometry();
+            column->invalidate();
+            updateGeometry();
+        }
+    }
+
     void updateBodyWidth(bool force = false)
     {
         if (!body) return;
-        const int available = qMax(100, width() - 24);
+        const int available = qMax(100, width() - column->contentsMargins().left()
+                                        - column->contentsMargins().right());
         if (!force && available == lastBodyWidth) return;
         lastBodyWidth = available;
         body->setContentWidth(available);
@@ -339,7 +539,12 @@ private:
 
     AiMarkdownWidget *body = nullptr;
     QLabel *empty = nullptr;
+    QLabel *count = nullptr;
+    QWidget *rows = nullptr;
+    QVBoxLayout *rowLayout = nullptr;
     QVBoxLayout *column = nullptr;
+    QString titleText;
+    QString symbolText;
     bool hasContent = false;
     int lastBodyWidth = -1;
 };
@@ -1065,12 +1270,16 @@ void MainWindow::setupViviSummary()
     viviSummaryPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     viviSummaryPanel->setStyleSheet(QStringLiteral(
         "QFrame#viviSummaryPanel { background:#ffffff; border:0; }"
-        "QFrame#viviSummaryBanner { background:#f3edff; border-radius:12px; }"
+        "QFrame#viviSummaryBanner { background:#f3edff; border-radius:13px; }"
         "QScrollArea#viviSummaryScroll { background:transparent; border:0; }"
-        "QPushButton#viviSummaryAction { background:#f7f3ff; color:#694cc8;"
-        " border:1px solid #e3d7fa; border-radius:9px; font-weight:600; padding:7px; }"
-        "QPushButton#viviSummaryAction:hover { background:#eee5ff; }"
-        "QPushButton#viviSummaryAction:disabled { color:#a99dc2; background:#faf8fd; }"));
+        "QPushButton#viviSummaryAction { background:#f8f5ff; color:#694cc8;"
+        " border:1px solid #e8dffa; border-radius:9px; font-weight:600; padding:7px; }"
+        "QPushButton#viviSummaryAction:hover { background:#eee7fc; border-color:#d9c8f7; }"
+        "QPushButton#viviSummaryAction:disabled { color:#a99dc2; background:#faf8fd; }"
+        "QPushButton#viviSummaryShare { background:#7956d5; color:white; border:0;"
+        " border-radius:9px; font-weight:600; padding:5px 3px; }"
+        "QPushButton#viviSummaryShare:hover { background:#6846c4; }"
+        "QPushButton#viviSummaryShare:disabled { background:#d6caef; color:#f6f2fc; }"));
     auto *layout = new QVBoxLayout(viviSummaryPanel);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(11);
@@ -1099,7 +1308,7 @@ void MainWindow::setupViviSummary()
     auto *banner = new QFrame(viviSummaryPanel);
     banner->setObjectName(QStringLiteral("viviSummaryBanner"));
     auto *bannerLayout = new QVBoxLayout(banner);
-    bannerLayout->setContentsMargins(12, 11, 12, 11);
+    bannerLayout->setContentsMargins(12, 12, 12, 12);
     bannerLayout->setSpacing(5);
     viviSummaryRoom = new QLabel(banner);
     viviSummaryRoom->setObjectName(QStringLiteral("viviSummaryRoom"));
@@ -1127,21 +1336,29 @@ void MainWindow::setupViviSummary()
         "QWidget#viviSummarySections { background:#ffffff; }"));
     sectionsContent->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *sectionsLayout = new QVBoxLayout(sectionsContent);
-    sectionsLayout->setContentsMargins(1, 3, 3, 3);
+    sectionsLayout->setContentsMargins(1, 4, 3, 4);
     sectionsLayout->setSpacing(10);
     const QStringList names{QStringLiteral("讨论概览"), QStringLiteral("已达成共识"),
                             QStringLiteral("待解决问题"), QStringLiteral("下一步行动")};
-    const QStringList marks{QStringLiteral("◈"), QStringLiteral("✓"),
+    const QStringList marks{QStringLiteral("◇"), QStringLiteral("✓"),
                             QStringLiteral("?"), QStringLiteral("→")};
-    const QStringList colors{QStringLiteral("#744bd4"), QStringLiteral("#208657"),
-                             QStringLiteral("#b6782d"), QStringLiteral("#526fca")};
-    const QStringList tints{QStringLiteral("#f0e9ff"), QStringLiteral("#e9f7ee"),
-                            QStringLiteral("#fff3e5"), QStringLiteral("#edf2ff")};
+    const QStringList colors{QStringLiteral("#744bd4"), QStringLiteral("#7753cd"),
+                             QStringLiteral("#8266bd"), QStringLiteral("#7351bc")};
+    const QStringList tints{QStringLiteral("#f0e9ff"), QStringLiteral("#f1ebff"),
+                            QStringLiteral("#f4effc"), QStringLiteral("#f1ebff")};
     for (int i = 0; i < names.size(); ++i) {
         auto *section = new SummarySection(names.at(i), marks.at(i), colors.at(i),
                                            tints.at(i), sectionsContent);
         viviSummarySections.append(section);
         sectionsLayout->addWidget(section);
+        if (i + 1 < names.size()) {
+            auto *divider = new QFrame(sectionsContent);
+            divider->setObjectName(QStringLiteral("viviSummaryDivider"));
+            divider->setFrameShape(QFrame::HLine);
+            divider->setFixedHeight(1);
+            divider->setStyleSheet(QStringLiteral("background:#f0eaf8; border:0;"));
+            sectionsLayout->addWidget(divider);
+        }
     }
     sectionsLayout->addStretch();
     viviSummaryScroll->setWidget(sectionsContent);
@@ -1168,12 +1385,47 @@ void MainWindow::setupViviSummary()
         button->setCursor(Qt::PointingHandCursor);
         actions->addWidget(button, 1);
     }
+    viviSummaryShare = new QPushButton(QStringLiteral("分享至聊天室"), viviSummaryPanel);
+    viviSummaryShare->setObjectName(QStringLiteral("viviSummaryShare"));
+    viviSummaryShare->setFixedHeight(38);
+    viviSummaryShare->setCursor(Qt::PointingHandCursor);
+    viviSummaryShare->setEnabled(false);
+    actions->addWidget(viviSummaryShare, 2);
     connect(viviSummaryCopy, &QPushButton::clicked, this, [this] {
-        QGuiApplication::clipboard()->setText(viviSummaryText);
+        QGuiApplication::clipboard()->setText(viviSummaryReadOnly
+            ? viviSummaryViewedText : viviSummaryText);
         viviSummaryStatus->setText(QStringLiteral("已复制讨论总结。"));
     });
     connect(viviSummaryRegenerate, &QPushButton::clicked, this, [this] {
         if (!viviSummaryPending) requestViviSummary();
+    });
+    connect(viviSummaryShare, &QPushButton::clicked, this, [this] {
+        if (viviSummaryReadOnly || viviSummaryPending || !viviSummaryCompleted ||
+            viviSummarySharePending || viviSummaryShared ||
+            viviSummaryText.trimmed().isEmpty() || viviSummaryRoomId != currentRoomId ||
+            !isConnected || socket->state() != QAbstractSocket::ConnectedState) return;
+        if (viviSummaryShareRequestId.isEmpty())
+            viviSummaryShareRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        viviSummarySharePending = true;
+        viviSummaryShare->setEnabled(false);
+        viviSummaryRegenerate->setEnabled(false);
+        viviSummaryShare->setText(QStringLiteral("提交中…"));
+        viviSummaryStatus->setText(QStringLiteral("正在保存并分享总结…"));
+        const QJsonObject request{{QStringLiteral("request_id"), viviSummaryShareRequestId},
+            {QStringLiteral("summary_request_id"), viviSummaryRequestId},
+            {QStringLiteral("room_id"), viviSummaryRoomId}};
+        socket->write("SUMMARY_SHARE|" + QJsonDocument(request).toJson(QJsonDocument::Compact).toBase64() + '\n');
+        const QString pendingId = viviSummaryShareRequestId;
+        QTimer::singleShot(12000, this, [this, pendingId] {
+            if (!viviSummarySharePending || pendingId != viviSummaryShareRequestId) return;
+            viviSummarySharePending = false;
+            viviSummaryShare->setText(QStringLiteral("分享至聊天室"));
+            viviSummaryShare->setEnabled(!viviSummaryReadOnly && !viviSummaryShared &&
+                viviSummaryRoomId == currentRoomId && isConnected);
+            viviSummaryRegenerate->setEnabled(!viviSummaryReadOnly);
+            if (!viviSummaryReadOnly)
+                viviSummaryStatus->setText(QStringLiteral("分享确认超时，可重试；不会重复发布。"));
+        });
     });
     layout->addLayout(actions);
     ui->rightLayout->insertWidget(0, viviSummaryPanel, 1);
@@ -1182,10 +1434,38 @@ void MainWindow::setupViviSummary()
 
 void MainWindow::openViviSummary()
 {
-    if (!viviSummaryPanel->isHidden()) {
-        if (!viviSummaryPending) requestViviSummary();
+    if (!viviSummaryPanel->isHidden() && !viviSummaryReadOnly) {
+        if (!viviSummaryPending && !viviSummarySharePending) requestViviSummary();
         return;
     }
+    viviSummaryReadOnly = false;
+    viviSummaryRegenerate->show();
+    viviSummaryShare->show();
+    if (!viviSummaryPanel->isHidden()) {
+        if (viviSummaryRoomId == currentRoomId && viviSummaryCompleted)
+            renderViviSummary(!viviSummaryPending);
+        else requestViviSummary();
+        return;
+    }
+    showViviSummaryPanel();
+    if (viviSummaryRoomId == currentRoomId && viviSummaryCompleted) {
+        viviSummaryRoom->setText(QStringLiteral("%1 · 讨论总结")
+            .arg(roomNameLabel ? roomNameLabel->text() : currentRoomId));
+        viviSummaryRange->setText(QStringLiteral("最近 %1 条消息 · 序号 %2–%3")
+            .arg(viviSummaryMessageCount).arg(viviSummaryFirstSequence, viviSummaryLastSequence));
+        viviSummaryStatus->setText(viviSummaryGeneratedAt.isEmpty()
+            ? QStringLiteral("总结已完成。")
+            : QStringLiteral("总结已完成 · %1").arg(localSummaryTime(viviSummaryGeneratedAt)));
+        viviSummaryCopy->setEnabled(true);
+        viviSummaryRegenerate->setEnabled(true);
+        viviSummaryShare->setEnabled(!viviSummarySharePending && !viviSummaryShared);
+        renderViviSummary(true);
+    } else requestViviSummary();
+}
+
+void MainWindow::showViviSummaryPanel()
+{
+    if (!viviSummaryPanel->isHidden()) return;
     viviSummaryWasCollapsed = membersCollapsed;
     viviSummaryMemberVisibility.clear();
     auto hideMemberWidget = [this](QWidget *widget) {
@@ -1201,7 +1481,6 @@ void MainWindow::openViviSummary()
     if (membersCollapsed) memberExpandButton->hide();
     ui->rightPanel->show();
     viviSummaryPanel->show();
-    requestViviSummary();
 }
 
 void MainWindow::closeViviSummary()
@@ -1215,10 +1494,13 @@ void MainWindow::closeViviSummary()
         socket->write(QStringLiteral("AI_SUMMARY|%1\n").arg(QString::fromLatin1(
             QJsonDocument(request).toJson(QJsonDocument::Compact).toBase64())).toUtf8());
     }
-    viviSummaryPending = false;
-    viviSummaryRequestId.clear();
-    viviSummaryRoomId.clear();
+    if (viviSummaryPending) {
+        viviSummaryPending = false;
+        viviSummaryRequestId.clear();
+        viviSummaryRoomId.clear();
+    }
     viviSummaryPanel->hide();
+    viviSummaryReadOnly = false;
     for (auto it = viviSummaryMemberVisibility.cbegin(); it != viviSummaryMemberVisibility.cend(); ++it)
         it.key()->setVisible(it.value());
     viviSummaryMemberVisibility.clear();
@@ -1231,7 +1513,16 @@ void MainWindow::closeViviSummary()
 
 void MainWindow::requestViviSummary()
 {
-    if (viviSummaryPending) return;
+    if (viviSummaryPending || viviSummarySharePending) return;
+    viviSummaryReadOnly = false;
+    viviSummarySharePending = false;
+    viviSummaryShared = false;
+    viviSummaryCompleted = false;
+    viviSummaryShareRequestId.clear();
+    viviSummaryGeneratedAt.clear();
+    viviSummaryMessageCount = 0;
+    viviSummaryFirstSequence.clear();
+    viviSummaryLastSequence.clear();
     viviSummaryRoom->setText(QStringLiteral("%1 · 讨论总结")
         .arg(roomNameLabel ? roomNameLabel->text() : currentRoomId));
     viviSummaryRange->setText(QStringLiteral("正在读取最近 30 条讨论消息…"));
@@ -1241,6 +1532,8 @@ void MainWindow::requestViviSummary()
     viviSummaryText.clear();
     viviSummaryCopy->setEnabled(false);
     viviSummaryRegenerate->setEnabled(false);
+    viviSummaryShare->setEnabled(false);
+    viviSummaryShare->setText(QStringLiteral("分享至聊天室"));
     if (!isConnected || socket->state() != QAbstractSocket::ConnectedState ||
         !viviSummarySupported) {
         viviSummaryStatus->setText(isConnected
@@ -1268,45 +1561,271 @@ void MainWindow::handleViviSummary(const QJsonObject &event)
         viviSummaryRoomId != currentRoomId) return;
     const QString kind = event.value(QStringLiteral("event")).toString();
     if (kind == QStringLiteral("meta")) {
-        viviSummaryRange->setText(QStringLiteral("最近 %1 条消息 · 序号 %2–%3")
-            .arg(event.value(QStringLiteral("message_count")).toInt())
-            .arg(event.value(QStringLiteral("first_sequence")).toString())
-            .arg(event.value(QStringLiteral("last_sequence")).toString()));
+        viviSummaryMessageCount = event.value(QStringLiteral("message_count")).toInt();
+        viviSummaryFirstSequence = event.value(QStringLiteral("first_sequence")).toString();
+        viviSummaryLastSequence = event.value(QStringLiteral("last_sequence")).toString();
+        if (!viviSummaryReadOnly)
+            viviSummaryRange->setText(QStringLiteral("最近 %1 条消息 · 序号 %2–%3")
+                .arg(viviSummaryMessageCount)
+                .arg(viviSummaryFirstSequence, viviSummaryLastSequence));
     } else if (kind == QStringLiteral("chunk") || kind == QStringLiteral("complete")) {
         if (kind == QStringLiteral("chunk"))
             viviSummaryText += event.value(QStringLiteral("text")).toString();
         else {
             viviSummaryText = event.value(QStringLiteral("text")).toString();
             viviSummaryPending = false;
-            viviSummaryCopy->setEnabled(!viviSummaryText.trimmed().isEmpty());
-            viviSummaryRegenerate->setEnabled(true);
-            const QString generatedAt = event.value(QStringLiteral("generated_at")).toString();
-            viviSummaryStatus->setText(generatedAt.isEmpty()
-                ? QStringLiteral("总结已完成。")
-                : QStringLiteral("总结已完成 · %1").arg(generatedAt));
+            viviSummaryCompleted = !viviSummaryText.trimmed().isEmpty();
+            viviSummaryGeneratedAt = event.value(QStringLiteral("generated_at")).toString();
+            if (!viviSummaryReadOnly) {
+                viviSummaryCopy->setEnabled(!viviSummaryText.trimmed().isEmpty());
+                viviSummaryRegenerate->setEnabled(true);
+                viviSummaryShare->setEnabled(!viviSummaryShared && !viviSummaryText.trimmed().isEmpty() &&
+                    viviSummaryMessageCount >= 2 && viviSummaryText.size() <= 20000);
+                viviSummaryStatus->setText(viviSummaryGeneratedAt.isEmpty()
+                    ? QStringLiteral("总结已完成。")
+                    : QStringLiteral("总结已完成 · %1").arg(localSummaryTime(viviSummaryGeneratedAt)));
+            }
         }
         if (kind == QStringLiteral("complete")) {
             viviSummaryRenderTimer->stop();
-            renderViviSummary(true);
+            if (!viviSummaryReadOnly) renderViviSummary(true);
         } else if (!viviSummaryRenderTimer->isActive()) {
-            viviSummaryRenderTimer->start();
+            if (!viviSummaryReadOnly) viviSummaryRenderTimer->start();
         }
     } else if (kind == QStringLiteral("error")) {
         viviSummaryRenderTimer->stop();
-        renderViviSummary(false);
+        if (!viviSummaryReadOnly) renderViviSummary(false);
         viviSummaryPending = false;
-        viviSummaryStatus->setText(event.value(QStringLiteral("error")).toString());
-        viviSummaryCopy->setEnabled(false);
-        viviSummaryRegenerate->setEnabled(true);
+        viviSummaryCompleted = false;
+        if (!viviSummaryReadOnly) {
+            viviSummaryStatus->setText(event.value(QStringLiteral("error")).toString());
+            viviSummaryCopy->setEnabled(false);
+            viviSummaryRegenerate->setEnabled(true);
+            viviSummaryShare->setEnabled(false);
+        }
     }
 }
 
 void MainWindow::renderViviSummary(bool completed)
 {
     if (!viviSummaryPanel || viviSummaryPanel->isHidden()) return;
-    const QVector<QString> parts = splitSummarySections(viviSummaryText);
+    const QVector<QString> parts = splitSummarySections(
+        viviSummaryReadOnly ? viviSummaryViewedText : viviSummaryText);
     for (int i = 0; i < viviSummarySections.size(); ++i)
         viviSummarySections.at(i)->showMarkdown(parts.value(i), completed);
+    // QScrollArea keeps the content width flexible; only its natural height
+    // is a minimum, so long sections scroll rather than compress their rows.
+    QTimer::singleShot(0, this, [this] {
+        if (!viviSummaryScroll || !viviSummaryScroll->widget()) return;
+        QWidget *content = viviSummaryScroll->widget();
+        for (SummarySection *section : viviSummarySections)
+            section->setMinimumHeight(section->layout()->sizeHint().height());
+        content->setMinimumHeight(content->layout()->sizeHint().height());
+    });
+}
+
+void MainWindow::openSharedSummary(const QJsonObject &message)
+{
+    if (message.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
+    const QString markdown = message.value(QStringLiteral("markdown")).toString();
+    if (markdown.isEmpty()) return;
+    showViviSummaryPanel();
+    viviSummaryReadOnly = true;
+    viviSummaryViewedText = markdown;
+    viviSummaryRoom->setText(QStringLiteral("%1 · 讨论总结")
+        .arg(message.value(QStringLiteral("room_name")).toString()));
+    viviSummaryRange->setText(QStringLiteral("最近 %1 条消息 · 序号 %2–%3")
+        .arg(message.value(QStringLiteral("message_count")).toInt())
+        .arg(message.value(QStringLiteral("first_sequence")).toString(),
+             message.value(QStringLiteral("last_sequence")).toString()));
+    viviSummaryStatus->setText(QStringLiteral("由 %1 分享 · %2")
+        .arg(message.value(QStringLiteral("shared_by_name")).toString(),
+             localSummaryTime(message.value(QStringLiteral("time")).toString())));
+    viviSummaryRegenerate->hide();
+    viviSummaryShare->hide();
+    viviSummaryCopy->setEnabled(true);
+    viviSummaryScroll->verticalScrollBar()->setValue(0);
+    renderViviSummary(true);
+}
+
+void MainWindow::handleSummaryShare(const QJsonObject &event)
+{
+    const QString kind = event.value(QStringLiteral("event")).toString();
+    if (kind == QStringLiteral("message")) {
+        if (event.value(QStringLiteral("room_id")).toString() == currentRoomId)
+            appendSharedSummary(event);
+        return;
+    }
+    if (kind != QStringLiteral("result") ||
+        event.value(QStringLiteral("request_id")).toString() != viviSummaryShareRequestId) return;
+    viviSummarySharePending = false;
+    viviSummaryRegenerate->setEnabled(!viviSummaryReadOnly);
+    if (event.value(QStringLiteral("ok")).toBool()) {
+        viviSummaryShared = true;
+        viviSummaryShare->setText(QStringLiteral("已分享"));
+        viviSummaryShare->setEnabled(false);
+        if (!viviSummaryReadOnly) viviSummaryStatus->setText(QStringLiteral("总结已分享至聊天室。"));
+    } else {
+        viviSummaryShare->setText(QStringLiteral("分享至聊天室"));
+        viviSummaryShare->setEnabled(!viviSummaryReadOnly && isConnected &&
+            viviSummaryRoomId == currentRoomId && !viviSummaryText.isEmpty());
+        if (!viviSummaryReadOnly)
+            viviSummaryStatus->setText(event.value(QStringLiteral("error")).toString());
+    }
+}
+
+void MainWindow::appendSharedSummary(const QJsonObject &message)
+{
+    if (message.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
+    const QString id = message.value(QStringLiteral("message_id")).toString();
+    const QString markdown = message.value(QStringLiteral("markdown")).toString();
+    if (id.isEmpty() || markdown.isEmpty() || renderedSummaryMessageIds.contains(id)) return;
+    renderedSummaryMessageIds.insert(id);
+    lastMessageKey.clear();
+    QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
+    const bool followBottom = scroll->value() >= scroll->maximum() - 24;
+    auto *row = new QWidget(ui->messageContainer);
+    row->setObjectName(QStringLiteral("discussionSummaryMessage"));
+    row->setProperty("summaryMessageId", id);
+    auto *rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(0, 8, 0, 0);
+    rowLayout->setSpacing(10);
+    auto *avatar = avatarLabel(QStringLiteral("Vivi"), row);
+    avatar->clear();
+    avatar->setPixmap(iconFromSvg(QStringLiteral(":/login/vivi-robot.svg"), 22).pixmap(22, 22));
+    avatar->setStyleSheet(QStringLiteral("background:#e8defc; border-radius:18px;"));
+    rowLayout->addWidget(avatar, 0, Qt::AlignTop);
+    auto *column = new QWidget(row);
+    column->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    auto *columnLayout = new QVBoxLayout(column);
+    columnLayout->setContentsMargins(0, 0, 0, 0);
+    columnLayout->setSpacing(7);
+    const QDateTime sent = QDateTime::fromString(message.value(QStringLiteral("time")).toString(),
+                                                Qt::ISODateWithMs).toLocalTime();
+    auto *caption = new QLabel(QStringLiteral("Vivi  ·  由 %1 分享讨论总结  ·  %2")
+        .arg(message.value(QStringLiteral("shared_by_name")).toString(),
+             sent.isValid() ? sent.time().toString(QStringLiteral("hh:mm")) : QString()), column);
+    caption->setTextFormat(Qt::PlainText);
+    caption->setStyleSheet(QStringLiteral("color:#776891; font-size:12px;"));
+    columnLayout->addWidget(caption);
+    auto *card = new QFrame(column);
+    card->setObjectName(QStringLiteral("discussionSummaryCard"));
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    card->setStyleSheet(QStringLiteral(
+        "QFrame#discussionSummaryCard { background:#faf8ff; border:1px solid #e9dfff; border-radius:15px; }"
+        "QLabel { border:0; background:transparent; color:#30234e; }"
+        "QPushButton { color:#694cc8; background:#f8f5ff; border:1px solid #e8dffa;"
+        " border-radius:8px; padding:7px 9px; font-size:12px; }"
+        "QPushButton:hover { background:#eee7fc; }"));
+    auto *box = new QVBoxLayout(card);
+    box->setContentsMargins(17, 14, 17, 14);
+    box->setSpacing(5);
+    auto *titleLine = new QHBoxLayout;
+    titleLine->setSpacing(7);
+    auto *documentIcon = new QLabel(card);
+    documentIcon->setFixedSize(20, 20);
+    documentIcon->setPixmap(iconFromSvg(QStringLiteral(":/login/summary-document.svg"), 20).pixmap(20, 20));
+    titleLine->addWidget(documentIcon, 0, Qt::AlignTop);
+    auto *title = new QLabel(QStringLiteral("%1 · 讨论总结")
+        .arg(message.value(QStringLiteral("room_name")).toString()), card);
+    title->setObjectName(QStringLiteral("discussionSummaryTitle"));
+    title->setTextFormat(Qt::PlainText);
+    title->setWordWrap(true);
+    title->setStyleSheet(QStringLiteral("color:#282043; font-size:16px; font-weight:700;"));
+    titleLine->addWidget(title, 1);
+    auto *kind = new QLabel(QStringLiteral("讨论总结"), card);
+    kind->setObjectName(QStringLiteral("discussionSummaryKind"));
+    kind->setAlignment(Qt::AlignCenter);
+    kind->setStyleSheet(QStringLiteral("color:#7351c7; background:#eee7fc; border-radius:8px;"
+        " padding:3px 6px; font-size:11px;"));
+    titleLine->addWidget(kind, 0, Qt::AlignTop);
+    box->addLayout(titleLine);
+    auto *range = new QLabel(QStringLiteral("基于最近 %1 条消息生成 · 序号 %2–%3")
+        .arg(message.value(QStringLiteral("message_count")).toInt())
+        .arg(message.value(QStringLiteral("first_sequence")).toString(),
+             message.value(QStringLiteral("last_sequence")).toString()), card);
+    range->setObjectName(QStringLiteral("discussionSummaryRange"));
+    range->setTextFormat(Qt::PlainText);
+    range->setWordWrap(true);
+    range->setStyleSheet(QStringLiteral("color:#8b7ea5; font-size:12px;"));
+    box->addWidget(range);
+    const QVector<QString> sections = splitSummarySections(markdown);
+    const QStringList names{QStringLiteral("讨论概览"), QStringLiteral("已达成共识"),
+                            QStringLiteral("待解决问题"), QStringLiteral("下一步行动")};
+    for (int i = 0; i < names.size(); ++i) {
+        box->addSpacing(2);
+        auto *divider = new QFrame(card);
+        divider->setFixedHeight(1);
+        divider->setStyleSheet(QStringLiteral("background:#ebe3f7; border:0;"));
+        box->addWidget(divider);
+        auto *section = new QWidget(card);
+        section->setObjectName(QStringLiteral("discussionSummaryPreview%1").arg(i));
+        auto *sectionLayout = new QVBoxLayout(section);
+        sectionLayout->setContentsMargins(0, 0, 0, 0);
+        sectionLayout->setSpacing(8);
+        auto *heading = new QLabel(names.at(i), section);
+        heading->setObjectName(QStringLiteral("discussionSummarySectionTitle%1").arg(i));
+        heading->setStyleSheet(QStringLiteral("color:#30234e; font-size:15px; font-weight:600;"));
+        sectionLayout->addWidget(heading);
+        const QStringList items = i == 0 ? QStringList() : summaryPreviewItems(sections.value(i));
+        if (items.isEmpty()) {
+            auto *body = new SummaryBodyLabel(summaryPreview(sections.value(i),
+                i == 0 ? 132 : 100), section);
+            body->setObjectName(QStringLiteral("discussionSummarySectionBody%1").arg(i));
+            sectionLayout->addWidget(body);
+        } else {
+            const int visibleCount = qMin(items.size(), i == 1 ? 3 : 2);
+            for (int j = 0; j < visibleCount; ++j) {
+                auto *entry = new QWidget(section);
+                entry->setObjectName(QStringLiteral("discussionSummaryEntry%1").arg(i));
+                auto *line = new QHBoxLayout(entry);
+                line->setContentsMargins(0, 0, 0, 0);
+                line->setSpacing(8);
+                auto *mark = new QLabel(i == 1 ? QStringLiteral("✓") : QStringLiteral("•"), entry);
+                mark->setAlignment(Qt::AlignCenter);
+                mark->setFixedSize(18, 18);
+                mark->setStyleSheet(QStringLiteral("color:#7954d4; background:#efe8ff;"
+                    " border-radius:9px; font-size:12px; font-weight:700;"));
+                line->addWidget(mark, 0, Qt::AlignTop);
+                auto *body = new SummaryBodyLabel(summaryPreview(items.at(j), 104), entry);
+                body->setObjectName(QStringLiteral("discussionSummaryEntryText%1").arg(i));
+                line->addWidget(body, 1);
+                sectionLayout->addWidget(entry);
+            }
+            if (items.size() > visibleCount) {
+                auto *remaining = new QLabel(QStringLiteral("还有 %1 项，查看完整总结")
+                    .arg(items.size() - visibleCount), section);
+                remaining->setObjectName(QStringLiteral("discussionSummaryRemaining%1").arg(i));
+                remaining->setStyleSheet(QStringLiteral("color:#806d9e; font-size:12px;"));
+                sectionLayout->addWidget(remaining);
+            }
+        }
+        box->addWidget(section);
+    }
+    auto *buttons = new QHBoxLayout;
+    buttons->setSpacing(7);
+    auto *view = new QPushButton(QStringLiteral("查看完整总结"), card);
+    view->setObjectName(QStringLiteral("discussionSummaryView"));
+    auto *copy = new QPushButton(QStringLiteral("复制"), card);
+    copy->setObjectName(QStringLiteral("discussionSummaryCopy"));
+    buttons->addWidget(view);
+    buttons->addWidget(copy);
+    buttons->addStretch();
+    box->addLayout(buttons);
+    connect(view, &QPushButton::clicked, this, [this, message] { openSharedSummary(message); });
+    connect(copy, &QPushButton::clicked, this, [markdown] {
+        QGuiApplication::clipboard()->setText(markdown);
+    });
+    columnLayout->addWidget(card);
+    rowLayout->addWidget(column);
+    rowLayout->addStretch();
+    summaryCards.append(card);
+    ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
+    updateBubbleWidths();
+    QTimer::singleShot(0, this, [this, scroll, followBottom] {
+        updateBubbleWidths();
+        if (followBottom) scroll->setValue(scroll->maximum());
+    });
 }
 
 void MainWindow::connectSlots()
@@ -1343,6 +1862,14 @@ void MainWindow::connectSlots()
     connect(socket, &QTcpSocket::disconnected, this, [this]() {
         isConnected = false;
         viviSummarySupported = false;
+        if (viviSummarySharePending) {
+            viviSummarySharePending = false;
+            viviSummaryShare->setText(QStringLiteral("分享至聊天室"));
+            viviSummaryShare->setEnabled(false);
+            viviSummaryRegenerate->setEnabled(!viviSummaryReadOnly);
+            if (!viviSummaryReadOnly)
+                viviSummaryStatus->setText(QStringLiteral("连接已断开；重连后可重试同一分享请求。"));
+        }
         if (viviSummaryPending) {
             viviSummaryRenderTimer->stop();
             renderViviSummary(false);
@@ -1997,6 +2524,8 @@ void MainWindow::clearMessageView()
     aiReplyTargets.clear();
     streamedRequestIds.clear();
     renderedUserMessageIds.clear();
+    renderedSummaryMessageIds.clear();
+    summaryCards.clear();
     bubbleColumns.clear();
     messageBubbles.clear();
     messageBodies.clear();
@@ -2560,15 +3089,16 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
     auto *bubble = new QFrame(column);
     if (ai) bubble->setObjectName(QStringLiteral("viviReadingCard"));
     bubble->setStyleSheet(ai
-        ? QStringLiteral("QFrame#viviReadingCard { background-color:#fdfcff;"
-                         " border:1px solid #e8e0f5; border-radius:13px; }")
+        ? QStringLiteral("QFrame#viviReadingCard { background-color:#faf8ff;"
+                         " border:1px solid #e9dfff; border-radius:16px;"
+                         " border-top-left-radius:8px; }")
         : own
         ? QStringLiteral("QFrame { background-color:#8064d9; border-radius:14px; border-top-right-radius:7px; } QLabel { color:white; font-size:14px; font-weight:400; }")
         : QStringLiteral("QFrame { background-color:#f3f0f9; border-radius:14px; border-top-left-radius:7px; } QLabel { color:#292342; font-size:14px; font-weight:400; }"));
     auto *bubbleLayout = new QVBoxLayout(bubble);
-    bubbleLayout->setContentsMargins(ai ? 15 : 14, ai ? 13 : 10,
-                                    ai ? 15 : 14, ai ? 10 : 10);
-    bubbleLayout->setSpacing(ai ? 9 : 0);
+    bubbleLayout->setContentsMargins(ai ? 17 : 14, ai ? 13 : 10,
+                                    ai ? 17 : 14, ai ? 13 : 10);
+    bubbleLayout->setSpacing(0);
     if (ai) {
         auto *body = new AiMarkdownWidget(message, bubble);
         if (!streamMessageId.isEmpty()) body->setStreamingText({});
@@ -2590,16 +3120,16 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
     bubble->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
     columnLayout->addWidget(bubble, 0, own ? Qt::AlignRight : Qt::AlignLeft);
     if (ai) {
-        auto *divider = new QFrame(bubble);
-        divider->setFrameShape(QFrame::HLine);
-        divider->setFixedHeight(1);
-        divider->setStyleSheet(QStringLiteral("background:#eee8f7; border:0;"));
-        bubbleLayout->addWidget(divider);
-        auto *actions = new QHBoxLayout;
-        actions->setContentsMargins(0, 0, 0, 0);
-        actions->setSpacing(4);
-        auto makeAction = [column, actions](const QString &label, const QString &iconPath, const QString &tip) {
-            auto *button = new QToolButton(column);
+        auto *actionBar = new QWidget(column);
+        actionBar->setObjectName(QStringLiteral("viviActionBar"));
+        actionBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        auto *actions = new QGridLayout(actionBar);
+        actions->setContentsMargins(17, 0, 0, 0);
+        actions->setHorizontalSpacing(4);
+        actions->setVerticalSpacing(2);
+        int actionColumn = 0;
+        auto makeAction = [actionBar, actions, &actionColumn](const QString &label, const QString &iconPath, const QString &tip) {
+            auto *button = new QToolButton(actionBar);
             button->setText(label);
             button->setIcon(iconFromSvg(iconPath, 16));
             button->setIconSize(QSize(16, 16));
@@ -2610,13 +3140,15 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
                 "QToolButton { color:#827799; border:0; border-radius:6px; padding:3px 5px; font-size:12px; background:transparent; } "
                 "QToolButton:hover { color:#7956d5; background:#f2edfb; } "
                 "QToolButton:checked { color:#6746c4; background:#e9e0fa; }"));
-            actions->addWidget(button);
+            actions->addWidget(button, 0, actionColumn++);
             return button;
         };
         auto *copy = makeAction(QStringLiteral("复制全文"), QStringLiteral(":/login/ai-copy.svg"), QStringLiteral("复制 Vivi 回复"));
         auto *retry = makeAction(QStringLiteral("重新生成"), QStringLiteral(":/login/refresh.svg"), QStringLiteral("按原问题和上下文重新生成"));
         auto *up = makeAction({}, QStringLiteral(":/login/ai-up.svg"), QStringLiteral("有帮助"));
         auto *down = makeAction({}, QStringLiteral(":/login/ai-down.svg"), QStringLiteral("没有帮助"));
+        up->setObjectName(QStringLiteral("viviActionLike"));
+        down->setObjectName(QStringLiteral("viviActionDislike"));
         up->setCheckable(true);
         down->setCheckable(true);
         connect(copy, &QToolButton::clicked, this, [this, body = aiBodies.last()]() {
@@ -2656,6 +3188,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             for (QToolButton *button : state.actions) button->setEnabled(false);
             auto *cancel = makeAction(QStringLiteral("取消生成"), QStringLiteral(":/login/refresh.svg"),
                                       QStringLiteral("取消当前 Vivi 请求"));
+            cancel->setObjectName(QStringLiteral("viviActionCancel"));
             cancel->setVisible(replyTarget.value(QStringLiteral("accountId")).toString()
                                == QString::number(ownAccountId));
             connect(cancel, &QToolButton::clicked, this, [this, streamMessageId]() {
@@ -2667,8 +3200,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             state.cancel = cancel;
             aiStreams.insert(streamMessageId, state);
         }
-        actions->addStretch();
-        bubbleLayout->addLayout(actions);
+        columnLayout->addWidget(actionBar, 0, Qt::AlignLeft);
     }
     if (own) {
         rowLayout->addStretch();
@@ -3084,6 +3616,12 @@ void MainWindow::appendPresenceNotice(const QString &name, bool joined)
 
 void MainWindow::appendIncomingLine(const QString &line)
 {
+    if (line.startsWith(QStringLiteral("SUMMARY_SHARE|"))) {
+        const QJsonDocument document = QJsonDocument::fromJson(
+            QByteArray::fromBase64(line.mid(14).toLatin1()));
+        if (document.isObject()) handleSummaryShare(document.object());
+        return;
+    }
     if (line.startsWith(QStringLiteral("AI_SUMMARY|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(
             QByteArray::fromBase64(line.mid(11).toLatin1()));
@@ -3148,6 +3686,14 @@ void MainWindow::appendIncomingLine(const QString &line)
                     if (stream->cancel) stream->cancel->hide();
                 }
             }
+        } else if (item.value(QStringLiteral("type")) == QStringLiteral("discussion_summary")) {
+            QJsonObject shared = QJsonDocument::fromJson(body.toUtf8()).object();
+            shared.insert(QStringLiteral("room_id"), currentRoomId);
+            shared.insert(QStringLiteral("message_id"), id);
+            shared.insert(QStringLiteral("shared_by_id"), item.value(QStringLiteral("sender_id")));
+            shared.insert(QStringLiteral("shared_by_name"), item.value(QStringLiteral("sender")));
+            shared.insert(QStringLiteral("time"), item.value(QStringLiteral("time")));
+            appendSharedSummary(shared);
         } else if (item.value(QStringLiteral("type")) == QStringLiteral("user")) {
             const QString senderId = item.value(QStringLiteral("sender_id")).toString();
             appendMessage(item.value(QStringLiteral("sender")).toString(), body,
@@ -3490,12 +4036,35 @@ void MainWindow::updateBubbleWidths()
         for (const QString &line : body->plainText().split(QLatin1Char('\n')))
             natural = qMax(natural, metrics.horizontalAdvance(line));
         const int desired = body->isStreaming() ? aiLimit
-            : qMin(aiLimit, qMax(190, natural + 34));
-        body->setContentWidth(qMax(140, desired - 32));
+            : qMin(aiLimit, qMax(140, natural + 38));
+        body->setContentWidth(qMax(100, desired - 34));
         bubble->setFixedWidth(desired);
-        for (QToolButton *action : bubble->findChildren<QToolButton *>())
-            action->setToolButtonStyle(desired < 340 ? Qt::ToolButtonIconOnly
-                                                     : Qt::ToolButtonTextBesideIcon);
+        QWidget *actionBar = aiColumns.at(i)->findChild<QWidget *>(QStringLiteral("viviActionBar"));
+        if (!actionBar) continue;
+        const bool compactActions = aiLimit < 290;
+        if (actionBar->property("compactActions").toBool() == compactActions) continue;
+        auto *grid = qobject_cast<QGridLayout *>(actionBar->layout());
+        QToolButton *like = actionBar->findChild<QToolButton *>(QStringLiteral("viviActionLike"));
+        QToolButton *dislike = actionBar->findChild<QToolButton *>(QStringLiteral("viviActionDislike"));
+        QToolButton *cancel = actionBar->findChild<QToolButton *>(QStringLiteral("viviActionCancel"));
+        if (!grid || !like || !dislike) continue;
+        grid->removeWidget(like);
+        grid->removeWidget(dislike);
+        if (cancel) grid->removeWidget(cancel);
+        const int row = compactActions ? 1 : 0;
+        const int column = compactActions ? 0 : 2;
+        grid->addWidget(like, row, column);
+        grid->addWidget(dislike, row, column + 1);
+        if (cancel) grid->addWidget(cancel, row, column + 2);
+        actionBar->setProperty("compactActions", compactActions);
+        actionBar->updateGeometry();
+    }
+    const int summaryLimit = qMin(540, qMax(120,
+        ui->messageScroll->viewport()->width() - 60));
+    for (QFrame *card : summaryCards) {
+        card->setMinimumWidth(qMin(summaryLimit, qMax(220, int(summaryLimit * 0.92))));
+        card->setMaximumWidth(summaryLimit);
+        card->updateGeometry();
     }
     const int systemLimit = qMax(180, int(ui->messageScroll->viewport()->width() * 0.78));
     for (QFrame *pill : systemPills) {

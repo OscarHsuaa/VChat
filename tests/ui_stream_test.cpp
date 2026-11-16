@@ -256,13 +256,26 @@ int main(int argc, char **argv)
     if (QGuiApplication::clipboard()->text() != QStringLiteral("第二条完成")) return 23;
     auto *readingCard = qobject_cast<QFrame *>(secondA->parentWidget());
     if (!readingCard || readingCard->objectName() != QStringLiteral("viviReadingCard")) return 150;
-    if (readingCard->height() > secondA->height() + 115) return 156;
+    auto *shortBar = readingCard->parentWidget()->findChild<QWidget *>(QStringLiteral("viviActionBar"));
+    if (!shortBar || readingCard->isAncestorOf(shortBar) ||
+        shortBar->parentWidget() != readingCard->parentWidget() ||
+        readingCard->height() > secondA->height() + 45 ||
+        shortBar->y() < readingCard->y() + readingCard->height() ||
+        shortBar->y() > readingCard->y() + readingCard->height() + 16 ||
+        !readingCard->findChildren<QToolButton *>().isEmpty() ||
+        copyFull->toolButtonStyle() != Qt::ToolButtonTextBesideIcon) return 156;
     const QString layoutCapture = qEnvironmentVariable("VCHAT_UI_CAPTURE_DIR");
-    if (!layoutCapture.isEmpty())
-        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-short-layout-fixed.png")));
+    if (!layoutCapture.isEmpty()) {
+        const QSize originalSize = a.size();
+        a.resize(1200, 780);
+        waitEvents();
+        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-short-v042.png")));
+        a.resize(originalSize);
+        waitEvents();
+    }
     QToolButton *upVote = nullptr;
     QToolButton *downVote = nullptr;
-    for (QToolButton *button : readingCard->findChildren<QToolButton *>()) {
+    for (QToolButton *button : shortBar->findChildren<QToolButton *>()) {
         if (button->toolTip() == QStringLiteral("有帮助")) upVote = button;
         if (button->toolTip() == QStringLiteral("没有帮助")) downVote = button;
     }
@@ -350,19 +363,28 @@ int main(int argc, char **argv)
     if (longBody->height() < longBody->findChild<QTextBrowser *>()->height() || scrollA->value() != 0) return 26;
     QTextBrowser *longProse = longBody->findChild<QTextBrowser *>();
     QWidget *longCard = longBody->parentWidget();
+    QWidget *longBar = longCard->parentWidget()->findChild<QWidget *>(QStringLiteral("viviActionBar"));
     if (!waitUntil([&] { return longCard->height() >= longBody->y() + longBody->height(); }, 3000))
         return 157;
     if (longProse->verticalScrollBar()->maximum() != 0 ||
         longBody->y() + longBody->height() > longCard->height() ||
-        longCard->height() > longBody->height() + 115) return 154;
-    for (QToolButton *action : longCard->findChildren<QToolButton *>())
+        longCard->height() > longBody->height() + 45 || !longBar ||
+        longBar->y() < longCard->y() + longCard->height() ||
+        longBar->y() > longCard->y() + longCard->height() + 16) return 154;
+    for (QToolButton *action : longBar->findChildren<QToolButton *>())
         if (action->isVisible() &&
-            action->mapTo(longCard, QPoint(0, 0)).y() < longBody->y() + longBody->height())
+            action->mapTo(longBar->parentWidget(), QPoint(0, 0)).y() <
+                longCard->y() + longCard->height())
             return 155;
     if (!layoutCapture.isEmpty()) {
+        const QSize originalSize = a.size();
+        a.resize(1200, 780);
+        waitEvents();
         scrollA->setValue(scrollA->maximum());
         waitEvents();
-        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-long-layout-fixed.png")));
+        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-long-v042.png")));
+        a.resize(originalSize);
+        waitEvents();
         scrollA->setValue(0);
     }
     broadcast(event("ai_start", 6, "reply-6", 22, QStringLiteral("乙"), 0));
@@ -507,6 +529,7 @@ int main(int argc, char **argv)
     for (QWidget *widget : resumed.findChildren<QWidget *>())
         if (widget->property("aiMessageId") == QStringLiteral("pending-answer")) ++pendingRows;
     if (pendingRows != 1) return 45;
+    if (qEnvironmentVariableIsSet("VCHAT_AI_UI_ONLY")) return 0;
 
     // The navigation uses real protocol frames and never changes the visible
     // room before a successful switch response.

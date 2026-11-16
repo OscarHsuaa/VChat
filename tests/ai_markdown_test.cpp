@@ -144,7 +144,7 @@ int main(int argc, char **argv)
     app.processEvents();
     if (int result = check(longParagraph.height() > 300 &&
                            longParagraph.findChild<QTextBrowser *>()->height() <= longParagraph.height(), 17)) return result;
-    for (const int count : {50, 500}) {
+    for (const int count : {50, 100, 500}) {
         AiMarkdownWidget answer(QString(count, QChar(0x4e2d)));
         answer.show();
         for (const int width : {500, 220}) {

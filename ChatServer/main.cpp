@@ -45,6 +45,16 @@ const QString kDbPassword = QStringLiteral("123456");
 
 struct LoginSession { qint64 accountId; QString nickname; QDateTime issuedAt; };
 struct SummaryJob { QString requestId; QString roomId; QPointer<QNetworkReply> reply; };
+struct CompletedSummary {
+    QString requestId;
+    QString roomId;
+    qint64 actorId = 0;
+    QString markdown;
+    QString generatedAt;
+    int messageCount = 0;
+    qint64 firstSequence = 0;
+    qint64 lastSequence = 0;
+};
 
 // Each query owns a connection created and destroyed on its worker thread.
 // No QSqlDatabase handle from the network thread crosses this boundary.
@@ -178,6 +188,31 @@ bool openDatabase()
         "AND TABLE_NAME='chat_history' AND COLUMN_NAME='ai_state'"));
     if (!stateColumn.exec() || !stateColumn.next() || stateColumn.value(0).toInt() == 0) {
         qCritical() << "chat_history.ai_state missing; apply ChatServer/migrations/002_ai_history_state.sql";
+        return false;
+    }
+    QSqlQuery summarySchema;
+    if (!summarySchema.exec(QStringLiteral(
+            "SELECT COLUMN_NAME,COLUMN_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='chat_history' "
+            "AND COLUMN_NAME IN ('message_type','share_request_id')"))) {
+        qCritical() << "Summary share schema check failed:" << summarySchema.lastError().text();
+        return false;
+    }
+    bool shareRequestColumn = false, summaryType = false;
+    while (summarySchema.next()) {
+        if (summarySchema.value(0).toString() == QStringLiteral("share_request_id"))
+            shareRequestColumn = true;
+        if (summarySchema.value(0).toString() == QStringLiteral("message_type"))
+            summaryType = summarySchema.value(1).toString().contains(QStringLiteral("discussion_summary"));
+    }
+    QSqlQuery shareIndex;
+    shareIndex.prepare(QStringLiteral("SELECT COUNT(*) FROM information_schema.STATISTICS "
+        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='chat_history' "
+        "AND INDEX_NAME='uq_chat_history_share_request' AND NON_UNIQUE=0"));
+    if (!shareRequestColumn || !summaryType || !shareIndex.exec() || !shareIndex.next() ||
+        shareIndex.value(0).toInt() == 0) {
+        qCritical() << "Discussion summary share schema missing; apply "
+                       "ChatServer/migrations/008_discussion_summary_share.sql";
         return false;
     }
     // An older server may have written more legacy rows before this process started.
@@ -480,7 +515,11 @@ int main(int argc, char *argv[])
     QHash<QString, LoginSession> loginSessions;
     QHash<QString, QList<QDateTime>> registrationAttempts;
 
-    AiService aiService(&app);
+    const QString testAiEndpoint = qEnvironmentVariable("VCHAT_TEST_DB").isEmpty()
+        ? QString() : qEnvironmentVariable("VCHAT_TEST_AI_ENDPOINT");
+    AiService aiService(&app, testAiEndpoint.isEmpty()
+        ? QUrl(QStringLiteral("https://api.deepseek.com/chat/completions"))
+        : QUrl(testAiEndpoint));
     const QString idleAiState = aiService.isConfigured()
         ? QStringLiteral("online") : QStringLiteral("unavailable");
     QHash<QString, QString> aiStates;
@@ -560,9 +599,10 @@ int main(int argc, char *argv[])
     };
     roomFor(QString::fromLatin1(RoomStore::LobbyId));
 
-    // Discussion summaries are private, transient requests. They never enter
-    // AiRoom's broadcast or chat_history persistence path.
+    // Generation remains private; an explicit share uses a completed server-side
+    // snapshot and writes one separate room message to chat_history.
     QHash<QTcpSocket *, SummaryJob> summaryJobs;
+    QHash<QTcpSocket *, CompletedSummary> completedSummaries;
     auto sendSummaryEvent = [](QTcpSocket *client, const QString &requestId,
                                const QString &roomId, const QString &event, QJsonObject details = {}) {
         if (!client || client->state() != QAbstractSocket::ConnectedState) return;
@@ -619,7 +659,7 @@ int main(int argc, char *argv[])
             QObject::connect(client, &QTcpSocket::readyRead, [client, &clients, &buffers, &onlineUsers,
                 &onlineUserIds, &modernPeers, &loginSessions, &registrationAttempts,
                 &broadcastUserList, &roomFor, &aiRooms, &aiStates, &idleAiState, &activeRooms,
-                &summaryJobs, &sendSummaryEvent, &cancelSummary, &aiService, &app]() {
+                &summaryJobs, &completedSummaries, &sendSummaryEvent, &cancelSummary, &aiService, &app]() {
                 // TCP 数据不一定一次收到完整一行，所以先放进该客户端自己的缓存。
                 QByteArray &buffer = buffers[client];
                 buffer.append(client->readAll());
@@ -725,6 +765,11 @@ int main(int argc, char *argv[])
                         }
                         if (nickname.isEmpty()) {
                             nickname = socketName(client);
+                        }
+
+                        if (onlineUsers.contains(client) && onlineUserIds.value(client) != accountId) {
+                            cancelSummary(client);
+                            completedSummaries.remove(client);
                         }
 
                         onlineUsers[client] = nickname;
@@ -1047,7 +1092,10 @@ int main(int argc, char *argv[])
                             } else error = QStringLiteral("无权读取聊天室历史");
                         } else if (action == QStringLiteral("switch")) {
                             if (RoomStore::isMember(roomId, actor)) {
-                                if (activeRooms.value(client) != roomId) cancelSummary(client);
+                                if (activeRooms.value(client) != roomId) {
+                                    cancelSummary(client);
+                                    completedSummaries.remove(client);
+                                }
                                 activeRooms[client] = roomId;
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
@@ -1070,6 +1118,120 @@ int main(int argc, char *argv[])
                         } else error = QStringLiteral("未知聊天室操作");
                         if (!error.isEmpty()) reply.insert(QStringLiteral("error"), error);
                         respond();
+                        continue;
+                    }
+
+                    if (text.startsWith(QStringLiteral("SUMMARY_SHARE|"))) {
+                        if (line.size() > 2048) continue;
+                        const QJsonDocument document = QJsonDocument::fromJson(
+                            QByteArray::fromBase64(text.mid(14).toLatin1()));
+                        if (!document.isObject()) continue;
+                        const QJsonObject request = document.object();
+                        const QString shareId = request.value(QStringLiteral("request_id")).toString();
+                        const QString summaryId = request.value(QStringLiteral("summary_request_id")).toString();
+                        const QString roomId = request.value(QStringLiteral("room_id")).toString();
+                        if (QUuid(shareId).isNull() || shareId.size() != 36) continue;
+                        auto sendShare = [client, &shareId](QJsonObject payload) {
+                            payload.insert(QStringLiteral("request_id"), shareId);
+                            sendLine(client, QStringLiteral("SUMMARY_SHARE|%1").arg(QString::fromLatin1(
+                                QJsonDocument(payload).toJson(QJsonDocument::Compact).toBase64())));
+                        };
+                        auto fail = [&sendShare](const QString &reason) {
+                            sendShare({{QStringLiteral("event"), QStringLiteral("result")},
+                                       {QStringLiteral("ok"), false}, {QStringLiteral("error"), reason}});
+                        };
+                        const qint64 actor = onlineUserIds.value(client);
+                        if (!modernPeers.contains(client) || !onlineUsers.contains(client) || actor <= 0 ||
+                            roomId.isEmpty() || activeRooms.value(client) != roomId ||
+                            !RoomStore::isMember(roomId, actor)) {
+                            fail(QStringLiteral("无权向当前聊天室分享总结。"));
+                            continue;
+                        }
+                        QSqlQuery existing;
+                        existing.prepare(QStringLiteral("SELECT message_id,room_id,sender_id,sender_name,content,"
+                            "created_at,sequence_id FROM chat_history WHERE share_request_id=?"));
+                        existing.addBindValue(shareId);
+                        if (!existing.exec()) {
+                            qWarning() << "Summary share lookup failed:" << existing.lastError().text();
+                            fail(QStringLiteral("数据库读取失败，请稍后重试。"));
+                            continue;
+                        }
+                        QJsonObject message;
+                        if (existing.next()) {
+                            if (existing.value(1).toString() != roomId || existing.value(2).toLongLong() != actor) {
+                                fail(QStringLiteral("分享请求 ID 已被使用。"));
+                                continue;
+                            }
+                            message = QJsonDocument::fromJson(existing.value(4).toByteArray()).object();
+                            message.insert(QStringLiteral("message_id"), existing.value(0).toString());
+                            message.insert(QStringLiteral("room_id"), roomId);
+                            message.insert(QStringLiteral("shared_by_id"), QString::number(actor));
+                            message.insert(QStringLiteral("shared_by_name"), existing.value(3).toString());
+                            message.insert(QStringLiteral("time"), existing.value(5).toDateTime().toString(Qt::ISODateWithMs));
+                            message.insert(QStringLiteral("sequence_id"), existing.value(6).toString());
+                        } else {
+                            const CompletedSummary summary = completedSummaries.value(client);
+                            if (QUuid(summaryId).isNull() || summary.requestId != summaryId ||
+                                summary.roomId != roomId || summary.actorId != actor ||
+                                summary.markdown.trimmed().isEmpty() ||
+                                summary.markdown.size() > 20000 || summary.messageCount < 2) {
+                                fail(QStringLiteral("总结已失效，请重新生成后分享。"));
+                                continue;
+                            }
+                            QString roomError;
+                            const QJsonObject details = RoomStore::details(actor, roomId, &roomError);
+                            if (details.isEmpty()) {
+                                fail(roomError.isEmpty() ? QStringLiteral("聊天室信息读取失败。") : roomError);
+                                continue;
+                            }
+                            QJsonObject snapshot{{QStringLiteral("room_name"), details.value(QStringLiteral("room_name"))},
+                                {QStringLiteral("markdown"), summary.markdown},
+                                {QStringLiteral("message_count"), summary.messageCount},
+                                {QStringLiteral("first_sequence"), QString::number(summary.firstSequence)},
+                                {QStringLiteral("last_sequence"), QString::number(summary.lastSequence)},
+                                {QStringLiteral("generated_at"), summary.generatedAt}};
+                            const QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                            QSqlQuery insert;
+                            insert.prepare(QStringLiteral("INSERT INTO chat_history(room_id,message_id,sender_id,"
+                                "sender_name,message_type,content,share_request_id) "
+                                "VALUES(?,?,?,?,'discussion_summary',?,?)"));
+                            insert.addBindValue(roomId);
+                            insert.addBindValue(messageId);
+                            insert.addBindValue(actor);
+                            insert.addBindValue(onlineUsers.value(client));
+                            insert.addBindValue(QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact)));
+                            insert.addBindValue(shareId);
+                            if (!insert.exec()) {
+                                qWarning() << "Summary share insert failed:" << insert.lastError().text();
+                                fail(QStringLiteral("总结保存失败，请稍后重试。"));
+                                continue;
+                            }
+                            QSqlQuery stored;
+                            stored.prepare(QStringLiteral("SELECT created_at,sequence_id FROM chat_history WHERE message_id=?"));
+                            stored.addBindValue(messageId);
+                            if (!stored.exec() || !stored.next()) {
+                                qCritical() << "Summary share saved but metadata lookup failed:" << stored.lastError().text();
+                                fail(QStringLiteral("总结已保存但确认失败，请重试相同请求。"));
+                                continue;
+                            }
+                            message = snapshot;
+                            message.insert(QStringLiteral("message_id"), messageId);
+                            message.insert(QStringLiteral("room_id"), roomId);
+                            message.insert(QStringLiteral("shared_by_id"), QString::number(actor));
+                            message.insert(QStringLiteral("shared_by_name"), onlineUsers.value(client));
+                            message.insert(QStringLiteral("time"), stored.value(0).toDateTime().toString(Qt::ISODateWithMs));
+                            message.insert(QStringLiteral("sequence_id"), stored.value(1).toString());
+                        }
+                        sendShare({{QStringLiteral("event"), QStringLiteral("result")},
+                                   {QStringLiteral("ok"), true},
+                                   {QStringLiteral("message_id"), message.value(QStringLiteral("message_id"))}});
+                        message.insert(QStringLiteral("event"), QStringLiteral("message"));
+                        const QString broadcast = QStringLiteral("SUMMARY_SHARE|%1").arg(QString::fromLatin1(
+                            QJsonDocument(message).toJson(QJsonDocument::Compact).toBase64()));
+                        for (QTcpSocket *other : clients)
+                            if (other->state() == QAbstractSocket::ConnectedState &&
+                                onlineUsers.contains(other) && activeRooms.value(other) == roomId &&
+                                modernPeers.contains(other)) sendLine(other, broadcast);
                         continue;
                     }
 
@@ -1101,14 +1263,17 @@ int main(int argc, char *argv[])
                             continue;
                         }
                         summaryJobs.insert(client, {requestId, roomId, {}});
+                        completedSummaries.remove(client);
                         sendSummaryEvent(client, requestId, roomId, QStringLiteral("started"));
                         const QString databaseName = QSqlDatabase::database().databaseName();
                         auto *watcher = new QFutureWatcher<AiRoom::HistoryResult>(&app);
                         QObject::connect(watcher, &QFutureWatcher<AiRoom::HistoryResult>::finished,
-                            &app, [&, watcher, guarded = QPointer<QTcpSocket>(client), requestId, roomId]() {
+                            &app, [&, watcher, guarded = QPointer<QTcpSocket>(client), requestId, roomId,
+                                    actor = onlineUserIds.value(client)]() {
                             const AiRoom::HistoryResult loaded = watcher->result();
                             watcher->deleteLater();
                             if (!guarded || summaryJobs.value(guarded).requestId != requestId ||
+                                onlineUserIds.value(guarded) != actor ||
                                 activeRooms.value(guarded) != roomId) return;
                             if (!loaded.error.isEmpty()) {
                                 qWarning() << "Discussion summary history query failed:" << loaded.error;
@@ -1152,22 +1317,30 @@ int main(int argc, char *argv[])
                                     {QStringLiteral("content"), QStringLiteral("请总结以下按消息序号排列的当前聊天室讨论：\n")
                                         + selected.join(QStringLiteral("\n"))}}};
                             QNetworkReply *reply = aiService.stream(messages,
-                                [&, guarded, requestId, roomId](const QString &chunk) {
+                                [&, guarded, requestId, roomId, actor](const QString &chunk) {
                                     if (guarded && summaryJobs.value(guarded).requestId == requestId &&
+                                        onlineUserIds.value(guarded) == actor &&
                                         activeRooms.value(guarded) == roomId)
                                         sendSummaryEvent(guarded, requestId, roomId, QStringLiteral("chunk"),
                                             {{QStringLiteral("text"), chunk}});
-                                }, [&, guarded, requestId, roomId](const QString &answer, const QString &error) {
+                                }, [&, guarded, requestId, roomId, actor,
+                                    count = static_cast<int>(selected.size()), first, last](const QString &answer, const QString &error) {
                                     if (!guarded || summaryJobs.value(guarded).requestId != requestId) return;
                                     summaryJobs.remove(guarded);
-                                    if (activeRooms.value(guarded) != roomId) return;
+                                    if (activeRooms.value(guarded) != roomId ||
+                                        onlineUserIds.value(guarded) != actor) return;
                                     if (!error.isEmpty())
                                         sendSummaryEvent(guarded, requestId, roomId, QStringLiteral("error"),
                                             {{QStringLiteral("error"), error}});
-                                    else sendSummaryEvent(guarded, requestId, roomId, QStringLiteral("complete"),
-                                        {{QStringLiteral("text"), answer},
-                                         {QStringLiteral("generated_at"),
-                                          QDateTime::currentDateTime().toString(Qt::ISODate)}});
+                                    else {
+                                        const QString generatedAt = QDateTime::currentDateTime().toString(Qt::ISODate);
+                                        if (!answer.trimmed().isEmpty() && answer.size() <= 20000)
+                                            completedSummaries.insert(guarded,
+                                                {requestId, roomId, actor, answer, generatedAt, count, first, last});
+                                        sendSummaryEvent(guarded, requestId, roomId, QStringLiteral("complete"),
+                                            {{QStringLiteral("text"), answer},
+                                             {QStringLiteral("generated_at"), generatedAt}});
+                                    }
                                 });
                             if (summaryJobs.value(guarded).requestId == requestId)
                                 summaryJobs[guarded].reply = reply;
@@ -1338,7 +1511,8 @@ int main(int argc, char *argv[])
 
             // 客户端断开连接时，清理列表和缓存，并刷新在线用户列表。
             QObject::connect(client, &QTcpSocket::disconnected, [client, &clients, &buffers, &onlineUsers,
-                &onlineUserIds, &modernPeers, &activeRooms, &broadcastUserList, &cancelSummary]() {
+                &onlineUserIds, &modernPeers, &activeRooms, &broadcastUserList, &cancelSummary,
+                &completedSummaries]() {
                 const QString clientName = socketName(client);
                 const bool wasOnline = onlineUsers.contains(client);
                 const QString nickname = onlineUsers.value(client);
@@ -1346,6 +1520,7 @@ int main(int argc, char *argv[])
                 qDebug() << "Client disconnected:" << clientName;
 
                 cancelSummary(client);
+                completedSummaries.remove(client);
 
                 clients.removeOne(client);
                 buffers.remove(client);

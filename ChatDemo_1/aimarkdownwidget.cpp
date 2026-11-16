@@ -86,7 +86,7 @@ bool closingFence(const QString &line, const Fence &opening)
 void styleDocument(QTextDocument *document, bool compact)
 {
     QFont body(QStringLiteral("Microsoft YaHei UI"));
-    body.setPixelSize(compact ? 13 : 14);
+    body.setPixelSize(14);
     document->setDefaultFont(body);
     document->setDocumentMargin(1);
     document->setIndentWidth(compact ? 17 : 23);
@@ -98,10 +98,11 @@ void styleDocument(QTextDocument *document, bool compact)
         const bool inTable = cursor.currentTable() != nullptr;
         const bool inList = block.textList() != nullptr;
         const int heading = format.headingLevel();
-        format.setLineHeight(heading ? 133 : compact ? 143 : 148,
+        format.setLineHeight(heading ? (compact ? 140 : 133) : compact ? 130 : 148,
                              QTextBlockFormat::ProportionalHeight);
         format.setTopMargin(heading ? 5 : 0);
-        format.setBottomMargin(inTable ? 1 : inList ? 3 : heading ? 5 : compact ? 6 : 9);
+        format.setBottomMargin(inTable ? 1 : inList ? (compact ? 7 : 3)
+            : heading ? 5 : compact ? 9 : 9);
         if (format.intProperty(QTextFormat::BlockQuoteLevel) > 0) {
             format.setLeftMargin(qMax<qreal>(format.leftMargin(), 12));
             format.setBackground(QColor(QStringLiteral("#f4f0fc")));
@@ -111,7 +112,7 @@ void styleDocument(QTextDocument *document, bool compact)
             QTextCharFormat headingFormat;
             QFont headingFont = body;
             headingFont.setPixelSize(compact
-                ? (heading == 1 ? 17 : heading == 2 ? 15 : 14)
+                ? (heading == 1 ? 18 : heading == 2 ? 16 : 15)
                 : (heading == 1 ? 19 : heading == 2 ? 17 : 15));
             headingFont.setWeight(QFont::DemiBold);
             headingFormat.setFont(headingFont);
@@ -405,7 +406,7 @@ void AiMarkdownWidget::setStreamingText(const QString &text)
         streamingLabel->setWordWrap(true);
         streamingLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
         streamingLabel->setStyleSheet(compactLayout
-            ? QStringLiteral("color:#30234e; font-size:13px; background:transparent;")
+            ? QStringLiteral("color:#30234e; font-size:14px; background:transparent;")
             : QStringLiteral("color:#30234e; font-size:14px; background:transparent;"));
         layout()->addWidget(streamingLabel);
     }
