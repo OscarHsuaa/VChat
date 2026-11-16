@@ -28,6 +28,7 @@ QListWidget#userList::item:hover { background-color: #f7f4fc; }
 QFrame#composer { background-color: #ffffff; border-top: 1px solid #eee8f8; }
 MentionInput#messageInput { color: #252044; background-color: #ffffff; border: 1px solid #e4ddf3; border-radius: 13px; padding: 13px 16px; selection-background-color: #8064d9; font-size: 14px; }
 MentionInput#messageInput:focus { border: 1px solid #9875e8; }
+MentionInput#messageInput[compact="true"] { padding: 10px 12px; }
 QPushButton#sendButton { color: white; background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #9068f3,stop:1 #7457d8); border: none; border-radius: 13px; padding: 8px 13px; font-size: 15px; font-weight: 600; }
 QPushButton#sendButton:hover { background: #9574ee; }
 QPushButton#sendButton:pressed { background: #694cc8; }

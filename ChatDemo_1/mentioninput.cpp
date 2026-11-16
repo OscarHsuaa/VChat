@@ -46,6 +46,14 @@ MentionInput::MentionInput(QWidget *parent) : QTextEdit(parent)
     connect(this, &QTextEdit::textChanged, this, &MentionInput::scheduleHeightUpdate);
 }
 
+void MentionInput::setCompactMode(bool value)
+{
+    if (compact == value) return;
+    compact = value;
+    updateInputHeight();
+    ensureCursorVisible();
+}
+
 void MentionInput::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
@@ -118,8 +126,8 @@ void MentionInput::updateInputHeight()
     // QTextEdit wraps against the viewport. Its remaining height is the frame
     // and QSS padding, so it must be included in the document's height.
     const int chrome = height() - viewport()->height();
-    const int oneLine = 50;
-    const int fiveLines = qMax(oneLine,
+    const int oneLine = compact ? 44 : 50;
+    const int fiveLines = compact ? oneLine : qMax(oneLine,
         int(std::ceil(fontMetrics().lineSpacing() * 5.0)) + chrome);
     const int contentHeight = int(std::ceil(document()->size().height())) + chrome;
     const int target = qBound(oneLine, contentHeight, fiveLines);

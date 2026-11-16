@@ -254,6 +254,23 @@ int main(int argc, char **argv)
     if (!copyFull || !copyFull->isEnabled()) return 22;
     copyFull->click();
     if (QGuiApplication::clipboard()->text() != QStringLiteral("第二条完成")) return 23;
+    auto *readingCard = qobject_cast<QFrame *>(secondA->parentWidget());
+    if (!readingCard || readingCard->objectName() != QStringLiteral("viviReadingCard")) return 150;
+    if (readingCard->height() > secondA->height() + 115) return 156;
+    const QString layoutCapture = qEnvironmentVariable("VCHAT_UI_CAPTURE_DIR");
+    if (!layoutCapture.isEmpty())
+        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-short-layout-fixed.png")));
+    QToolButton *upVote = nullptr;
+    QToolButton *downVote = nullptr;
+    for (QToolButton *button : readingCard->findChildren<QToolButton *>()) {
+        if (button->toolTip() == QStringLiteral("有帮助")) upVote = button;
+        if (button->toolTip() == QStringLiteral("没有帮助")) downVote = button;
+    }
+    if (!upVote || !downVote) return 151;
+    upVote->click();
+    if (!upVote->isChecked() || downVote->isChecked()) return 152;
+    downVote->click();
+    if (!downVote->isChecked() || upVote->isChecked()) return 153;
     for (MainWindow *window : {&a, &b}) {
         const auto labels = window->findChildren<QLabel *>(QStringLiteral("aiReplyLabel"));
         if (labels.size() != 2 || labels.at(0)->text() != QStringLiteral("回复 @甲") ||
@@ -331,6 +348,23 @@ int main(int argc, char **argv)
     if (!waitUntil([&]() { return longBody->findChild<QTextBrowser *>() &&
                                 longBody->plainText() == longAnswer; }, 20000)) return 25;
     if (longBody->height() < longBody->findChild<QTextBrowser *>()->height() || scrollA->value() != 0) return 26;
+    QTextBrowser *longProse = longBody->findChild<QTextBrowser *>();
+    QWidget *longCard = longBody->parentWidget();
+    if (!waitUntil([&] { return longCard->height() >= longBody->y() + longBody->height(); }, 3000))
+        return 157;
+    if (longProse->verticalScrollBar()->maximum() != 0 ||
+        longBody->y() + longBody->height() > longCard->height() ||
+        longCard->height() > longBody->height() + 115) return 154;
+    for (QToolButton *action : longCard->findChildren<QToolButton *>())
+        if (action->isVisible() &&
+            action->mapTo(longCard, QPoint(0, 0)).y() < longBody->y() + longBody->height())
+            return 155;
+    if (!layoutCapture.isEmpty()) {
+        scrollA->setValue(scrollA->maximum());
+        waitEvents();
+        a.grab().save(QDir(layoutCapture).filePath(QStringLiteral("vivi-long-layout-fixed.png")));
+        scrollA->setValue(0);
+    }
     broadcast(event("ai_start", 6, "reply-6", 22, QStringLiteral("乙"), 0));
     broadcast(event("ai_chunk", 6, "reply-6", 22, QStringLiteral("乙"), 1, QStringLiteral("保留正文")));
     broadcast(event("ai_complete", 6, "reply-6", 22, QStringLiteral("乙"), 1));

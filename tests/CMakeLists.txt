@@ -57,3 +57,31 @@ qt_add_executable(VChatComposerTest mention_input_test.cpp
     ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h)
 target_include_directories(VChatComposerTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatComposerTest PRIVATE Qt::Core Qt::Widgets)
+qt_add_executable(VChatAiMarkdownTest ai_markdown_test.cpp
+    ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h)
+target_include_directories(VChatAiMarkdownTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatAiMarkdownTest PRIVATE Qt::Core Qt::Widgets)
+qt_add_executable(VChatViviComposerUiTest vivi_composer_ui_test.cpp
+    ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
+    ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
+    ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
+    ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
+    ../ChatDemo_1/roomcreatedialog.cpp ../ChatDemo_1/roomcreatedialog.h
+    ../ChatDemo_1/roominvitedialog.cpp ../ChatDemo_1/roominvitedialog.h
+    ../ChatDemo_1/roommanagementdialog.cpp ../ChatDemo_1/roommanagementdialog.h
+    ../ChatDemo_1/roompermissionsdialog.cpp ../ChatDemo_1/roompermissionsdialog.h
+    ../ChatDemo_1/login_icons.qrc)
+target_include_directories(VChatViviComposerUiTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatViviComposerUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)
+qt_add_executable(VChatSummaryUiTest summary_ui_test.cpp
+    ../ChatDemo_1/mainwindow.cpp ../ChatDemo_1/mainwindow.h ../ChatDemo_1/mainwindow.ui
+    ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h
+    ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h
+    ../ChatDemo_1/roomsidebarwidget.cpp ../ChatDemo_1/roomsidebarwidget.h
+    ../ChatDemo_1/roomcreatedialog.cpp ../ChatDemo_1/roomcreatedialog.h
+    ../ChatDemo_1/roominvitedialog.cpp ../ChatDemo_1/roominvitedialog.h
+    ../ChatDemo_1/roommanagementdialog.cpp ../ChatDemo_1/roommanagementdialog.h
+    ../ChatDemo_1/roompermissionsdialog.cpp ../ChatDemo_1/roompermissionsdialog.h
+    ../ChatDemo_1/login_icons.qrc)
+target_include_directories(VChatSummaryUiTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatSummaryUiTest PRIVATE Qt::Core Qt::Network Qt::Widgets Qt::Svg)

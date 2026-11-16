@@ -8,6 +8,8 @@ class MentionInput : public QTextEdit
 public:
     explicit MentionInput(QWidget *parent = nullptr);
     bool composing() const { return preediting; }
+    void setCompactMode(bool compact);
+    bool compactMode() const { return compact; }
 
 signals:
     void returnPressed();
@@ -27,4 +29,5 @@ private:
     bool preediting = false;
     bool heightUpdatePending = false;
     bool suppressImeReturn = false;
+    bool compact = false;
 };

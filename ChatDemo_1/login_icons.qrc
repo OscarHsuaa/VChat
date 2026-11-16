@@ -23,6 +23,9 @@
     <file alias="trash.svg">icons/trash.svg</file>
     <file alias="connected.svg">icons/connected.svg</file>
     <file alias="vivi-robot.svg">icons/vivi-robot.svg</file>
+    <file alias="vivi-sparkle.svg">icons/vivi-sparkle.svg</file>
+    <file alias="emoji.svg">icons/emoji.svg</file>
+    <file alias="attachment.svg">icons/attachment.svg</file>
     <file alias="user-plus.svg">icons/user-plus.svg</file>
     <file alias="bell.svg">icons/bell.svg</file>
     <file alias="log-out.svg">icons/log-out.svg</file>

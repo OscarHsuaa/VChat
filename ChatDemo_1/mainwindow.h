@@ -31,6 +31,8 @@ class QResizeEvent;
 class QWidget;
 class QLabel;
 class AiMarkdownWidget;
+class SummarySection;
+class QScrollArea;
 class QToolButton;
 class QListWidget;
 class QEvent;
@@ -42,6 +44,10 @@ class RoomInviteInboxDialog;
 class RoomManagementDialog;
 class RoomPermissionsDialog;
 class QPushButton;
+class QGridLayout;
+class QGraphicsOpacityEffect;
+class QVariantAnimation;
+class QTextBrowser;
 
 class HeaderWaveFrame : public QFrame
 {
@@ -109,6 +115,32 @@ private:
     QFrame *mentionPopup = nullptr;
     QListWidget *mentionList = nullptr;
     QLabel *mentionEmpty = nullptr;
+    QFrame *viviMenu = nullptr;
+    QFrame *composerSurface = nullptr;
+    QGridLayout *composerGrid = nullptr;
+    QGridLayout *viviMenuItems = nullptr;
+    QToolButton *viviToggleButton = nullptr;
+    QGraphicsOpacityEffect *viviMenuOpacity = nullptr;
+    QPointer<QVariantAnimation> viviMenuAnimation;
+    QList<QPushButton *> viviMenuCards;
+    bool viviMenuExpanded = false;
+    bool viviMenuVertical = false;
+    QFrame *viviSummaryPanel = nullptr;
+    QLabel *viviSummaryRoom = nullptr;
+    QLabel *viviSummaryRange = nullptr;
+    QLabel *viviSummaryStatus = nullptr;
+    QScrollArea *viviSummaryScroll = nullptr;
+    QVector<SummarySection *> viviSummarySections;
+    QTimer *viviSummaryRenderTimer = nullptr;
+    QPushButton *viviSummaryCopy = nullptr;
+    QPushButton *viviSummaryRegenerate = nullptr;
+    QHash<QWidget *, bool> viviSummaryMemberVisibility;
+    QString viviSummaryRequestId;
+    QString viviSummaryRoomId;
+    QString viviSummaryText;
+    bool viviSummaryPending = false;
+    bool viviSummarySupported = false;
+    bool viviSummaryWasCollapsed = false;
 
     // 记录当前是否已经连上聊天服务器，发送消息前会先检查它。
     bool isConnected;
@@ -269,6 +301,17 @@ private:
     void updateMemberListHeight();
     void updateBubbleWidths();
     void setupMentionPopup();
+    void setupViviComposer();
+    void setupViviSummary();
+    void openViviSummary();
+    void closeViviSummary();
+    void requestViviSummary();
+    void handleViviSummary(const QJsonObject &event);
+    void renderViviSummary(bool completed);
+    void setViviMenuExpanded(bool expanded, bool animate = true);
+    void layoutViviComposer(bool expanded);
+    void updateViviMenuLayout();
+    int viviMenuTargetHeight() const;
     void updateMentionPopup();
     void positionMentionPopup();
     void acceptMention();
