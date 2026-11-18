@@ -9,9 +9,12 @@
 #include <QClipboard>
 #include <QCheckBox>
 #include <QDir>
+#include <QDateTime>
+#include <QCursor>
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QFontDatabase>
+#include <QHelpEvent>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -27,12 +30,17 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QToolTip>
 #include <QStackedWidget>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
+#include <QTimeZone>
 #include <QToolButton>
 #include <QTextBrowser>
+#include <QTextEdit>
+#include <QTextBlock>
+#include <QTextLayout>
 #include <functional>
 
 static void waitEvents(int milliseconds = 80)
@@ -171,13 +179,15 @@ int main(int argc, char **argv)
     if (!server.listen(QHostAddress::LocalHost, 0)) return 1;
     QList<QTcpSocket *> peers;
     QStringList clientCommands;
+    QStringList chatCommands;
     QStringList roomCommands;
     QObject::connect(&server, &QTcpServer::newConnection, &app, [&]() {
         QTcpSocket *peer = server.nextPendingConnection();
         peers.append(peer);
         auto *buffer = new QByteArray;
         QObject::connect(peer, &QObject::destroyed, &app, [buffer]() { delete buffer; });
-        QObject::connect(peer, &QTcpSocket::readyRead, peer, [peer, buffer, &clientCommands, &roomCommands]() {
+        QObject::connect(peer, &QTcpSocket::readyRead, peer, [peer, buffer, &clientCommands,
+                                                               &chatCommands, &roomCommands]() {
             buffer->append(peer->readAll());
             int end = -1;
             while ((end = buffer->indexOf('\n')) >= 0) {
@@ -185,6 +195,7 @@ int main(int argc, char **argv)
                 buffer->remove(0, end + 1);
                 if (line.startsWith("AI_CANCEL|") || line.startsWith("AI_REGENERATE|"))
                     clientCommands.append(QString::fromUtf8(line));
+                if (line.startsWith("CHAT2|")) chatCommands.append(QString::fromUtf8(line));
                 if (line.startsWith("ROOM|")) roomCommands.append(QString::fromUtf8(line));
             }
         });
@@ -366,11 +377,12 @@ int main(int argc, char **argv)
     QWidget *longBar = longCard->parentWidget()->findChild<QWidget *>(QStringLiteral("viviActionBar"));
     if (!waitUntil([&] { return longCard->height() >= longBody->y() + longBody->height(); }, 3000))
         return 157;
-    if (longProse->verticalScrollBar()->maximum() != 0 ||
-        longBody->y() + longBody->height() > longCard->height() ||
-        longCard->height() > longBody->height() + 45 || !longBar ||
-        longBar->y() < longCard->y() + longCard->height() ||
-        longBar->y() > longCard->y() + longCard->height() + 16) return 154;
+    if (longProse->verticalScrollBar()->maximum() != 0) return 154;
+    if (longBody->y() + longBody->height() > longCard->height()) return 225;
+    if (!waitUntil([&] { return longCard->height() <= longBody->height() + 45; }, 3000)) return 226;
+    if (longCard->height() > longCard->sizeHint().height() + 2) return 229;
+    if (!longBar || longBar->y() < longCard->y() + longCard->height() ||
+        longBar->y() > longCard->y() + longCard->height() + 16) return 227;
     for (QToolButton *action : longBar->findChildren<QToolButton *>())
         if (action->isVisible() &&
             action->mapTo(longBar->parentWidget(), QPoint(0, 0)).y() <
@@ -406,6 +418,21 @@ int main(int argc, char **argv)
         if (button->text() == QStringLiteral("复制全文")) copy = button;
     }
     if (!retry || !retry->isEnabled() || !copy) return 28;
+    auto retryFor = [](MainWindow &window, const QString &messageId) -> QToolButton * {
+        for (QWidget *row : window.findChildren<QWidget *>())
+            if (row->property("aiMessageId").toString() == messageId)
+                return row->findChild<QToolButton *>(QStringLiteral("viviActionRegenerate"));
+        return nullptr;
+    };
+    if (!retry->isVisible() || !retryFor(b, QStringLiteral("reply-1")) ||
+        retryFor(b, QStringLiteral("reply-1"))->isVisible() ||
+        !retryFor(b, QStringLiteral("reply-2"))->isVisible() ||
+        retryFor(a, QStringLiteral("reply-2"))->isVisible()) return 214;
+    QWidget *otherBar = retryFor(b, QStringLiteral("reply-1"))->parentWidget();
+    auto *otherCopy = otherBar->findChild<QToolButton *>(QString(), Qt::FindDirectChildrenOnly);
+    auto *otherLike = otherBar->findChild<QToolButton *>(QStringLiteral("viviActionLike"));
+    if (!otherCopy || !otherLike || otherLike->x() -
+        (otherCopy->x() + otherCopy->width()) > 18) return 218;
     retry->click();
     retry->click(); // The second click must not send a second request.
     waitEvents();
@@ -469,7 +496,8 @@ int main(int argc, char **argv)
     const QJsonObject answer{{"room_id", "class-room"}, {"message_id", "saved-answer"}, {"sender_id", "11"},
         {"sender", "Vivi"}, {"type", "ai"},
         {"text", QStringLiteral("```cpp\nint value = 42;\n```")},
-        {"reply_to_message_id", "saved-question"}, {"reply_to_name", QStringLiteral("甲")}};
+        {"reply_to_message_id", "saved-question"}, {"reply_to_name", QStringLiteral("甲")},
+        {"original_request_id", "123"}, {"can_regenerate", true}};
     const auto historyFrame = [](const QJsonObject &item) {
         return "HISTORY|" + QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64() + "\n";
     };
@@ -491,12 +519,21 @@ int main(int argc, char **argv)
             savedBody = widget->findChild<AiMarkdownWidget *>();
     if (!savedBody || !waitUntil([&]() { return savedBody->plainText().contains("int value = 42;") &&
                                             savedBody->findChild<QPlainTextEdit *>() != nullptr; })) return 40;
+    if (!retryFor(latest, QStringLiteral("saved-answer")) ||
+        retryFor(latest, QStringLiteral("saved-answer"))->isVisible()) return 215;
     // A reconnect during generation receives the persisted pending row first,
     // then AiRoom's live snapshot. Both must update the same bubble.
     MainWindow resumed(QStringLiteral("甲"), address, nullptr, 11, QStringLiteral("test-e"));
     resumed.show();
     waitEvents(120);
     if (peers.size() != 5) return 41;
+    peers.last()->write(historyFrame(question));
+    peers.last()->write(historyFrame(answer));
+    if (!waitUntil([&] { return retryFor(resumed, QStringLiteral("saved-answer")) &&
+        retryFor(resumed, QStringLiteral("saved-answer"))->isVisible() &&
+        retryFor(resumed, QStringLiteral("saved-answer"))->isEnabled(); })) return 216;
+    retryFor(resumed, QStringLiteral("saved-answer"))->click();
+    if (!waitUntil([&] { return clientCommands.contains(QStringLiteral("AI_REGENERATE|123")); })) return 217;
     QJsonObject pendingQuestion = question;
     pendingQuestion.insert(QStringLiteral("message_id"), QStringLiteral("pending-question"));
     QJsonObject pendingAnswer = answer;
@@ -529,7 +566,247 @@ int main(int argc, char **argv)
     for (QWidget *widget : resumed.findChildren<QWidget *>())
         if (widget->property("aiMessageId") == QStringLiteral("pending-answer")) ++pendingRows;
     if (pendingRows != 1) return 45;
-    if (qEnvironmentVariableIsSet("VCHAT_AI_UI_ONLY")) return 0;
+    const QSize shortReplyOriginalSize = a.size();
+    a.resize(1200, 780);
+    waitEvents();
+    const QString shortSentence = QStringLiteral("你好，有什么可以帮你的吗？");
+    broadcast(event("ai_start", 100, "short-reply-100", 22, QStringLiteral("乙"), 0));
+    broadcast(event("ai_complete", 100, "short-reply-100", 22, QStringLiteral("乙"), 1,
+                    shortSentence));
+    QWidget *shortRow = nullptr;
+    if (!waitUntil([&] {
+        for (QWidget *widget : a.findChildren<QWidget *>())
+            if (widget->property("aiMessageId").toString() == QStringLiteral("short-reply-100"))
+                shortRow = widget;
+        return shortRow && shortRow->findChild<AiMarkdownWidget *>()->plainText() == shortSentence;
+    })) return 219;
+    auto *shortBody = shortRow->findChild<AiMarkdownWidget *>();
+    auto *shortProse = shortBody->findChild<QTextBrowser *>();
+    auto *shortBubble = qobject_cast<QFrame *>(shortBody->parentWidget());
+    if (!shortProse || !shortBubble) return 220;
+    auto *shortActions = shortBubble->parentWidget()->findChild<QWidget *>(QStringLiteral("viviActionBar"));
+    if (!shortActions) return 220;
+    QToolButton *shortCopy = nullptr;
+    for (QToolButton *button : shortActions->findChildren<QToolButton *>())
+        if (button->text() == QStringLiteral("复制全文")) shortCopy = button;
+    if (!shortCopy) return 220;
+    if (!waitUntil([&] {
+        return shortProse->document()->firstBlock().layout()->lineCount() == 1;
+    })) return 221;
+    if (shortBubble->width() >= 400) return 222;
+    if (!waitUntil([&] { return shortBubble->height() <= shortBubble->sizeHint().height() + 2; })) return 228;
+    const int visibleBottom = shortBubble->height() - shortBody->y() - shortBody->height()
+        + shortBody->trailingTextSpace();
+    if (qAbs(shortBody->y() - visibleBottom) > 2) return 248;
+    auto *shortColumn = shortBubble->parentWidget();
+    auto *shortAvatar = qobject_cast<QLabel *>(shortRow->layout()->itemAt(0)->widget());
+    if (!shortAvatar || !shortRow->toolTip().isEmpty() ||
+        !shortColumn->toolTip().isEmpty() || !shortAvatar->toolTip().isEmpty() ||
+        !shortBody->toolTip().isEmpty() || !shortProse->toolTip().isEmpty() ||
+        !shortActions->toolTip().isEmpty() ||
+        !QDateTime::fromString(shortBubble->toolTip(),
+            QStringLiteral("yyyy-MM-dd HH:mm:ss")).isValid()) return 249;
+    a.raise();
+    a.activateWindow();
+    scrollA->setValue(scrollA->maximum());
+    waitEvents(100);
+    QToolTip::hideText();
+    QCursor::setPos(shortBubble->mapToGlobal(shortBubble->rect().center()));
+    QWidget *hovered = shortProse->viewport();
+    QHelpEvent help(QEvent::ToolTip, hovered->mapFromGlobal(QCursor::pos()), QCursor::pos());
+    QApplication::sendEvent(hovered, &help);
+    if (!waitUntil([] { return QToolTip::isVisible(); }, 2500)) return 250;
+    QCursor::setPos(shortAvatar->mapToGlobal(shortAvatar->rect().center()));
+    QEvent leaveBubble(QEvent::Leave);
+    QApplication::sendEvent(shortBubble, &leaveBubble);
+    if (!waitUntil([] { return !QToolTip::isVisible(); })) return 251;
+    QHelpEvent avatarHelp(QEvent::ToolTip,
+        shortAvatar->rect().center(), shortAvatar->mapToGlobal(shortAvatar->rect().center()));
+    QApplication::sendEvent(shortAvatar, &avatarHelp);
+    waitEvents(200);
+    if (QToolTip::isVisible()) return 259;
+    const QPoint emptyPoint(shortRow->width() - 2, shortRow->height() / 2);
+    QHelpEvent backgroundHelp(QEvent::ToolTip, emptyPoint, shortRow->mapToGlobal(emptyPoint));
+    QApplication::sendEvent(shortRow, &backgroundHelp);
+    waitEvents(200);
+    if (QToolTip::isVisible()) return 260;
+    if (qAbs(shortCopy->mapTo(shortBubble->parentWidget(), QPoint()).x() - shortBubble->x()) > 2)
+        return 223;
+    if (shortProse->verticalScrollBar()->maximum() != 0) return 224;
+    a.resize(shortReplyOriginalSize);
+    if (qEnvironmentVariableIsSet("VCHAT_AI_UI_ONLY")) {
+        if (argc > 2) {
+            a.resize(1200, 780);
+            waitEvents();
+            if (!waitUntil([&] { return shortBubble->height() <= shortBubble->sizeHint().height() + 2; }))
+                return 230;
+            if (!waitUntil([&] {
+                return shortBubble->height() <= shortBody->y() + shortProse->height() + 15;
+            })) return 231;
+            if (shortProse->document()->firstBlock().layout()->lineCount() != 1) return 232;
+            if (!waitUntil([&] {
+                const int chrome = shortProse->height() - shortProse->viewport()->height();
+                return shortProse->height() <= qCeil(shortProse->document()->documentLayout()
+                    ->documentSize().height()) + chrome + 4;
+            })) return 233;
+            scrollA->setValue(scrollA->maximum());
+            waitEvents();
+            a.grab().save(QString::fromLocal8Bit(argv[2]));
+        }
+        a.resize(1200, 780);
+        broadcast(event("ai_start", 101, "stream-width-101", 22, QStringLiteral("乙"), 0));
+        QWidget *streamRow = nullptr;
+        if (!waitUntil([&] {
+            for (QWidget *widget : a.findChildren<QWidget *>())
+                if (widget->property("aiMessageId").toString() == QStringLiteral("stream-width-101"))
+                    streamRow = widget;
+            return streamRow != nullptr;
+        })) return 234;
+        auto *streamBody = streamRow->findChild<AiMarkdownWidget *>();
+        auto *streamBubble = qobject_cast<QFrame *>(streamBody->parentWidget());
+        const int initialWidth = streamBubble->width();
+        const QString streamedText(80, QChar(0x4e2d));
+        broadcast(event("ai_chunk", 101, "stream-width-101", 22, QStringLiteral("乙"), 1,
+                        streamedText));
+        if (!waitUntil([&] { return streamBody->plainText().size() >= 20; }, 10000) ||
+            streamBubble->width() <= initialWidth + 30) return 235;
+        broadcast(event("ai_complete", 101, "stream-width-101", 22, QStringLiteral("乙"), 1,
+                        streamedText));
+        if (!waitUntil([&] { return streamBody->plainText() == streamedText &&
+            streamBody->findChild<QTextBrowser *>() != nullptr; }, 10000)) return 236;
+        MainWindow timeline(QStringLiteral("甲"), address, nullptr, 11,
+                            QStringLiteral("timeline-test"));
+        timeline.show();
+        if (!waitUntil([&] { return peers.size() == 6; })) return 242;
+        QTcpSocket *timelinePeer = peers.last();
+        const QDate today = QDate::currentDate();
+        const auto stamp = [](const QDate &date, const QTime &clock) {
+            return QDateTime(date, clock, QTimeZone::systemTimeZone())
+                .toString(Qt::ISODateWithMs);
+        };
+        const QVector<QPair<QDate, QTime>> moments{
+            {today.addDays(-1), QTime(20, 30)},
+            {today.addDays(-1), QTime(23, 59)},
+            {today, QTime(0, 1)},
+            {today, QTime(9, 15)},
+            {today, QTime(9, 17)},
+            {today, QTime(9, 18)},
+            {today, QTime(9, 24)}};
+        for (int index = 0; index < moments.size(); ++index) {
+            const QJsonObject item{{"room_id", "class-room"},
+                {"message_id", QStringLiteral("timeline-%1").arg(index)},
+                {"sender_id", "22"}, {"sender", QStringLiteral("乙")},
+                {"type", "user"}, {"text", QStringLiteral("时间测试消息")},
+                {"time", stamp(moments.at(index).first, moments.at(index).second)}};
+            timelinePeer->write(historyFrame(item));
+        }
+        if (!waitUntil([&] {
+            return timeline.findChildren<QLabel *>(QStringLiteral("chatTimeLabel")).size() == 5;
+        })) return 243;
+        QStringList timeTexts;
+        for (QLabel *label : timeline.findChildren<QLabel *>(QStringLiteral("chatTimeLabel")))
+            timeTexts.append(label->text());
+        if (timeTexts != QStringList{QStringLiteral("%1月%2日 20:30")
+                                         .arg(today.addDays(-1).month(), 2, 10, QLatin1Char('0'))
+                                         .arg(today.addDays(-1).day(), 2, 10, QLatin1Char('0')),
+                                     QStringLiteral("%1月%2日 23:59")
+                                         .arg(today.addDays(-1).month(), 2, 10, QLatin1Char('0'))
+                                         .arg(today.addDays(-1).day(), 2, 10, QLatin1Char('0')),
+                                     QStringLiteral("00:01"),
+                                     QStringLiteral("09:15"),
+                                     QStringLiteral("09:24")}) return 244;
+        QWidget *lastMessage = nullptr;
+        for (QWidget *widget : timeline.findChildren<QWidget *>())
+            if (widget->property("userMessageId").toString() == QStringLiteral("timeline-6"))
+                lastMessage = widget;
+        QFrame *lastBubble = nullptr;
+        if (lastMessage)
+            for (QFrame *candidate : lastMessage->findChildren<QFrame *>())
+                if (candidate->property("messageTimeBubble").toBool()) lastBubble = candidate;
+        if (!lastMessage || !lastMessage->toolTip().isEmpty() || !lastBubble ||
+            !lastBubble->toolTip().endsWith(QStringLiteral("09:24:00"))) return 245;
+        QLabel *userText = nullptr;
+        for (QLabel *label : lastBubble->findChildren<QLabel *>())
+            if (label->text() == QStringLiteral("时间测试消息")) userText = label;
+        if (!userText || !userText->toolTip().isEmpty()) return 261;
+        for (QLabel *label : timeline.findChildren<QLabel *>(QStringLiteral("chatTimeLabel")))
+            if (!label->toolTip().isEmpty()) return 252;
+        const QString timeCapture = qEnvironmentVariable("VCHAT_TIME_CAPTURE");
+        if (!timeCapture.isEmpty()) {
+            timeline.resize(1200, 780);
+            waitEvents();
+            timeline.grab().save(timeCapture);
+        }
+        timelinePeer->write("USERLIST2|W10=\n");
+        waitEvents(100);
+        auto *timelineInput = timeline.findChild<QTextEdit *>(QStringLiteral("messageInput"));
+        auto *timelineSend = timeline.findChild<QPushButton *>(QStringLiteral("sendButton"));
+        if (!timelineInput || !timelineSend) return 253;
+        timelineInput->setPlainText(QStringLiteral("发送时间确认测试"));
+        timelineSend->click();
+        if (!waitUntil([&] { return !chatCommands.isEmpty(); })) return 254;
+        const QString sentCommand = chatCommands.last();
+        const QJsonObject sentPayload = QJsonDocument::fromJson(
+            QByteArray::fromBase64(sentCommand.mid(6).toLatin1())).object();
+        const QString sentId = sentPayload.value(QStringLiteral("messageId")).toString();
+        QWidget *optimistic = nullptr;
+        for (QWidget *widget : timeline.findChildren<QWidget *>())
+            if (widget->property("userMessageId").toString() == sentId) optimistic = widget;
+        if (sentId.isEmpty() || !optimistic ||
+            !optimistic->property("pendingTimeConfirmation").toBool()) return 255;
+        const QString confirmedTime = stamp(today, QTime(6, 38));
+        const QJsonObject acknowledgement{{"room_id", "class-room"},
+            {"sender", QStringLiteral("甲")}, {"senderId", "11"},
+            {"messageId", sentId}, {"text", QStringLiteral("发送时间确认测试")},
+            {"time", confirmedTime}};
+        timelinePeer->write("CHAT2|" + QJsonDocument(acknowledgement)
+            .toJson(QJsonDocument::Compact).toBase64() + "\n");
+        if (!waitUntil([&] {
+            return !optimistic->property("pendingTimeConfirmation").toBool() &&
+                optimistic->property("originalTimestamp").toString() == confirmedTime;
+        })) return 256;
+        int confirmedRows = 0;
+        QFrame *confirmedBubble = nullptr;
+        for (QWidget *widget : timeline.findChildren<QWidget *>()) {
+            if (widget->property("userMessageId").toString() == sentId) {
+                ++confirmedRows;
+                for (QFrame *candidate : widget->findChildren<QFrame *>())
+                    if (candidate->property("messageTimeBubble").toBool()) confirmedBubble = candidate;
+            }
+        }
+        if (confirmedRows != 1 || !confirmedBubble ||
+            !confirmedBubble->toolTip().endsWith(QStringLiteral("06:38:00")) ||
+            timeline.findChildren<QLabel *>(QStringLiteral("chatTimeLabel")).last()->text()
+                != QStringLiteral("06:38")) return 257;
+        const auto roomFrame = [](const QJsonObject &result) {
+            return "ROOM|result|" + QJsonDocument(result).toJson(QJsonDocument::Compact).toBase64() + "\n";
+        };
+        timelinePeer->write("HISTORY_END\n");
+        timelinePeer->write(roomFrame(QJsonObject{{"action", "list_mine"}, {"ok", true},
+            {"rooms", QJsonArray{QJsonObject{{"room_id", "class-room"},
+                                               {"room_name", QStringLiteral("VChat 大厅")}},
+                                  QJsonObject{{"room_id", "room-two"},
+                                              {"room_name", QStringLiteral("任务讨论")}}}}}));
+        auto *timelineSidebar = timeline.findChild<RoomSidebarWidget *>();
+        if (!waitUntil([&] {
+            auto *rooms = timelineSidebar ? timelineSidebar->findChild<QListWidget *>(
+                QStringLiteral("roomList")) : nullptr;
+            return rooms && rooms->count() == 2;
+        })) return 246;
+        timelineSidebar->roomSelected(QStringLiteral("room-two"));
+        timelinePeer->write(roomFrame(QJsonObject{{"action", "switch"}, {"ok", true},
+                                            {"room_id", "room-two"}}));
+        const QJsonObject nextRoomMessage{{"room_id", "room-two"},
+            {"message_id", "timeline-next-room"}, {"sender_id", "22"},
+            {"sender", QStringLiteral("乙")}, {"type", "user"},
+            {"text", QStringLiteral("新聊天室消息")}, {"time", stamp(today, QTime(8, 0))}};
+        timelinePeer->write(historyFrame(nextRoomMessage));
+        if (!waitUntil([&] {
+            const auto labels = timeline.findChildren<QLabel *>(QStringLiteral("chatTimeLabel"));
+            return labels.size() == 1 && labels.first()->text() == QStringLiteral("08:00");
+        })) return 247;
+        return 0;
+    }
 
     // The navigation uses real protocol frames and never changes the visible
     // room before a successful switch response.

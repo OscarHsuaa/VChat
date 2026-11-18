@@ -188,6 +188,18 @@ bool AiRoom::regenerate(quint64 originalId, qint64 accountId)
     return true;
 }
 
+bool AiRoom::canRegenerate(quint64 originalId, qint64 accountId,
+                           const QString &messageId) const
+{
+    if (!originalId || accountId <= 0 || messageId.isEmpty() ||
+        !requestContexts.contains(originalId) || !latestRequestIds.contains(originalId) ||
+        regenerating.contains(originalId) ||
+        requestTargets.value(originalId).accountId != accountId) return false;
+    const StreamInfo previous = streams.value(latestRequestIds.value(originalId));
+    return previous.messageId == messageId && previous.finished &&
+        previous.error.isEmpty() && !previous.content.isEmpty();
+}
+
 bool AiRoom::cancel(quint64 requestId, qint64 accountId)
 {
     if (!streams.contains(requestId) || streams.value(requestId).target.accountId != accountId ||

@@ -205,7 +205,8 @@ private:
     QList<QFrame *> summaryCards;
     QLabel *viviStatusLabel = nullptr;
     QLabel *viviStatusDot = nullptr;
-    QDate lastSystemDate;
+    QDateTime lastTimelineTime;
+    QList<QLabel *> timelineLabels;
     RoomSidebarWidget *roomSidebar = nullptr;
     QPointer<RoomCreateDialog> roomCreateDialog;
     QTimer *roomCreateTimer = nullptr;
@@ -296,6 +297,11 @@ private:
                        const QString &userMessageId = {});
     void appendAiStreamEvent(const QJsonObject &event);
     void appendSharedSummary(const QJsonObject &message);
+    QDateTime appendTimeLabelIfNeeded(const QString &timestamp);
+    void insertTimeLabel(int index, const QDateTime &sent);
+    void rebuildTimeLabels();
+    void refreshTimeLabels();
+    void scheduleTimeLabelRefresh();
     void openSharedSummary(const QJsonObject &message);
     void handleSummaryShare(const QJsonObject &event);
     void flushAiStream(const QString &messageId);

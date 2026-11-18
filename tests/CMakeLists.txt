@@ -57,6 +57,11 @@ qt_add_executable(VChatComposerTest mention_input_test.cpp
     ../ChatDemo_1/mentioninput.cpp ../ChatDemo_1/mentioninput.h)
 target_include_directories(VChatComposerTest PRIVATE ../ChatDemo_1)
 target_link_libraries(VChatComposerTest PRIVATE Qt::Core Qt::Widgets)
+qt_add_executable(VChatTimeTest chat_time_test.cpp)
+target_include_directories(VChatTimeTest PRIVATE ../ChatDemo_1)
+target_link_libraries(VChatTimeTest PRIVATE Qt::Core)
+qt_add_executable(VChatMessageTimeE2eTest message_time_e2e_test.cpp)
+target_link_libraries(VChatMessageTimeE2eTest PRIVATE Qt::Core Qt::Network Qt::Sql)
 qt_add_executable(VChatAiMarkdownTest ai_markdown_test.cpp
     ../ChatDemo_1/aimarkdownwidget.cpp ../ChatDemo_1/aimarkdownwidget.h)
 target_include_directories(VChatAiMarkdownTest PRIVATE ../ChatDemo_1)

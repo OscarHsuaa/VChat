@@ -36,6 +36,8 @@ public:
                         bool askVivi, const QString &replyToMessageId = {},
                         qint64 sequenceId = 0, const QString &messageTime = {});
     bool regenerate(quint64 originalId, qint64 accountId);
+    bool canRegenerate(quint64 originalId, qint64 accountId,
+                       const QString &messageId) const;
     bool cancel(quint64 requestId, qint64 accountId);
     void cancelAll();
     ReplyTarget replyTarget(quint64 requestId) const { return requestTargets.value(requestId); }

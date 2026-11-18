@@ -22,6 +22,7 @@
 #include <QTextFormat>
 #include <QTextFragment>
 #include <QTextList>
+#include <QTextLayout>
 #include <QTextTable>
 #include <QTextTableCell>
 #include <QTimer>
@@ -90,6 +91,21 @@ void styleDocument(QTextDocument *document, bool compact)
     document->setDefaultFont(body);
     document->setDocumentMargin(1);
     document->setIndentWidth(compact ? 17 : 23);
+    // The compact renderer belongs to the right-side summary report. Keep
+    // Markdown's separate list paragraphs, but let their text share the same
+    // left edge as the surrounding prose without bullets or numbering.
+    if (compact) {
+        QSet<QTextList *> lists;
+        for (QTextBlock block = document->begin(); block.isValid(); block = block.next()) {
+            QTextList *list = block.textList();
+            if (!list || lists.contains(list)) continue;
+            lists.insert(list);
+            QTextListFormat format = list->format();
+            format.setStyle(QTextListFormat::ListStyleUndefined);
+            format.setIndent(0);
+            list->setFormat(format);
+        }
+    }
     // Qt parses the Markdown; QTextBlockFormat supplies predictable Chinese
     // line spacing and paragraph rhythm independent of platform HTML defaults.
     for (QTextBlock block = document->begin(); block.isValid(); block = block.next()) {
@@ -101,8 +117,14 @@ void styleDocument(QTextDocument *document, bool compact)
         format.setLineHeight(heading ? (compact ? 140 : 133) : compact ? 130 : 148,
                              QTextBlockFormat::ProportionalHeight);
         format.setTopMargin(heading ? 5 : 0);
-        format.setBottomMargin(inTable ? 1 : inList ? (compact ? 7 : 3)
-            : heading ? 5 : compact ? 9 : 9);
+        if (compact && inList) {
+            format.setLeftMargin(0);
+            format.setTextIndent(0);
+        }
+        // The final block already sits above the bubble's bottom padding.
+        // Its paragraph gap belongs only between blocks, not after the reply.
+        format.setBottomMargin(!block.next().isValid() ? 0 :
+            inTable ? 1 : inList ? (compact ? 7 : 3) : heading ? 5 : 9);
         if (format.intProperty(QTextFormat::BlockQuoteLevel) > 0) {
             format.setLeftMargin(qMax<qreal>(format.leftMargin(), 12));
             format.setBackground(QColor(QStringLiteral("#f4f0fc")));
@@ -257,6 +279,28 @@ AiMarkdownWidget::AiMarkdownWidget(const QString &markdown, QWidget *parent, boo
             QTextDocument::MarkdownFeatures(QTextDocument::MarkdownDialectGitHub)
                 | QTextDocument::MarkdownFeatures(QTextDocument::MarkdownNoHTML));
         styleDocument(browser->document(), compactLayout);
+        // Measure the styled document independently of the browser's current
+        // viewport. The live document may already be wrapped to a narrow
+        // width, making idealWidth() report that wrapped width instead.
+        QTextDocument *unwrapped = browser->document()->clone();
+        unwrapped->setTextWidth(10000);
+        unwrapped->documentLayout()->documentSize();
+        qreal naturalWidth = 0;
+        for (QTextBlock block = unwrapped->begin(); block.isValid(); block = block.next()) {
+            QTextLayout *textLayout = block.layout();
+            if (!textLayout) continue;
+            qreal blockWidth = block.blockFormat().leftMargin();
+            if (QTextList *list = block.textList())
+                blockWidth += list->format().indent() * unwrapped->indentWidth();
+            for (int line = 0; line < textLayout->lineCount(); ++line)
+                naturalWidth = qMax(naturalWidth,
+                    blockWidth + textLayout->lineAt(line).naturalTextWidth());
+        }
+        // idealWidth also accounts for structures such as tables, where the
+        // combined columns are wider than any single text block.
+        proseNaturalWidths.append(qCeil(qMax(naturalWidth + 2 * unwrapped->documentMargin(),
+                                            unwrapped->idealWidth())));
+        delete unwrapped;
         proseBlocks.append(browser);
         layout->addWidget(browser);
         plain += browser->document()->toPlainText() + '\n';
@@ -279,7 +323,10 @@ AiMarkdownWidget::AiMarkdownWidget(const QString &markdown, QWidget *parent, boo
         box->addLayout(header);
         auto *editor = new QPlainTextEdit(panel);
         editor->setReadOnly(true);
-        editor->setPlainText(code);
+        // The newline before a closing fence terminates the last code line;
+        // QPlainTextEdit would otherwise render it as an extra empty line.
+        const QString displayCode = code.endsWith(QLatin1Char('\n')) ? code.chopped(1) : code;
+        editor->setPlainText(displayCode);
         editor->setLineWrapMode(QPlainTextEdit::NoWrap);
         editor->setFrameShape(QFrame::NoFrame);
         editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -289,10 +336,12 @@ AiMarkdownWidget::AiMarkdownWidget(const QString &markdown, QWidget *parent, boo
         editor->setFont(mono);
         editor->setStyleSheet("QPlainTextEdit { background:transparent; color:#30234e; border:0; padding:0; }");
         editor->setFixedHeight(qMax(42,
-            (editor->document()->blockCount() + 1) * editor->fontMetrics().lineSpacing() + 8));
+            editor->document()->blockCount() * editor->fontMetrics().lineSpacing() + 8));
         new CodeHighlighter(editor->document(), language);
         box->addWidget(editor);
-        connect(copy, &QPushButton::clicked, this, [code]() { QGuiApplication::clipboard()->setText(code); });
+        connect(copy, &QPushButton::clicked, this, [displayCode]() {
+            QGuiApplication::clipboard()->setText(displayCode);
+        });
         layout->addWidget(panel);
         plain += code + '\n';
         code.clear();
@@ -324,6 +373,53 @@ void AiMarkdownWidget::showEvent(QShowEvent *event)
         if (auto *outer = qobject_cast<AiMarkdownWidget *>(parentWidget()))
             if (outer->contentWidth > 0) outer->setContentWidth(outer->contentWidth, true);
     });
+}
+
+int AiMarkdownWidget::naturalContentWidth() const
+{
+    if (renderedBody) return renderedBody->naturalContentWidth();
+    int width = 0;
+    if (streamingLabel) {
+        const QFontMetrics metrics(streamingLabel->font());
+        for (const QString &line : streamingLabel->text().split(QLatin1Char('\n')))
+            width = qMax(width, metrics.horizontalAdvance(line));
+    }
+    for (int i = 0; i < proseBlocks.size(); ++i) {
+        QTextBrowser *browser = proseBlocks.at(i);
+        width = qMax(width, proseNaturalWidths.value(i)
+            + browser->width() - browser->viewport()->width());
+    }
+    for (QFrame *panel : findChildren<QFrame *>(QString(), Qt::FindDirectChildrenOnly)) {
+        auto *editor = panel->findChild<QPlainTextEdit *>();
+        if (!editor) continue;
+        const QFontMetrics metrics(editor->font());
+        for (const QString &line : editor->toPlainText().split(QLatin1Char('\n')))
+            width = qMax(width, metrics.horizontalAdvance(line) +
+                panel->layout()->contentsMargins().left() +
+                panel->layout()->contentsMargins().right());
+    }
+    return qMax(1, width);
+}
+
+int AiMarkdownWidget::trailingTextSpace() const
+{
+    if (renderedBody) return renderedBody->trailingTextSpace();
+    if (compactLayout || streamingLabel || layout()->count() == 0) return 0;
+    auto *browser = qobject_cast<QTextBrowser *>(layout()->itemAt(layout()->count() - 1)->widget());
+    if (!browser || browser->horizontalScrollBar()->isVisible()) return 0;
+    QTextDocument *document = browser->document();
+    const QTextBlock last = document->lastBlock();
+    if (!last.isValid()) return 0;
+    auto *documentLayout = document->documentLayout();
+    documentLayout->documentSize();
+    qreal contentBottom = documentLayout->blockBoundingRect(last).bottom();
+    if (QTextTable *table = QTextCursor(last).currentTable())
+        contentBottom = qMax(contentBottom, documentLayout->frameBoundingRect(table).bottom());
+    // QTextBrowser needs the full document height to avoid an internal scroll
+    // range. Report its trailing line-height space to the surrounding bubble
+    // so that the *visible* text can have balanced top and bottom insets.
+    return qMax(0, browser->viewport()->height()
+        - qCeil(contentBottom + document->documentMargin()));
 }
 
 void AiMarkdownWidget::setContentWidth(int width, bool force)
@@ -374,12 +470,15 @@ void AiMarkdownWidget::setContentWidth(int width, bool force)
             const int linesHeight = editor->document()->blockCount()
                 * editor->fontMetrics().lineSpacing();
             const int needed = qMax(42, linesHeight + chrome
-                + qCeil(editor->document()->documentMargin() * 2)
-                + editor->fontMetrics().lineSpacing() + 4);
-            if (editor->height() == needed) break;
-            editor->setFixedHeight(needed);
+                + qCeil(editor->document()->documentMargin() * 2) + 4);
+            if (editor->height() < needed) editor->setFixedHeight(needed);
             panel->layout()->invalidate();
             panel->layout()->activate();
+            if (editor->verticalScrollBar()->maximum() == 0) break;
+            // QPlainTextEdit's layout can reserve an extra baseline even
+            // without a trailing blank block; grow only when it actually
+            // reports clipped lines.
+            editor->setFixedHeight(editor->height() + editor->fontMetrics().lineSpacing());
         }
     }
     layout()->invalidate();

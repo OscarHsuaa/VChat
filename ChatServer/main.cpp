@@ -3,6 +3,7 @@
 #include "aiservice.h"
 #include "roomstore.h"
 #include <QDateTime>
+#include <QTimeZone>
 #include <QFutureWatcher>
 #include <QDebug>
 #include <QCryptographicHash>
@@ -56,6 +57,16 @@ struct CompletedSummary {
     qint64 lastSequence = 0;
 };
 
+// chat_history.created_at is MySQL DATETIME: a local wall time with no zone.
+// Reattach the server's local zone once, then send an unambiguous UTC instant.
+QString storedMessageTime(const QVariant &value)
+{
+    const QDateTime wall = value.toDateTime();
+    if (!wall.isValid()) return {};
+    return QDateTime(wall.date(), wall.time(), QTimeZone::systemTimeZone())
+        .toUTC().toString(Qt::ISODateWithMs);
+}
+
 // Each query owns a connection created and destroyed on its worker thread.
 // No QSqlDatabase handle from the network thread crosses this boundary.
 AiRoom::HistoryResult readAiHistory(const QString &databaseName, const QString &roomId,
@@ -98,7 +109,7 @@ AiRoom::HistoryResult readAiHistory(const QString &databaseName, const QString &
                 QString content = query.value(5).toString();
                 if (role == QStringLiteral("user"))
                     content = AiRoom::memberContent(query.value(2).toLongLong(), query.value(3).toString(),
-                        content, query.value(6).toDateTime().toString(Qt::ISODateWithMs), sequenceId);
+                        content, storedMessageTime(query.value(6)), sequenceId);
                 result.messages.prepend({sequenceId, query.value(1).toString(), role, content});
             }
         }
@@ -237,17 +248,18 @@ bool openDatabase()
 
 // All new chat messages share stable IDs and a room-scoped order.
 bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, const QString &sender,
-                     const QString &content, qint64 *sequenceId)
+                     const QString &content, const QDateTime &receivedAt, qint64 *sequenceId)
 {
     QSqlQuery query;
     query.prepare(QStringLiteral(
-        "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content) "
-        "VALUES(?,?,?,?,'user',?)"));
+        "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,created_at) "
+        "VALUES(?,?,?,?,'user',?,?)"));
     query.addBindValue(roomId);
     query.addBindValue(id);
     query.addBindValue(senderId > 0 ? QVariant(senderId) : QVariant());
     query.addBindValue(sender);
     query.addBindValue(content);
+    query.addBindValue(receivedAt.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")));
     if (query.exec()) {
         if (sequenceId) {
             *sequenceId = query.lastInsertId().toLongLong();
@@ -294,8 +306,8 @@ bool saveAiHistory(const QString &roomId, const QJsonObject &event)
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,"
-        "reply_to_message_id,original_request_id,ai_state) "
-        "VALUES(?, ?,?,'Vivi','ai',?,?,?,?) "
+        "reply_to_message_id,original_request_id,ai_state,created_at) "
+        "VALUES(?, ?,?,'Vivi','ai',?,?,?,?,?) "
         "ON DUPLICATE KEY UPDATE "
         "content=IF(VALUES(ai_state)='pending',content,VALUES(content)), "
         "ai_state=IF(VALUES(ai_state)='pending',ai_state,VALUES(ai_state)), "
@@ -307,18 +319,42 @@ bool saveAiHistory(const QString &roomId, const QJsonObject &event)
     query.addBindValue(event.value(QStringLiteral("reply_to_message_id")).toString());
     query.addBindValue(event.value(QStringLiteral("original_request_id")).toString().toULongLong());
     query.addBindValue(state);
+    QDateTime createdAt = QDateTime::fromString(
+        event.value(QStringLiteral("created_at")).toString(), Qt::ISODateWithMs);
+    if (!createdAt.isValid()) createdAt = QDateTime::currentDateTime();
+    query.addBindValue(createdAt.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")));
     if (query.exec()) return true;
     qWarning() << "History AI upsert failed:" << query.lastError().text();
     return false;
 }
 
-bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId)
+bool hasRegeneratableHistory(const QString &roomId, quint64 originalId,
+                             qint64 accountId, const AiRoom *room)
+{
+    if (!room || originalId == 0 || accountId <= 0) return false;
+    QSqlQuery query;
+    query.prepare(QStringLiteral(
+        "SELECT message_id FROM chat_history WHERE room_id=? AND original_request_id=? "
+        "AND sender_id=? AND message_type='ai' AND ai_state='completed'"));
+    query.addBindValue(roomId);
+    query.addBindValue(static_cast<qlonglong>(originalId));
+    query.addBindValue(accountId);
+    if (!query.exec()) {
+        qWarning() << "AI regeneration ownership lookup failed:" << query.lastError().text();
+        return false;
+    }
+    while (query.next())
+        if (room->canRegenerate(originalId, accountId, query.value(0).toString())) return true;
+    return false;
+}
+
+bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, AiRoom *aiRoom)
 {
     if (!RoomStore::isMember(roomId, accountId)) return false;
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
-        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state "
+        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state,h.original_request_id "
         "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
         "WHERE h.room_id=? AND (h.visibility='team' OR "
         "(h.visibility='personal' AND h.recipient_user_id=?)) "
@@ -341,9 +377,14 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId)
             {QStringLiteral("type"), query.value(3).toString()},
             {QStringLiteral("text"), query.value(4).toString()},
             {QStringLiteral("reply_to_message_id"), query.value(5).toString()},
-            {QStringLiteral("time"), query.value(6).toDateTime().toString(Qt::ISODateWithMs)},
+            {QStringLiteral("time"), storedMessageTime(query.value(6))},
             {QStringLiteral("reply_to_name"), query.value(7).toString()},
-            {QStringLiteral("ai_state"), query.value(8).toString()}};
+            {QStringLiteral("ai_state"), query.value(8).toString()},
+            {QStringLiteral("original_request_id"), query.value(9).toString()},
+            {QStringLiteral("can_regenerate"), aiRoom &&
+                query.value(3).toString() == QStringLiteral("ai") &&
+                aiRoom->canRegenerate(query.value(9).toULongLong(), accountId,
+                                      query.value(0).toString())}};
         sendLine(client, QStringLiteral("HISTORY|%1").arg(QString::fromLatin1(
             QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64())));
     }
@@ -782,7 +823,8 @@ int main(int argc, char *argv[])
                         }
                         if (modernPeers.contains(client))
                             sendSummaryEvent(client, {}, {}, QStringLiteral("capability"));
-                        if (modernPeers.contains(client) && !sendHistory(client, accountId, activeRooms.value(client)))
+                        if (modernPeers.contains(client) && !sendHistory(client, accountId,
+                            activeRooms.value(client), roomFor(activeRooms.value(client))))
                             sendLine(client, QStringLiteral("[System] 历史消息读取失败，请联系管理员"));
                         sendLine(client, QStringLiteral("AI|status|0|%1")
                             .arg(QString::fromLatin1(aiStates.value(activeRooms.value(client), idleAiState)
@@ -1086,7 +1128,7 @@ int main(int argc, char *argv[])
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
                                 respond();
-                                if (!sendHistory(client, actor, roomId))
+                                if (!sendHistory(client, actor, roomId, roomFor(roomId)))
                                     sendLine(client, QStringLiteral("[System] 历史消息读取失败"));
                                 continue;
                             } else error = QStringLiteral("无权读取聊天室历史");
@@ -1100,7 +1142,7 @@ int main(int argc, char *argv[])
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
                                 respond();
-                                if (!sendHistory(client, actor, roomId))
+                                if (!sendHistory(client, actor, roomId, roomFor(roomId)))
                                     sendLine(client, QStringLiteral("[System] 历史消息读取失败"));
                                 sendLine(client, QStringLiteral("AI|status|0|%1")
                                     .arg(QString::fromLatin1(aiStates.value(roomId, idleAiState)
@@ -1167,7 +1209,7 @@ int main(int argc, char *argv[])
                             message.insert(QStringLiteral("room_id"), roomId);
                             message.insert(QStringLiteral("shared_by_id"), QString::number(actor));
                             message.insert(QStringLiteral("shared_by_name"), existing.value(3).toString());
-                            message.insert(QStringLiteral("time"), existing.value(5).toDateTime().toString(Qt::ISODateWithMs));
+                            message.insert(QStringLiteral("time"), storedMessageTime(existing.value(5)));
                             message.insert(QStringLiteral("sequence_id"), existing.value(6).toString());
                         } else {
                             const CompletedSummary summary = completedSummaries.value(client);
@@ -1193,14 +1235,16 @@ int main(int argc, char *argv[])
                             const QString messageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                             QSqlQuery insert;
                             insert.prepare(QStringLiteral("INSERT INTO chat_history(room_id,message_id,sender_id,"
-                                "sender_name,message_type,content,share_request_id) "
-                                "VALUES(?,?,?,?,'discussion_summary',?,?)"));
+                                "sender_name,message_type,content,share_request_id,created_at) "
+                                "VALUES(?,?,?,?,'discussion_summary',?,?,?)"));
                             insert.addBindValue(roomId);
                             insert.addBindValue(messageId);
                             insert.addBindValue(actor);
                             insert.addBindValue(onlineUsers.value(client));
                             insert.addBindValue(QString::fromUtf8(QJsonDocument(snapshot).toJson(QJsonDocument::Compact)));
                             insert.addBindValue(shareId);
+                            insert.addBindValue(QDateTime::currentDateTime().toString(
+                                QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")));
                             if (!insert.exec()) {
                                 qWarning() << "Summary share insert failed:" << insert.lastError().text();
                                 fail(QStringLiteral("总结保存失败，请稍后重试。"));
@@ -1219,7 +1263,7 @@ int main(int argc, char *argv[])
                             message.insert(QStringLiteral("room_id"), roomId);
                             message.insert(QStringLiteral("shared_by_id"), QString::number(actor));
                             message.insert(QStringLiteral("shared_by_name"), onlineUsers.value(client));
-                            message.insert(QStringLiteral("time"), stored.value(0).toDateTime().toString(Qt::ISODateWithMs));
+                            message.insert(QStringLiteral("time"), storedMessageTime(stored.value(0)));
                             message.insert(QStringLiteral("sequence_id"), stored.value(1).toString());
                         }
                         sendShare({{QStringLiteral("event"), QStringLiteral("result")},
@@ -1366,9 +1410,11 @@ int main(int argc, char *argv[])
                         bool validId = false;
                         const quint64 originalId = text.mid(14).toULongLong(&validId);
                         // Only the account that asked the original question may replace its shared answer.
+                        const QString roomId = activeRooms.value(client);
                         if (!onlineUsers.contains(client) || !validId ||
-                            !RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client)) ||
-                            !roomFor(activeRooms.value(client))->regenerate(originalId, onlineUserIds.value(client)))
+                            !RoomStore::isMember(roomId, onlineUserIds.value(client)) ||
+                            !hasRegeneratableHistory(roomId, originalId, onlineUserIds.value(client), roomFor(roomId)) ||
+                            !roomFor(roomId)->regenerate(originalId, onlineUserIds.value(client)))
                             sendLine(client, QStringLiteral("AI|error|0|%1")
                                 .arg(QString::fromLatin1(QStringLiteral("无法重新生成：请求不可用、正在生成或不属于当前账号。")
                                     .toUtf8().toBase64())));
@@ -1420,25 +1466,29 @@ int main(int argc, char *argv[])
                             continue;
                         }
                         const QString sender = onlineUsers.value(client);
-                        const QString time = QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss"));
-                        const QString legacyLine = QStringLiteral("[%1] %2: %3").arg(time, sender, content);
+                        const QDateTime receivedAt = QDateTime::currentDateTime();
+                        const QString legacyLine = QStringLiteral("[%1] %2: %3")
+                            .arg(receivedAt.toString(QStringLiteral("hh:mm:ss")), sender, content);
                         QJsonObject outgoing{{QStringLiteral("sender"), sender},
                             {QStringLiteral("room_id"), activeRooms.value(client)},
                             {QStringLiteral("senderId"), QString::number(onlineUserIds.value(client))},
                             {QStringLiteral("messageId"), userMessageId},
-                            {QStringLiteral("text"), content}, {QStringLiteral("time"), time},
+                            {QStringLiteral("text"), content},
+                            {QStringLiteral("time"), receivedAt.toUTC().toString(Qt::ISODateWithMs)},
                             {QStringLiteral("mentions"), validated}};
                         const QString modernLine = QStringLiteral("CHAT2|%1")
                             .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
                         qint64 sequenceId = 0;
                         if (!saveUserHistory(activeRooms.value(client), userMessageId,
-                                             onlineUserIds.value(client), sender, content, &sequenceId)) {
+                                             onlineUserIds.value(client), sender, content,
+                                             receivedAt, &sequenceId)) {
                             sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                             continue;
                         }
                         for (QTcpSocket *other : clients)
-                            if (other != client && other->state() == QAbstractSocket::ConnectedState &&
-                                onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client))
+                            if (other->state() == QAbstractSocket::ConnectedState &&
+                                onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client) &&
+                                (other != client || modernPeers.contains(other)))
                                 sendLine(other, modernPeers.contains(other) ? modernLine : legacyLine);
                         bool askVivi = false;
                         for (const QJsonValue &value : validated)
@@ -1459,7 +1509,7 @@ int main(int argc, char *argv[])
                         }
                         if (!roomFor(activeRooms.value(client))->addUserMessage(
                                 onlineUserIds.value(client), sender, content, askVivi, userMessageId,
-                                sequenceId, QDateTime::currentDateTime().toString(Qt::ISODateWithMs)))
+                                sequenceId, receivedAt.toUTC().toString(Qt::ISODateWithMs)))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                         continue;
                     }
@@ -1475,7 +1525,8 @@ int main(int argc, char *argv[])
                         continue;
                     }
                     // 走到这里说明既不是 LOGIN，也不是 JOIN，而是一条普通聊天消息。
-                    const QString time = QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss"));
+                    const QDateTime receivedAt = QDateTime::currentDateTime();
+                    const QString time = receivedAt.toString(QStringLiteral("hh:mm:ss"));
                     const QString sender = onlineUsers.value(client, socketName(client));
                     const QString serverMessage = QStringLiteral("[%1] %2").arg(time, text);
 
@@ -1485,7 +1536,8 @@ int main(int argc, char *argv[])
                     const QString content = text.startsWith(prefix) ? text.mid(prefix.size()) : text;
                     qint64 sequenceId = 0;
                     if (!saveUserHistory(activeRooms.value(client, QString::fromLatin1(RoomStore::LobbyId)),
-                                         legacyMessageId, onlineUserIds.value(client), sender, content, &sequenceId)) {
+                                         legacyMessageId, onlineUserIds.value(client), sender, content,
+                                         receivedAt, &sequenceId)) {
                         sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                         continue;
                     }
@@ -1503,7 +1555,7 @@ int main(int argc, char *argv[])
                             QRegularExpression::CaseInsensitiveOption);
                         if (!roomFor(activeRooms.value(client))->addUserMessage(onlineUserIds.value(client), sender, content,
                                                   mention.match(content).hasMatch(), legacyMessageId,
-                                                  sequenceId, QDateTime::currentDateTime().toString(Qt::ISODateWithMs)))
+                                                  sequenceId, receivedAt.toUTC().toString(Qt::ISODateWithMs)))
                             sendLine(client, QStringLiteral("[System] Vivi 请求过多，请稍后再试；群聊消息已发送。"));
                     }
                 }

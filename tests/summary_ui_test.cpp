@@ -209,7 +209,7 @@ int main(int argc, char **argv)
         {QStringLiteral("text"), codeSummary}}));
     auto *missing = summary->findChild<QFrame *>(QStringLiteral("viviSummarySection待解决问题"));
     if (!waitFor([&] { return missing && missing->findChild<QLabel *>(
-        QStringLiteral("viviSectionEmpty"))->text() == QStringLiteral("本次讨论暂无明确记录"); })) return 24;
+        QStringLiteral("viviSectionEmpty"))->text() == QStringLiteral("暂无明确内容"); })) return 24;
     if (!bodies.at(0)->plainText().contains(QStringLiteral("### 待解决问题")) ||
         !missing->findChild<QLabel *>(QStringLiteral("viviSectionEmpty"))->isVisible()) return 25;
     window.resize(900, 660);
@@ -218,8 +218,7 @@ int main(int argc, char **argv)
         scroll->horizontalScrollBar()->maximum() != 0 ||
         !actions.at(0)->isVisible() || !actions.at(1)->isVisible()) return 28;
     auto *consensus = summary->findChild<QFrame *>(QStringLiteral("viviSummarySection已达成共识"));
-    if (!consensus || consensus->findChildren<QWidget *>(QStringLiteral("viviSummaryRow")).size() != 12 ||
-        consensus->findChild<QLabel *>(QStringLiteral("viviSectionCount"))->text() != QStringLiteral("12")) return 37;
+    if (!consensus || consensus->findChildren<QWidget *>(QStringLiteral("viviSummaryRow")).size() != 12) return 37;
     const auto rowTexts = consensus->findChildren<QLabel *>(QStringLiteral("viviSummaryRowText"));
     if (rowTexts.size() != 12 || rowTexts.last()->height() <=
         rowTexts.last()->fontMetrics().lineSpacing() * 2) return 44;
@@ -250,8 +249,7 @@ int main(int argc, char **argv)
         {QStringLiteral("room_id"), QStringLiteral("class-room")},
         {QStringLiteral("text"), compactSummary}}));
     if (!waitFor([&] { return bodies.at(0)->plainText().contains(QStringLiteral("第二行概览")); })) return 33;
-    if (consensus->findChildren<QWidget *>(QStringLiteral("viviSummaryRow")).size() != 1 ||
-        consensus->findChild<QLabel *>(QStringLiteral("viviSectionCount"))->text() != QStringLiteral("1")) return 38;
+    if (consensus->findChildren<QWidget *>(QStringLiteral("viviSummaryRow")).size() != 1) return 38;
     if (bodies.at(0)->height() > 170 || bodies.at(0)->parentWidget()->height() > 235 ||
         bodies.at(1)->height() > 170 || bodies.at(1)->parentWidget()->height() > 235) return 34;
     window.resize(1200, 780);
@@ -275,9 +273,9 @@ int main(int argc, char **argv)
     auto *nextSteps = summary->findChild<QFrame *>(QStringLiteral("viviSummarySection下一步行动"));
     if (!waitFor([&] { return nextSteps &&
         missing->findChild<QLabel *>(QStringLiteral("viviSectionEmpty"))->text() ==
-            QStringLiteral("本次讨论暂无明确记录") &&
+            QStringLiteral("暂无明确内容") &&
         nextSteps->findChild<QLabel *>(QStringLiteral("viviSectionEmpty"))->text() ==
-            QStringLiteral("本次讨论暂无明确记录"); })) return 40;
+            QStringLiteral("暂无明确内容"); })) return 40;
     if (scroll->verticalScrollBar()->maximum() != 0 ||
         summary->findChildren<QScrollArea *>().size() != 1) return 41;
     actions.at(1)->click();
@@ -349,10 +347,15 @@ int main(int argc, char **argv)
     if (!waitFor([&] {
         const auto rows = consensus->findChildren<QWidget *>(QStringLiteral("viviSummaryRow"));
         if (rows.size() != 5) return false;
+        auto *heading = consensus->findChild<QLabel *>(QStringLiteral("viviSectionTitle"));
+        if (!heading) return false;
         for (int i = 0; i < rows.size(); ++i) {
             QWidget *row = rows.at(i);
             QLabel *text = row->findChild<QLabel *>(QStringLiteral("viviSummaryRowText"));
             if (!text || row->height() < text->heightForWidth(text->width())) return false;
+            if (row->findChildren<QLabel *>(QString(), Qt::FindDirectChildrenOnly).size() != 1)
+                return false;
+            if (text->mapTo(consensus, QPoint(0, 0)).x() != heading->x()) return false;
             if (i > 0 && row->y() < rows.at(i - 1)->y() + rows.at(i - 1)->height() + 8)
                 return false;
         }

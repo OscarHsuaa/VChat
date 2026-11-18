@@ -16,6 +16,8 @@ public:
     explicit AiMarkdownWidget(const QString &markdown, QWidget *parent = nullptr,
                               bool compact = false);
     void setContentWidth(int width, bool force = false);
+    int naturalContentWidth() const;
+    int trailingTextSpace() const;
     void setStreamingText(const QString &text);
     void beginStreaming();
     void finishStreaming(const QString &markdown);
@@ -28,6 +30,7 @@ protected:
 
 private:
     QList<QTextBrowser *> proseBlocks;
+    QList<int> proseNaturalWidths;
     QString plain;
     QString sourceMarkdown;
     int contentWidth = 0;

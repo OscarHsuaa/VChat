@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "chattimeutils.h"
 #include "aimarkdownwidget.h"
 #include "mentioninput.h"
 #include "roomsidebarwidget.h"
@@ -311,17 +312,15 @@ public:
 class SummarySection final : public QFrame
 {
 public:
-    SummarySection(const QString &title, const QString &symbol, const QString &accent,
-                   const QString &background, QWidget *parent)
-        : QFrame(parent), titleText(title), symbolText(symbol)
+    SummarySection(const QString &title, QWidget *parent)
+        : QFrame(parent), titleText(title)
     {
         setObjectName(QStringLiteral("viviSummarySection") + title);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
         setStyleSheet(QStringLiteral(
             "QFrame#%1 { background:transparent; border:0; }"
             "QLabel#viviSectionTitle { background:transparent; color:#282043;"
-            " font-size:15px; font-weight:700; }"
-            "QLabel#viviSectionCount { color:#8b75ad; background:transparent; font-size:12px; }"
+            " font-size:15px; font-weight:600; }"
             "QLabel#viviSectionEmpty { background:transparent; color:#817696;"
             " font-size:14px; }")
             .arg(objectName()));
@@ -331,20 +330,9 @@ public:
         auto *header = new QHBoxLayout;
         header->setContentsMargins(0, 0, 0, 0);
         header->setSpacing(8);
-        auto *badge = new QLabel(symbol, this);
-        badge->setAlignment(Qt::AlignCenter);
-        badge->setFixedSize(21, 21);
-        badge->setStyleSheet(QStringLiteral("background:%1; color:%2; border-radius:7px;"
-                                            "font-size:13px; font-weight:700;")
-                             .arg(background, accent));
-        header->addWidget(badge);
         auto *heading = new QLabel(title, this);
         heading->setObjectName(QStringLiteral("viviSectionTitle"));
         header->addWidget(heading, 1);
-        count = new QLabel(this);
-        count->setObjectName(QStringLiteral("viviSectionCount"));
-        count->hide();
-        header->addWidget(count);
         column->addLayout(header);
         rows = new QWidget(this);
         rows->setObjectName(QStringLiteral("viviSummaryRows"));
@@ -364,7 +352,6 @@ public:
     {
         if (body) { body->beginStreaming(); body->hide(); }
         rows->hide();
-        count->hide();
         empty->setText(QStringLiteral("等待整理…"));
         empty->show();
         hasContent = false;
@@ -375,25 +362,20 @@ public:
         if (markdown.trimmed().isEmpty()) {
             if (body) body->hide();
             rows->hide();
-            count->hide();
-            empty->setText(completed ? QStringLiteral("本次讨论暂无明确记录")
+            empty->setText(completed ? QStringLiteral("暂无明确内容")
                                      : QStringLiteral("等待整理…"));
             empty->show();
             return;
         }
         if (completed && titleText != QStringLiteral("讨论概览")) {
             const SimpleList parsed = parseSimpleList(markdown);
-            if (parsed.count > 0) {
-                count->setText(QString::number(parsed.count));
-                count->show();
-            } else count->hide();
             if (parsed.simple && !parsed.items.isEmpty()) {
                 showRows(parsed.items);
                 if (body) body->hide();
                 empty->hide();
                 return;
             }
-        } else count->hide();
+        }
         rows->hide();
         if (!body) {
             body = new AiMarkdownWidget({}, this, true);
@@ -428,7 +410,6 @@ protected:
 private:
     struct SimpleList {
         QStringList items;
-        int count = 0;
         bool simple = true;
     };
 
@@ -444,7 +425,6 @@ private:
             if (text.isEmpty()) continue;
             QTextList *list = block.textList();
             if (!list) { result.simple = false; continue; }
-            ++result.count;
             const QTextListFormat::Style style = list->format().style();
             if (list->format().indent() != 1 ||
                 (style != QTextListFormat::ListDisc &&
@@ -474,13 +454,7 @@ private:
             row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
             auto *line = new QHBoxLayout(row);
             line->setContentsMargins(0, 0, 0, 0);
-            line->setSpacing(8);
-            auto *mark = new QLabel(symbolText, row);
-            mark->setAlignment(Qt::AlignCenter);
-            mark->setFixedSize(17, 17);
-            mark->setStyleSheet(QStringLiteral("background:#efe8ff; color:#7954d4;"
-                                               "border-radius:8px; font-size:11px; font-weight:700;"));
-            line->addWidget(mark, 0, Qt::AlignTop);
+            line->setSpacing(0);
             auto *text = new SummaryBodyLabel(itemText, row);
             text->setObjectName(QStringLiteral("viviSummaryRowText"));
             line->addWidget(text, 1);
@@ -497,13 +471,13 @@ private:
     void updateRowHeights()
     {
         if (rows->isHidden()) return;
-        const int textWidth = qMax(40, width() - 17 - 8);
+        const int textWidth = qMax(40, width());
         bool changed = false;
         for (QWidget *row : rows->findChildren<QWidget *>(
                  QStringLiteral("viviSummaryRow"), Qt::FindDirectChildrenOnly)) {
             QLabel *text = row->findChild<QLabel *>(QStringLiteral("viviSummaryRowText"));
             if (!text) continue;
-            const int needed = qMax(17, text->heightForWidth(textWidth));
+            const int needed = text->heightForWidth(textWidth);
             if (row->minimumHeight() == needed) continue;
             row->setMinimumHeight(needed);
             changed = true;
@@ -539,12 +513,10 @@ private:
 
     AiMarkdownWidget *body = nullptr;
     QLabel *empty = nullptr;
-    QLabel *count = nullptr;
     QWidget *rows = nullptr;
     QVBoxLayout *rowLayout = nullptr;
     QVBoxLayout *column = nullptr;
     QString titleText;
-    QString symbolText;
     bool hasContent = false;
     int lastBodyWidth = -1;
 };
@@ -570,6 +542,7 @@ MainWindow::MainWindow(const QString &loginName, const QString &serverAddress, Q
     setupUI();
     connectSlots();
     updateUserList();
+    scheduleTimeLabelRefresh();
 
     appendSystemMessage(QStringLiteral("欢迎来到 VChat 聊天室"));
 
@@ -1284,14 +1257,10 @@ void MainWindow::setupViviSummary()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(11);
     auto *header = new QHBoxLayout;
-    auto *icon = new QLabel(viviSummaryPanel);
-    icon->setFixedSize(23, 23);
-    icon->setPixmap(iconFromSvg(QStringLiteral(":/login/vivi-sparkle.svg"), 21).pixmap(21, 21));
-    header->addWidget(icon);
     auto *title = new QLabel(QStringLiteral("Vivi · 智能讨论总结"), viviSummaryPanel);
     title->setWordWrap(true);
     title->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    title->setStyleSheet(QStringLiteral("color:#252044; font-size:13px; font-weight:700;"));
+    title->setStyleSheet(QStringLiteral("color:#252044; font-size:16px; font-weight:600;"));
     header->addWidget(title, 1);
     auto *close = new QToolButton(viviSummaryPanel);
     close->setObjectName(QStringLiteral("viviSummaryClose"));
@@ -1309,16 +1278,16 @@ void MainWindow::setupViviSummary()
     banner->setObjectName(QStringLiteral("viviSummaryBanner"));
     auto *bannerLayout = new QVBoxLayout(banner);
     bannerLayout->setContentsMargins(12, 12, 12, 12);
-    bannerLayout->setSpacing(5);
+    bannerLayout->setSpacing(7);
     viviSummaryRoom = new QLabel(banner);
     viviSummaryRoom->setObjectName(QStringLiteral("viviSummaryRoom"));
     viviSummaryRoom->setWordWrap(true);
-    viviSummaryRoom->setStyleSheet(QStringLiteral("color:#252044; font-size:13px; font-weight:700;"));
+    viviSummaryRoom->setStyleSheet(QStringLiteral("color:#252044; font-size:15px; font-weight:600;"));
     bannerLayout->addWidget(viviSummaryRoom);
     viviSummaryRange = new QLabel(banner);
     viviSummaryRange->setObjectName(QStringLiteral("viviSummaryRange"));
     viviSummaryRange->setWordWrap(true);
-    viviSummaryRange->setStyleSheet(QStringLiteral("color:#766990; font-size:11px;"));
+    viviSummaryRange->setStyleSheet(QStringLiteral("color:#766990; font-size:12px;"));
     bannerLayout->addWidget(viviSummaryRange);
     layout->addWidget(banner);
 
@@ -1336,19 +1305,12 @@ void MainWindow::setupViviSummary()
         "QWidget#viviSummarySections { background:#ffffff; }"));
     sectionsContent->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *sectionsLayout = new QVBoxLayout(sectionsContent);
-    sectionsLayout->setContentsMargins(1, 4, 3, 4);
-    sectionsLayout->setSpacing(10);
+    sectionsLayout->setContentsMargins(1, 6, 3, 6);
+    sectionsLayout->setSpacing(11);
     const QStringList names{QStringLiteral("讨论概览"), QStringLiteral("已达成共识"),
                             QStringLiteral("待解决问题"), QStringLiteral("下一步行动")};
-    const QStringList marks{QStringLiteral("◇"), QStringLiteral("✓"),
-                            QStringLiteral("?"), QStringLiteral("→")};
-    const QStringList colors{QStringLiteral("#744bd4"), QStringLiteral("#7753cd"),
-                             QStringLiteral("#8266bd"), QStringLiteral("#7351bc")};
-    const QStringList tints{QStringLiteral("#f0e9ff"), QStringLiteral("#f1ebff"),
-                            QStringLiteral("#f4effc"), QStringLiteral("#f1ebff")};
     for (int i = 0; i < names.size(); ++i) {
-        auto *section = new SummarySection(names.at(i), marks.at(i), colors.at(i),
-                                           tints.at(i), sectionsContent);
+        auto *section = new SummarySection(names.at(i), sectionsContent);
         viviSummarySections.append(section);
         sectionsLayout->addWidget(section);
         if (i + 1 < names.size()) {
@@ -1373,7 +1335,7 @@ void MainWindow::setupViviSummary()
     viviSummaryStatus->setObjectName(QStringLiteral("viviSummaryStatus"));
     viviSummaryStatus->setTextFormat(Qt::PlainText);
     viviSummaryStatus->setWordWrap(true);
-    viviSummaryStatus->setStyleSheet(QStringLiteral("color:#766990; font-size:11px;"));
+    viviSummaryStatus->setStyleSheet(QStringLiteral("color:#766990; font-size:12px;"));
     layout->addWidget(viviSummaryStatus);
     auto *actions = new QHBoxLayout;
     actions->setSpacing(8);
@@ -1684,9 +1646,11 @@ void MainWindow::appendSharedSummary(const QJsonObject &message)
     lastMessageKey.clear();
     QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
     const bool followBottom = scroll->value() >= scroll->maximum() - 24;
+    const QDateTime sent = appendTimeLabelIfNeeded(message.value(QStringLiteral("time")).toString());
     auto *row = new QWidget(ui->messageContainer);
     row->setObjectName(QStringLiteral("discussionSummaryMessage"));
     row->setProperty("summaryMessageId", id);
+    row->setProperty("messageTime", sent);
     auto *rowLayout = new QHBoxLayout(row);
     rowLayout->setContentsMargins(0, 8, 0, 0);
     rowLayout->setSpacing(10);
@@ -1700,8 +1664,6 @@ void MainWindow::appendSharedSummary(const QJsonObject &message)
     auto *columnLayout = new QVBoxLayout(column);
     columnLayout->setContentsMargins(0, 0, 0, 0);
     columnLayout->setSpacing(7);
-    const QDateTime sent = QDateTime::fromString(message.value(QStringLiteral("time")).toString(),
-                                                Qt::ISODateWithMs).toLocalTime();
     auto *caption = new QLabel(QStringLiteral("Vivi  ·  由 %1 分享讨论总结  ·  %2")
         .arg(message.value(QStringLiteral("shared_by_name")).toString(),
              sent.isValid() ? sent.time().toString(QStringLiteral("hh:mm")) : QString()), column);
@@ -1710,6 +1672,9 @@ void MainWindow::appendSharedSummary(const QJsonObject &message)
     columnLayout->addWidget(caption);
     auto *card = new QFrame(column);
     card->setObjectName(QStringLiteral("discussionSummaryCard"));
+    card->setToolTip(ChatTime::tooltip(sent));
+    card->setProperty("messageTimeBubble", true);
+    card->installEventFilter(this);
     card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     card->setStyleSheet(QStringLiteral(
         "QFrame#discussionSummaryCard { background:#faf8ff; border:1px solid #e9dfff; border-radius:15px; }"
@@ -1806,8 +1771,10 @@ void MainWindow::appendSharedSummary(const QJsonObject &message)
     buttons->setSpacing(7);
     auto *view = new QPushButton(QStringLiteral("查看完整总结"), card);
     view->setObjectName(QStringLiteral("discussionSummaryView"));
+    view->setToolTip(QStringLiteral("查看完整总结"));
     auto *copy = new QPushButton(QStringLiteral("复制"), card);
     copy->setObjectName(QStringLiteral("discussionSummaryCopy"));
+    copy->setToolTip(QStringLiteral("复制总结"));
     buttons->addWidget(view);
     buttons->addWidget(copy);
     buttons->addStretch();
@@ -2534,7 +2501,8 @@ void MainWindow::clearMessageView()
     aiBodies.clear();
     systemPills.clear();
     lastMessageKey.clear();
-    lastSystemDate = QDate();
+    lastTimelineTime = QDateTime();
+    timelineLabels.clear();
     // Keep the trailing stretch item; all message widgets belong to this layout.
     while (ui->messageLayout->count() > 1) {
         QLayoutItem *item = ui->messageLayout->takeAt(0);
@@ -2988,6 +2956,9 @@ void MainWindow::updateSelectedMentionRanges(int position, int removed, int adde
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (event->type() == QEvent::Leave &&
+        watched->property("messageTimeBubble").toBool())
+        QToolTip::hideText();
     auto *eventWidget = qobject_cast<QWidget *>(watched);
     if (viviMenuExpanded && eventWidget && eventWidget->window() == this &&
         event->type() == QEvent::KeyPress &&
@@ -3021,19 +2992,114 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return QMainWindow::eventFilter(watched, event);
 }
 
+QDateTime MainWindow::appendTimeLabelIfNeeded(const QString &timestamp)
+{
+    const QDateTime sent = ChatTime::parse(timestamp);
+    if (!sent.isValid()) return sent;
+    const bool showLabel = ChatTime::needsLabel(lastTimelineTime, sent);
+    lastTimelineTime = sent;
+    if (!showLabel) return sent;
+
+    insertTimeLabel(ui->messageLayout->count() - 1, sent);
+    return sent;
+}
+
+void MainWindow::insertTimeLabel(int index, const QDateTime &sent)
+{
+    auto *timeRow = new QWidget(ui->messageContainer);
+    timeRow->setObjectName(QStringLiteral("chatTimeRow"));
+    auto *layout = new QHBoxLayout(timeRow);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addStretch();
+    auto *label = new RoundedLabel(ChatTime::label(sent), timeRow);
+    label->setObjectName(QStringLiteral("chatTimeLabel"));
+    label->setProperty("messageTime", sent);
+    label->setAlignment(Qt::AlignCenter);
+    label->setMinimumHeight(32);
+    label->setFillColor(QColor(QStringLiteral("#f1ecfc")));
+    label->setStyleSheet(QStringLiteral("color:#756991; padding:5px 13px; font-size:12px;"));
+    layout->addWidget(label);
+    layout->addStretch();
+    ui->messageLayout->insertWidget(index, timeRow);
+    timelineLabels.append(label);
+}
+
+void MainWindow::rebuildTimeLabels()
+{
+    for (QLabel *label : timelineLabels) {
+        QWidget *row = label->parentWidget();
+        ui->messageLayout->removeWidget(row);
+        delete row;
+    }
+    timelineLabels.clear();
+    lastTimelineTime = {};
+    for (int index = 0; index < ui->messageLayout->count() - 1; ++index) {
+        QWidget *row = ui->messageLayout->itemAt(index)->widget();
+        if (!row) continue;
+        const QDateTime sent = row->property("messageTime").toDateTime();
+        if (!sent.isValid()) continue;
+        if (ChatTime::needsLabel(lastTimelineTime, sent)) {
+            insertTimeLabel(index, sent);
+            ++index;
+        }
+        lastTimelineTime = sent;
+    }
+}
+
+void MainWindow::refreshTimeLabels()
+{
+    for (QLabel *label : timelineLabels)
+        label->setText(ChatTime::label(label->property("messageTime").toDateTime()));
+}
+
+void MainWindow::scheduleTimeLabelRefresh()
+{
+    const QDateTime midnight(QDate::currentDate().addDays(1), QTime(0, 0),
+                             QTimeZone::systemTimeZone());
+    const int delay = int(qMax<qint64>(1000, QDateTime::currentDateTime().msecsTo(midnight) + 1000));
+    QTimer::singleShot(delay, this, [this] {
+        refreshTimeLabels();
+        scheduleTimeLabelRefresh();
+    });
+}
+
 void MainWindow::appendMessage(const QString &user, const QString &message, bool own, const QString &displayTime,
                                bool ai, const QString &aiRequestId, const QJsonArray &mentions,
                                const QJsonObject &replyTarget, const QString &streamMessageId,
                                const QString &userMessageId)
 {
     if (!ai && !userMessageId.isEmpty()) {
-        if (renderedUserMessageIds.contains(userMessageId)) return;
+        if (renderedUserMessageIds.contains(userMessageId)) {
+            if (!displayTime.isEmpty()) {
+                for (int index = 0; index < ui->messageLayout->count() - 1; ++index) {
+                    QWidget *existing = ui->messageLayout->itemAt(index)->widget();
+                    if (!existing || !existing->property("pendingTimeConfirmation").toBool() ||
+                        existing->property("userMessageId").toString() != userMessageId) continue;
+                    const QDateTime confirmed = ChatTime::parse(displayTime);
+                    if (confirmed.isValid()) {
+                        existing->setProperty("messageTime", confirmed);
+                        existing->setProperty("originalTimestamp", displayTime);
+                        existing->setProperty("pendingTimeConfirmation", false);
+                        for (QFrame *bubble : existing->findChildren<QFrame *>())
+                            if (bubble->property("messageTimeBubble").toBool())
+                                bubble->setToolTip(ChatTime::tooltip(confirmed));
+                        rebuildTimeLabels();
+                    }
+                    break;
+                }
+            }
+            return;
+        }
         renderedUserMessageIds.insert(userMessageId);
     }
     QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
     const bool followBottom = scroll->value() >= scroll->maximum() - 24;
+    const QDateTime sent = appendTimeLabelIfNeeded(displayTime);
     const QString messageKey = (ai ? QStringLiteral("ai:") : own ? QStringLiteral("self:") : QStringLiteral("other:")) + user;
     auto *row = new QWidget(ui->messageContainer);
+    row->setProperty("originalTimestamp", displayTime);
+    row->setProperty("messageTime", sent);
+    row->setProperty("pendingTimeConfirmation", own && !userMessageId.isEmpty());
     row->setProperty("mentions", mentions.toVariantList());
     if (!streamMessageId.isEmpty()) row->setProperty("aiMessageId", streamMessageId);
     if (!userMessageId.isEmpty()) row->setProperty("userMessageId", userMessageId);
@@ -3072,21 +3138,12 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         captionRow->addWidget(replyLabel);
         row->setProperty("replyAccountId", replyTarget.value(QStringLiteral("accountId")).toString());
     }
-    const QString rawTime = displayTime.isEmpty()
-        ? QTime::currentTime().toString(QStringLiteral("hh:mm:ss"))
-        : displayTime.contains(QLatin1Char('T'))
-            ? QDateTime::fromString(displayTime, Qt::ISODateWithMs).time().toString(QStringLiteral("hh:mm:ss"))
-            : displayTime;
-    auto *timeLabel = new QLabel(rawTime.left(5), column);
-    QFont timeFont(QStringLiteral("Microsoft YaHei UI"));
-    timeFont.setPixelSize(11);
-    timeFont.setWeight(QFont::Normal);
-    timeLabel->setFont(timeFont);
-    timeLabel->setStyleSheet(QStringLiteral("color:#9a91ad;"));
-    captionRow->addWidget(timeLabel);
     if (!own) captionRow->addStretch();
     columnLayout->addLayout(captionRow);
     auto *bubble = new QFrame(column);
+    bubble->setToolTip(ChatTime::tooltip(sent));
+    bubble->setProperty("messageTimeBubble", true);
+    bubble->installEventFilter(this);
     if (ai) bubble->setObjectName(QStringLiteral("viviReadingCard"));
     bubble->setStyleSheet(ai
         ? QStringLiteral("QFrame#viviReadingCard { background-color:#faf8ff;"
@@ -3117,14 +3174,15 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         messageBubbles.append(bubble);
         messageBodies.append(body);
     }
-    bubble->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    bubble->setSizePolicy(QSizePolicy::Maximum,
+        ai ? QSizePolicy::Maximum : QSizePolicy::Preferred);
     columnLayout->addWidget(bubble, 0, own ? Qt::AlignRight : Qt::AlignLeft);
     if (ai) {
         auto *actionBar = new QWidget(column);
         actionBar->setObjectName(QStringLiteral("viviActionBar"));
         actionBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         auto *actions = new QGridLayout(actionBar);
-        actions->setContentsMargins(17, 0, 0, 0);
+        actions->setContentsMargins(0, 0, 0, 0);
         actions->setHorizontalSpacing(4);
         actions->setVerticalSpacing(2);
         int actionColumn = 0;
@@ -3137,7 +3195,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             button->setToolTip(tip);
             button->setCursor(Qt::PointingHandCursor);
             button->setStyleSheet(QStringLiteral(
-                "QToolButton { color:#827799; border:0; border-radius:6px; padding:3px 5px; font-size:12px; background:transparent; } "
+                "QToolButton { color:#827799; border:0; border-radius:6px; padding:3px 0; font-size:12px; background:transparent; } "
                 "QToolButton:hover { color:#7956d5; background:#f2edfb; } "
                 "QToolButton:checked { color:#6746c4; background:#e9e0fa; }"));
             actions->addWidget(button, 0, actionColumn++);
@@ -3145,6 +3203,13 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         };
         auto *copy = makeAction(QStringLiteral("复制全文"), QStringLiteral(":/login/ai-copy.svg"), QStringLiteral("复制 Vivi 回复"));
         auto *retry = makeAction(QStringLiteral("重新生成"), QStringLiteral(":/login/refresh.svg"), QStringLiteral("按原问题和上下文重新生成"));
+        retry->setObjectName(QStringLiteral("viviActionRegenerate"));
+        const bool isRequester = replyTarget.value(QStringLiteral("accountId")).toString()
+            == QString::number(ownAccountId);
+        const bool historyRequest = aiRequestId.startsWith(QStringLiteral("history:"));
+        const bool mayRegenerate = isRequester && (!historyRequest ||
+            replyTarget.value(QStringLiteral("canRegenerate")).toBool());
+        retry->setVisible(mayRegenerate);
         auto *up = makeAction({}, QStringLiteral(":/login/ai-up.svg"), QStringLiteral("有帮助"));
         auto *down = makeAction({}, QStringLiteral(":/login/ai-down.svg"), QStringLiteral("没有帮助"));
         up->setObjectName(QStringLiteral("viviActionLike"));
@@ -3154,9 +3219,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         connect(copy, &QToolButton::clicked, this, [this, body = aiBodies.last()]() {
             QGuiApplication::clipboard()->setText(body->plainText());
         });
-        retry->setEnabled(!aiRequestId.isEmpty() &&
-            (streamMessageId.isEmpty() || replyTarget.value(QStringLiteral("accountId")).toString()
-                == QString::number(ownAccountId)));
+        retry->setEnabled(!aiRequestId.isEmpty() && mayRegenerate);
         connect(retry, &QToolButton::clicked, this, [this, aiRequestId, streamMessageId]() {
             if (!isConnected || socket->state() != QAbstractSocket::ConnectedState) {
                 appendSystemMessage(QStringLiteral("无法重新生成：服务器未连接。"));
@@ -3181,10 +3244,9 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
             state.body = aiBodies.last();
             state.actions = {copy, retry, up, down};
             state.requestId = aiRequestId;
-            state.originalRequestId = aiRequestId;
-            state.canRegenerate = !aiRequestId.startsWith(QStringLiteral("history:")) &&
-                replyTarget.value(QStringLiteral("accountId")).toString()
-                == QString::number(ownAccountId);
+            state.originalRequestId = historyRequest
+                ? replyTarget.value(QStringLiteral("originalRequestId")).toString() : aiRequestId;
+            state.canRegenerate = mayRegenerate;
             for (QToolButton *button : state.actions) button->setEnabled(false);
             auto *cancel = makeAction(QStringLiteral("取消生成"), QStringLiteral(":/login/refresh.svg"),
                                       QStringLiteral("取消当前 Vivi 请求"));
@@ -3237,6 +3299,7 @@ void MainWindow::flushAiStream(const QString &messageId)
     const int oldMax = scroll->maximum();
     const bool followBottom = scroll->value() >= oldMax - 24;
     it->body->setStreamingText(it->displayed);
+    updateBubbleWidths();
     ++it->paints;
     const auto follow = [scroll, oldMax, followBottom]() {
         if (followBottom && scroll->value() >= oldMax - 24)
@@ -3312,6 +3375,9 @@ void MainWindow::finalizeAiStream(const QString &messageId)
     }
     if (it->cancel) it->cancel->hide();
     updateBubbleWidths();
+    // QTextBrowser applies its final font and viewport after the streamed
+    // placeholder is replaced. Re-measure once that show/layout pass settles.
+    QTimer::singleShot(0, this, &MainWindow::updateBubbleWidths);
     qInfo() << "Vivi UI stream complete: chunks=" << it->chunksReceived
             << "chunk_span_ms=" << (it->lastChunkMs - it->firstChunkMs)
             << "max_chunk_gap_ms=" << it->maxChunkGapMs
@@ -3336,7 +3402,9 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
     const bool existed = aiStreams.contains(messageId);
     if (!existed) {
         const QJsonObject target{{QStringLiteral("accountId"), event.value(QStringLiteral("user_id")).toString()},
-                                 {QStringLiteral("nickname"), event.value(QStringLiteral("nickname")).toString()}};
+                                 {QStringLiteral("nickname"), event.value(QStringLiteral("nickname")).toString()},
+                                 {QStringLiteral("originalRequestId"), event.value(QStringLiteral("original_request_id")).toString()},
+                                 {QStringLiteral("canRegenerate"), event.value(QStringLiteral("can_regenerate")).toBool()}};
         appendMessage(QStringLiteral("Vivi"), {}, false,
             event.value(QStringLiteral("created_at")).toString(), true, requestId, {}, target, messageId);
     }
@@ -3355,6 +3423,7 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
         it->generationId = generationId;
         it->canRegenerate = event.value(QStringLiteral("user_id")).toString()
             == QString::number(ownAccountId);
+        if (it->actions.size() >= 2) it->actions.at(1)->setVisible(it->canRegenerate);
         if (it->cancel) it->cancel->setVisible(it->canRegenerate);
     }
     if ((kind == QStringLiteral("ai_start") || kind == QStringLiteral("ai_complete")) && existed &&
@@ -3395,7 +3464,10 @@ void MainWindow::appendAiStreamEvent(const QJsonObject &event)
         it->generationId = generationId;
         it->canRegenerate = event.value(QStringLiteral("user_id")).toString()
             == QString::number(ownAccountId);
-        if (it->actions.size() >= 2) it->actions.at(1)->setEnabled(it->canRegenerate);
+        if (it->actions.size() >= 2) {
+            it->actions.at(1)->setVisible(it->canRegenerate);
+            it->actions.at(1)->setEnabled(it->canRegenerate);
+        }
     }
     if (it->finished) return;
     if (it->requestId != requestId || it->generationId != generationId) {
@@ -3507,22 +3579,6 @@ void MainWindow::appendSystemMessage(const QString &message)
     lastMessageKey.clear();
     QScrollBar *scroll = ui->messageScroll->verticalScrollBar();
     const bool followBottom = scroll->value() >= scroll->maximum() - 24;
-    const QDate today = QDate::currentDate();
-    if (lastSystemDate != today) {
-        auto *dateRow = new QWidget(ui->messageContainer);
-        auto *dateLayout = new QHBoxLayout(dateRow);
-        dateLayout->setContentsMargins(0, 0, 0, 2);
-        dateLayout->addStretch();
-        auto *dateLabel = new RoundedLabel(QStringLiteral("今天 ") + QTime::currentTime().toString(QStringLiteral("hh:mm")), dateRow);
-        dateLabel->setAlignment(Qt::AlignCenter);
-        dateLabel->setMinimumHeight(32);
-        dateLabel->setFillColor(QColor("#f1ecfc"));
-        dateLabel->setStyleSheet(QStringLiteral("color:#756991; padding:5px 13px; font-size:12px;"));
-        dateLayout->addWidget(dateLabel);
-        dateLayout->addStretch();
-        ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, dateRow);
-        lastSystemDate = today;
-    }
     auto *row = new QWidget(ui->messageContainer);
     auto *layout = new QHBoxLayout(row);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -3672,7 +3728,8 @@ void MainWindow::appendIncomingLine(const QString &line)
                 {QStringLiteral("request_id"), QStringLiteral("history:") + id},
                 {QStringLiteral("message_id"), id},
                 {QStringLiteral("generation_id"), QStringLiteral("persisted")},
-                {QStringLiteral("original_request_id"), QStringLiteral("0")},
+                {QStringLiteral("original_request_id"), item.value(QStringLiteral("original_request_id")).toString()},
+                {QStringLiteral("can_regenerate"), item.value(QStringLiteral("can_regenerate")).toBool()},
                 {QStringLiteral("user_id"), item.value(QStringLiteral("sender_id")).toString()},
                 {QStringLiteral("nickname"), item.value(QStringLiteral("reply_to_name")).toString()},
                 {QStringLiteral("created_at"), item.value(QStringLiteral("time")).toString()},
@@ -4026,19 +4083,45 @@ void MainWindow::updateBubbleWidths()
         bubble->setMaximumWidth(limit);
         bubble->setMinimumWidth(qMin(limit, qMax(56, natural + 28)));
     }
-    const int aiLimit = qMax(210, qMin(700, int(ui->messageScroll->viewport()->width() * 0.76)));
+    const int viewportWidth = ui->messageScroll->viewport()->width();
     for (int i = 0; i < aiBubbles.size(); ++i) {
+        auto *rowLayout = qobject_cast<QHBoxLayout *>(aiColumns.at(i)->parentWidget()->layout());
+        const int avatarWidth = rowLayout && rowLayout->itemAt(0)->widget()
+            ? rowLayout->itemAt(0)->widget()->sizeHint().width() : 0;
+        const QMargins rowMargins = rowLayout ? rowLayout->contentsMargins() : QMargins();
+        const QMargins messageMargins = ui->messageLayout->contentsMargins();
+        const int available = viewportWidth - messageMargins.left() - messageMargins.right()
+            - rowMargins.left() - rowMargins.right() - avatarWidth
+            - (rowLayout ? rowLayout->spacing() : 0);
+        const int aiLimit = qMax(100, qMin(qMin(700, int(viewportWidth * 0.76)), available));
         aiColumns.at(i)->setMaximumWidth(aiLimit);
         QFrame *bubble = aiBubbles.at(i);
         AiMarkdownWidget *body = aiBodies.at(i);
-        int natural = 0;
-        const QFontMetrics metrics(body->font());
-        for (const QString &line : body->plainText().split(QLatin1Char('\n')))
-            natural = qMax(natural, metrics.horizontalAdvance(line));
-        const int desired = body->isStreaming() ? aiLimit
-            : qMin(aiLimit, qMax(140, natural + 38));
-        body->setContentWidth(qMax(100, desired - 34));
-        bubble->setFixedWidth(desired);
+        auto *bubbleLayout = qobject_cast<QVBoxLayout *>(bubble->layout());
+        const QMargins padding = bubbleLayout->contentsMargins();
+        // The browser viewport width is only known after its first layout pass.
+        // Let it settle, then measure the styled document again at that width.
+        for (int pass = 0; pass < 3; ++pass) {
+            const int natural = body->naturalContentWidth() + padding.left() + padding.right()
+                + 2 * bubble->frameWidth();
+            const int desired = qMin(aiLimit, qMax(natural, padding.left() + padding.right() + 1));
+            if (bubble->width() == desired &&
+                body->width() == bubbleLayout->contentsRect().width()) break;
+            bubble->setFixedWidth(desired);
+            bubbleLayout->activate();
+            body->setContentWidth(qMax(1, bubbleLayout->contentsRect().width()));
+        }
+        const QMargins margins = bubbleLayout->contentsMargins();
+        const int bottomInset = qMax(0, margins.top() - body->trailingTextSpace());
+        if (margins.bottom() != bottomInset) {
+            bubbleLayout->setContentsMargins(margins.left(), margins.top(),
+                                             margins.right(), bottomInset);
+            bubbleLayout->activate();
+        }
+        bubble->adjustSize();
+        bubble->updateGeometry();
+        aiColumns.at(i)->layout()->invalidate();
+        aiColumns.at(i)->layout()->activate();
         QWidget *actionBar = aiColumns.at(i)->findChild<QWidget *>(QStringLiteral("viviActionBar"));
         if (!actionBar) continue;
         const bool compactActions = aiLimit < 290;
