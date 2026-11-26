@@ -38,6 +38,8 @@ class QListWidget;
 class QEvent;
 class QTimer;
 class RoomSidebarWidget;
+class RoomWelcomeToast;
+class RoomMessagePlaceholder;
 class RoomCreateDialog;
 class RoomInviteDialog;
 class RoomInviteInboxDialog;
@@ -107,7 +109,10 @@ private:
     qint64 ownAccountId = 0;
     QString sessionToken;
     bool mentionProtocol = false;
-    struct MentionCandidate { qint64 id = 0; QString name; bool ai = false; };
+    bool allMentionSupported = false;
+    QSet<qint64> roomHumanMemberIds;
+    enum class MentionKind { User, Ai, All };
+    struct MentionCandidate { qint64 id = 0; QString name; MentionKind kind = MentionKind::User; };
     struct SelectedMention { int start = 0; int length = 0; MentionCandidate candidate; };
     QVector<MentionCandidate> onlineMentionMembers;
     QVector<MentionCandidate> visibleMentions;
@@ -253,6 +258,28 @@ private:
     bool switchInFlight = false;
     bool roomHistoryLoading = false;
     bool initialHistoryDone = false;
+    bool roomHasMessages = false;
+    bool roomHistoryLoadFailed = false;
+    RoomMessagePlaceholder *roomMessagePlaceholder = nullptr;
+    struct UnreadState {
+        qint64 count = 0;
+        qint64 mentions = 0;
+        qint64 readThrough = 0;
+        qint64 observedThrough = 0;
+    };
+    QHash<QString, UnreadState> unreadRooms;
+    QPushButton *newMessagesButton = nullptr;
+    QTimer *unreadViewTimer = nullptr;
+    QTimer *notificationRetryTimer = nullptr;
+    bool notificationsSupported = false;
+    bool messageSoundEnabled = true;
+    bool mentionAlertsEnabled = true;
+    qint64 displayedUserSequence = 0;
+    qint64 lastLiveUserSequence = 0;
+    qint64 requestedReadSequence = 0;
+    bool followedLastLiveMessage = false;
+    bool roomWelcomePending = false;
+    RoomWelcomeToast *roomWelcomeToast = nullptr;
 
     // 初始化聊天窗口样式、状态栏、输入框颜色等界面内容。
     void setupUI();
@@ -266,7 +293,17 @@ private:
     // 告诉服务器“我已经进入聊天界面”，服务器据此更新在线用户列表。
     void sendJoinMessage();
     void sendRoomRequest(const QString &action, const QJsonObject &arguments = {});
+    void setupMessageNotifications();
+    void sendNotificationRequest(const QString &action, const QJsonObject &arguments = {});
+    void handleNotification(const QString &event, const QJsonObject &payload);
+    void updateUnreadBadge(const QString &roomId);
+    void scheduleUnreadViewUpdate();
+    void refreshUnreadView();
+    void positionNewMessagesButton();
+    bool atLatestMessage() const;
     void requestRoomSwitch(const QString &roomId);
+    QJsonObject currentRoomData() const;
+    void showRoomWelcomeIfReady();
     void openCreateRoomDialog();
     void setMembersCollapsed(bool collapsed);
     void openInviteDialog();
@@ -283,6 +320,8 @@ private:
     void handleRoomNotice(const QJsonObject &notice);
     void handleRoomResult(const QJsonObject &result);
     void clearMessageView();
+    void updateRoomMessagePlaceholder();
+    void noteRoomMessage();
     void updateRoomTitle();
     void renderRoomMembers();
     void requestRoomMembers();
@@ -338,6 +377,7 @@ private:
     void updateMentionPopup();
     void positionMentionPopup();
     void acceptMention();
+    bool canMentionAll() const;
     bool currentMentionQuery(int *start, QString *query) const;
     void updateSelectedMentionRanges(int position, int removed, int added);
 };

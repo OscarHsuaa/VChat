@@ -2,6 +2,8 @@
 #include "airoom.h"
 #include "aiservice.h"
 #include "roomstore.h"
+#include "roomnotifications.h"
+#include "../common/chatmentions.h"
 #include <QDateTime>
 #include <QTimeZone>
 #include <QFutureWatcher>
@@ -248,8 +250,11 @@ bool openDatabase()
 
 // All new chat messages share stable IDs and a room-scoped order.
 bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, const QString &sender,
-                     const QString &content, const QDateTime &receivedAt, qint64 *sequenceId)
+                     const QString &content, const QDateTime &receivedAt, qint64 *sequenceId,
+                     const QSet<qint64> &mentionTargets = {})
 {
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!mentionTargets.isEmpty() && !db.transaction()) return false;
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "INSERT INTO chat_history(room_id,message_id,sender_id,sender_name,message_type,content,created_at) "
@@ -269,13 +274,19 @@ bool saveUserHistory(const QString &roomId, const QString &id, qint64 senderId, 
                 lookup.addBindValue(id);
                 if (!lookup.exec() || !lookup.next()) {
                     qCritical() << "History sequence lookup failed:" << lookup.lastError().text();
-                    return true; // The insert succeeded; AiRoom will reject an AI request without a boundary.
+                } else {
+                    *sequenceId = lookup.value(0).toLongLong();
                 }
-                *sequenceId = lookup.value(0).toLongLong();
             }
+        }
+        if (!mentionTargets.isEmpty() &&
+            (!sequenceId || !RoomNotifications::saveMentions(*sequenceId, mentionTargets) || !db.commit())) {
+            db.rollback();
+            return false;
         }
         return true;
     }
+    if (!mentionTargets.isEmpty()) db.rollback();
     qWarning() << "History user insert failed:" << query.lastError().text();
     return false;
 }
@@ -354,7 +365,7 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, Ai
     QSqlQuery query;
     query.prepare(QStringLiteral(
         "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
-        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state,h.original_request_id "
+        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state,h.original_request_id,h.sequence_id "
         "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
         "WHERE h.room_id=? AND (h.visibility='team' OR "
         "(h.visibility='personal' AND h.recipient_user_id=?)) "
@@ -381,6 +392,7 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, Ai
             {QStringLiteral("reply_to_name"), query.value(7).toString()},
             {QStringLiteral("ai_state"), query.value(8).toString()},
             {QStringLiteral("original_request_id"), query.value(9).toString()},
+            {QStringLiteral("sequence_id"), query.value(10).toString()},
             {QStringLiteral("can_regenerate"), aiRoom &&
                 query.value(3).toString() == QStringLiteral("ai") &&
                 aiRoom->canRegenerate(query.value(9).toULongLong(), accountId,
@@ -553,8 +565,30 @@ int main(int argc, char *argv[])
     QMap<QTcpSocket *, qint64> onlineUserIds;
     QMap<QTcpSocket *, QString> activeRooms;
     QSet<QTcpSocket *> modernPeers;
+    QSet<QTcpSocket *> notificationPeers;
+    const bool notificationsAvailable = RoomNotifications::available();
     QHash<QString, LoginSession> loginSessions;
     QHash<QString, QList<QDateTime>> registrationAttempts;
+
+    auto sendNotification = [](QTcpSocket *client, const QString &kind, const QJsonObject &data) {
+        sendLine(client, QStringLiteral("NOTIFY|%1|%2").arg(kind, QString::fromLatin1(
+            QJsonDocument(data).toJson(QJsonDocument::Compact).toBase64())));
+    };
+    auto publishNotification = [&](const QString &roomId, const QString &messageId, qint64 senderId,
+                                   qint64 sequence, const QString &time, const QSet<qint64> &mentions) {
+        if (notificationPeers.isEmpty() || sequence <= 0) return;
+        const auto recipients = RoomNotifications::recipients(roomId);
+        QJsonObject data{{QStringLiteral("room_id"), roomId}, {QStringLiteral("message_id"), messageId},
+            {QStringLiteral("sender_id"), QString::number(senderId)}, {QStringLiteral("type"), QStringLiteral("user")},
+            {QStringLiteral("sequence_id"), QString::number(sequence)}, {QStringLiteral("time"), time}};
+        for (QTcpSocket *peer : notificationPeers) {
+            const qint64 recipient = onlineUserIds.value(peer);
+            if (recipient == senderId || !recipients.contains(recipient) ||
+                peer->state() != QAbstractSocket::ConnectedState) continue;
+            data.insert(QStringLiteral("mentioned"), mentions.contains(recipient));
+            sendNotification(peer, QStringLiteral("message"), data);
+        }
+    };
 
     const QString testAiEndpoint = qEnvironmentVariable("VCHAT_TEST_DB").isEmpty()
         ? QString() : qEnvironmentVariable("VCHAT_TEST_AI_ENDPOINT");
@@ -685,6 +719,17 @@ int main(int argc, char *argv[])
         }
     };
 
+    auto notifyActiveRoomMembersChanged = [&](const QString &roomId) {
+        const QJsonObject notice{{QStringLiteral("event"), QStringLiteral("members_changed")},
+                                 {QStringLiteral("room_id"), roomId}};
+        const QString line = QStringLiteral("ROOM|notice|%1").arg(
+            QString::fromLatin1(QJsonDocument(notice).toJson(QJsonDocument::Compact).toBase64()));
+        for (auto it = activeRooms.cbegin(); it != activeRooms.cend(); ++it)
+            if (it.value() == roomId && modernPeers.contains(it.key()) &&
+                it.key()->state() == QAbstractSocket::ConnectedState)
+                sendLine(it.key(), line);
+    };
+
     // 有新的客户端连接到服务器时执行。
     QObject::connect(&server, &QTcpServer::newConnection, [&]() {
         while (server.hasPendingConnections()) {
@@ -700,7 +745,9 @@ int main(int argc, char *argv[])
             QObject::connect(client, &QTcpSocket::readyRead, [client, &clients, &buffers, &onlineUsers,
                 &onlineUserIds, &modernPeers, &loginSessions, &registrationAttempts,
                 &broadcastUserList, &roomFor, &aiRooms, &aiStates, &idleAiState, &activeRooms,
-                &summaryJobs, &completedSummaries, &sendSummaryEvent, &cancelSummary, &aiService, &app]() {
+                &summaryJobs, &completedSummaries, &sendSummaryEvent, &cancelSummary, &aiService, &app,
+                &notificationPeers, notificationsAvailable, &sendNotification, &publishNotification,
+                &notifyActiveRoomMembersChanged]() {
                 // TCP 数据不一定一次收到完整一行，所以先放进该客户端自己的缓存。
                 QByteArray &buffer = buffers[client];
                 buffer.append(client->readAll());
@@ -742,9 +789,10 @@ int main(int argc, char *argv[])
                         const QJsonObject data = request.object();
                         QString error;
                         if (registerUser(data.value(QStringLiteral("username")).toString(),
-                                         data.value(QStringLiteral("password")).toString(), &error))
+                                         data.value(QStringLiteral("password")).toString(), &error)) {
                             sendLine(client, QStringLiteral("REGISTER_OK"));
-                        else sendLine(client, QStringLiteral("REGISTER_FAIL|%1").arg(error));
+                            notifyActiveRoomMembersChanged(QString::fromLatin1(RoomStore::LobbyId));
+                        } else sendLine(client, QStringLiteral("REGISTER_FAIL|%1").arg(error));
                         continue;
                     }
 
@@ -800,6 +848,7 @@ int main(int argc, char *argv[])
                                 modernPeers.insert(client);
                             } else {
                                 modernPeers.remove(client);
+                                notificationPeers.remove(client);
                                 sendLine(client, QStringLiteral("[System] 身份会话已失效，请重新登录"));
                                 continue;
                             }
@@ -809,6 +858,7 @@ int main(int argc, char *argv[])
                         }
 
                         if (onlineUsers.contains(client) && onlineUserIds.value(client) != accountId) {
+                            notificationPeers.remove(client);
                             cancelSummary(client);
                             completedSummaries.remove(client);
                         }
@@ -899,6 +949,10 @@ int main(int argc, char *argv[])
                             const QJsonArray rooms = RoomStore::myRooms(actor, &error);
                             if (error.isEmpty()) {
                                 reply.insert(QStringLiteral("rooms"), rooms);
+                                if (notificationsAvailable) {
+                                    reply.insert(QStringLiteral("notifications_supported"), true);
+                                    reply.insert(QStringLiteral("mention_all_supported"), true);
+                                }
                                 reply.insert(QStringLiteral("ok"), true);
                             }
                         } else if (action == QStringLiteral("list_public")) {
@@ -931,11 +985,17 @@ int main(int argc, char *argv[])
                             if (!joined.isEmpty()) {
                                 reply.insert(QStringLiteral("room_id"), joined);
                                 reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                notifyActiveRoomMembersChanged(joined);
+                                continue;
                             }
                         } else if (action == QStringLiteral("join_public")) {
                             if (RoomStore::joinPublic(actor, roomId, &error)) {
                                 reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
+                                respond();
+                                notifyActiveRoomMembersChanged(roomId);
+                                continue;
                             }
                         } else if (action == QStringLiteral("search_users")) {
                             reply.insert(QStringLiteral("room_id"), roomId);
@@ -1421,9 +1481,45 @@ int main(int argc, char *argv[])
                         continue;
                     }
 
+                    if (text.startsWith(QStringLiteral("NOTIFY|"))) {
+                        if (!notificationsAvailable || !modernPeers.contains(client) || !onlineUsers.contains(client) ||
+                            text.size() > 2048) continue;
+                        const auto parts = text.split(QLatin1Char('|'));
+                        if (parts.size() != 3) continue;
+                        const auto data = QJsonDocument::fromJson(QByteArray::fromBase64(parts.at(2).toLatin1()));
+                        if (!data.isObject()) continue;
+                        const qint64 actor = onlineUserIds.value(client);
+                        if (parts.at(1) == QStringLiteral("sync")) {
+                            QJsonArray rooms;
+                            if (RoomNotifications::snapshot(actor, &rooms)) {
+                                notificationPeers.insert(client);
+                                sendNotification(client, QStringLiteral("snapshot"), {{QStringLiteral("rooms"), rooms}});
+                            } else sendNotification(client, QStringLiteral("retry"), {});
+                        } else if (parts.at(1) == QStringLiteral("read") && notificationPeers.contains(client)) {
+                            const auto request = data.object();
+                            const QString room = request.value(QStringLiteral("room_id")).toString();
+                            const qint64 sequence = request.value(QStringLiteral("sequence_id")).toString().toLongLong();
+                            if (room.isEmpty() || room != activeRooms.value(client) || sequence <= 0) continue;
+                            QJsonArray rooms;
+                            if (!RoomNotifications::markRead(actor, room, sequence) ||
+                                !RoomNotifications::snapshot(actor, &rooms, room)) {
+                                sendNotification(client, QStringLiteral("retry"), {});
+                                continue;
+                            }
+                            if (rooms.isEmpty()) continue;
+                            const QJsonObject state = rooms.first().toObject();
+                            for (QTcpSocket *peer : notificationPeers)
+                                if (onlineUserIds.value(peer) == actor)
+                                    sendNotification(peer, QStringLiteral("room"), state);
+                        }
+                        continue;
+                    }
+
                     if (text.startsWith(QStringLiteral("CHAT2|"))) {
                         if (!modernPeers.contains(client) || !onlineUsers.contains(client)) continue;
-                        if (!RoomStore::isMember(activeRooms.value(client), onlineUserIds.value(client))) {
+                        const QString roomId = activeRooms.value(client);
+                        const qint64 senderId = onlineUserIds.value(client);
+                        if (!RoomStore::isMember(roomId, senderId)) {
                             sendLine(client, QStringLiteral("[System] 已无权向当前聊天室发送消息"));
                             continue;
                         }
@@ -1436,7 +1532,11 @@ int main(int argc, char *argv[])
                         if (QUuid(userMessageId).isNull())
                             userMessageId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                         QJsonArray validated;
+                        QSet<qint64> mentionTargets;
+                        QHash<qint64, QString> memberNames;
+                        bool loadedMembers = false;
                         bool invalid = false;
+                        bool hasAllMention = false;
                         for (const QJsonValue &value : request.value(QStringLiteral("mentions")).toArray()) {
                             const QJsonObject entry = value.toObject();
                             const QString type = entry.value(QStringLiteral("type")).toString();
@@ -1444,52 +1544,79 @@ int main(int argc, char *argv[])
                             const QString name = entry.value(QStringLiteral("name")).toString();
                             const int start = entry.value(QStringLiteral("start")).toInt(-1);
                             const int length = entry.value(QStringLiteral("length")).toInt(-1);
-                            if (start < 0 || length < 2 || start + length > content.size() ||
+                            if (start < 0 || length < 2 || start > content.size() || length > content.size() - start ||
                                 content.mid(start, length) != QStringLiteral("@") + name) { invalid = true; break; }
+                            if (notificationsAvailable && !loadedMembers &&
+                                (type == QStringLiteral("user") || type == QStringLiteral("all"))) {
+                                for (const auto &value : RoomStore::members(roomId)) {
+                                    const auto member = value.toObject();
+                                    const qint64 account = member.value(QStringLiteral("user_id")).toString().toLongLong();
+                                    if (account > 0)
+                                        memberNames.insert(account, member.value(QStringLiteral("nickname")).toString());
+                                }
+                                loadedMembers = true;
+                            }
                             if (type == QStringLiteral("ai")) {
                                 if (id != QStringLiteral("vivi") || name != QStringLiteral("Vivi")) { invalid = true; break; }
+                            } else if (type == QStringLiteral("all")) {
+                                if (id != QStringLiteral("all") || name != ChatMentions::allName ||
+                                    !ChatMentions::isAllTokenAt(content, start, length)) { invalid = true; break; }
+                                hasAllMention = true;
                             } else if (type == QStringLiteral("user")) {
                                 bool ok = false;
                                 const qint64 targetId = id.toLongLong(&ok);
-                                bool found = false;
+                                if (!ok || targetId <= 0 || targetId == senderId) { invalid = true; break; }
+                                bool found = memberNames.contains(targetId) && memberNames.value(targetId) == name;
                                 for (auto it = onlineUserIds.cbegin(); it != onlineUserIds.cend(); ++it)
-                                    if (ok && targetId != onlineUserIds.value(client) && it.value() == targetId &&
-                                        it.key() != client && activeRooms.value(it.key()) == activeRooms.value(client) &&
+                                    if (it.value() == targetId && (!notificationsAvailable || memberNames.contains(targetId)) &&
+                                        activeRooms.value(it.key()) == roomId &&
                                         onlineUsers.value(it.key()) == name)
                                         found = true;
                                 if (!found) { invalid = true; break; }
+                                mentionTargets.insert(targetId);
                             } else { invalid = true; break; }
                             validated.append(entry);
                         }
                         if (invalid) {
-                            sendLine(client, QStringLiteral("[System] 提及对象已离线或发生变化，请重新选择"));
+                            sendLine(client, QStringLiteral("[System] 提及对象不在当前聊天室或名称已变化，请重新选择"));
                             continue;
+                        }
+                        if (hasAllMention) {
+                            if (!notificationsAvailable || !memberNames.contains(senderId) ||
+                                memberNames.size() < ChatMentions::minimumAllMembers) {
+                                sendLine(client, QStringLiteral("[System] 当前聊天室暂不可提及全体成员，请重新选择"));
+                                continue;
+                            }
+                            for (auto it = memberNames.cbegin(); it != memberNames.cend(); ++it)
+                                if (it.key() != senderId) mentionTargets.insert(it.key());
                         }
                         const QString sender = onlineUsers.value(client);
                         const QDateTime receivedAt = QDateTime::currentDateTime();
+                        const QString sentTime = receivedAt.toUTC().toString(Qt::ISODateWithMs);
                         const QString legacyLine = QStringLiteral("[%1] %2: %3")
                             .arg(receivedAt.toString(QStringLiteral("hh:mm:ss")), sender, content);
                         QJsonObject outgoing{{QStringLiteral("sender"), sender},
-                            {QStringLiteral("room_id"), activeRooms.value(client)},
-                            {QStringLiteral("senderId"), QString::number(onlineUserIds.value(client))},
+                            {QStringLiteral("room_id"), roomId},
+                            {QStringLiteral("senderId"), QString::number(senderId)},
                             {QStringLiteral("messageId"), userMessageId},
                             {QStringLiteral("text"), content},
-                            {QStringLiteral("time"), receivedAt.toUTC().toString(Qt::ISODateWithMs)},
+                            {QStringLiteral("time"), sentTime},
                             {QStringLiteral("mentions"), validated}};
-                        const QString modernLine = QStringLiteral("CHAT2|%1")
-                            .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
                         qint64 sequenceId = 0;
-                        if (!saveUserHistory(activeRooms.value(client), userMessageId,
-                                             onlineUserIds.value(client), sender, content,
-                                             receivedAt, &sequenceId)) {
+                        if (!saveUserHistory(roomId, userMessageId, senderId, sender, content, receivedAt, &sequenceId,
+                                             notificationsAvailable ? mentionTargets : QSet<qint64>{})) {
                             sendLine(client, QStringLiteral("[System] 消息未保存，发送已取消"));
                             continue;
                         }
+                        outgoing.insert(QStringLiteral("sequence_id"), QString::number(sequenceId));
+                        const QString modernLine = QStringLiteral("CHAT2|%1")
+                            .arg(QString::fromLatin1(QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
                         for (QTcpSocket *other : clients)
                             if (other->state() == QAbstractSocket::ConnectedState &&
                                 onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client) &&
                                 (other != client || modernPeers.contains(other)))
                                 sendLine(other, modernPeers.contains(other) ? modernLine : legacyLine);
+                        publishNotification(roomId, userMessageId, senderId, sequenceId, sentTime, mentionTargets);
                         bool askVivi = false;
                         for (const QJsonValue &value : validated)
                             if (value.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("ai")) askVivi = true;
@@ -1542,13 +1669,23 @@ int main(int argc, char *argv[])
                         continue;
                     }
 
-                    // 转发给其他已经进入聊天窗口的用户，不发回给发送者本人。
+                    const QString roomId = activeRooms.value(client);
+                    const qint64 senderId = onlineUserIds.value(client);
+                    const QString sentTime = receivedAt.toUTC().toString(Qt::ISODateWithMs);
+                    const QJsonObject outgoing{{QStringLiteral("sender"), sender}, {QStringLiteral("room_id"), roomId},
+                        {QStringLiteral("senderId"), QString::number(senderId)}, {QStringLiteral("text"), content},
+                        {QStringLiteral("messageId"), legacyMessageId}, {QStringLiteral("sequence_id"), QString::number(sequenceId)},
+                        {QStringLiteral("time"), sentTime}};
+                    const QString modernLine = QStringLiteral("CHAT2|%1").arg(QString::fromLatin1(
+                        QJsonDocument(outgoing).toJson(QJsonDocument::Compact).toBase64()));
+                    // Notification clients need the sequence of the displayed message to acknowledge it.
                     for (QTcpSocket *other : clients) {
                         if (other != client && other->state() == QAbstractSocket::ConnectedState &&
                             onlineUsers.contains(other) && activeRooms.value(other) == activeRooms.value(client)) {
-                            sendLine(other, serverMessage);
+                            sendLine(other, notificationPeers.contains(other) ? modernLine : serverMessage);
                         }
                     }
+                    publishNotification(roomId, legacyMessageId, senderId, sequenceId, sentTime, {});
                     if (onlineUsers.contains(client)) {
                         static const QRegularExpression mention(
                             QStringLiteral(R"((?:^|\s)@Vivi(?=$|\s|[,，:：]))"),
@@ -1564,7 +1701,7 @@ int main(int argc, char *argv[])
             // 客户端断开连接时，清理列表和缓存，并刷新在线用户列表。
             QObject::connect(client, &QTcpSocket::disconnected, [client, &clients, &buffers, &onlineUsers,
                 &onlineUserIds, &modernPeers, &activeRooms, &broadcastUserList, &cancelSummary,
-                &completedSummaries]() {
+                &completedSummaries, &notificationPeers]() {
                 const QString clientName = socketName(client);
                 const bool wasOnline = onlineUsers.contains(client);
                 const QString nickname = onlineUsers.value(client);
@@ -1579,6 +1716,7 @@ int main(int argc, char *argv[])
                 onlineUsers.remove(client);
                 onlineUserIds.remove(client);
                 modernPeers.remove(client);
+                notificationPeers.remove(client);
                 const QString leavingRoom = activeRooms.take(client);
 
                 if (wasOnline) {

@@ -6,6 +6,7 @@
 #include "roommanagementdialog.h"
 #include "roompermissionsdialog.h"
 #include <QApplication>
+#include <QAction>
 #include <QClipboard>
 #include <QCheckBox>
 #include <QDir>
@@ -14,6 +15,7 @@
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QFontDatabase>
+#include <QGraphicsOpacityEffect>
 #include <QHelpEvent>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -25,6 +27,7 @@
 #include <QLayout>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QProcess>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollArea>
@@ -34,12 +37,15 @@
 #include <QStackedWidget>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QTimeZone>
 #include <QToolButton>
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QTextBlock>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <QTextLayout>
 #include <functional>
 
@@ -80,6 +86,563 @@ static QJsonObject event(const char *kind, int request, const char *message, int
     return object;
 }
 
+static int testRoomWelcomeToast(const QString &capturePath)
+{
+    QTemporaryDir settingsDir;
+    if (!settingsDir.isValid()) return 1;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
+
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 2;
+    const QString address = QStringLiteral("127.0.0.1:%1").arg(server.serverPort());
+    MainWindow window(QStringLiteral("测试用户"), address, nullptr, 11, QStringLiteral("test-token"));
+    window.resize(1050, 700);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 3;
+    QTcpSocket *peer = server.nextPendingConnection();
+    QByteArray commands;
+    if (!waitUntil([&] {
+        commands += peer->readAll();
+        return commands.contains("JOIN|");
+    })) return 4;
+
+    auto *toast = window.findChild<QWidget *>(QStringLiteral("roomWelcomeToast"));
+    auto *connectedPill = window.findChild<QWidget *>(QStringLiteral("roomConnectedToastPill"));
+    auto *welcomePill = window.findChild<QWidget *>(QStringLiteral("roomWelcomeToastPill"));
+    auto *scroll = window.findChild<QScrollArea *>(QStringLiteral("messageScroll"));
+    auto *sidebar = window.findChild<RoomSidebarWidget *>();
+    if (!toast || !connectedPill || !welcomePill || !scroll || !sidebar || !toast->isHidden()) return 5;
+    QWidget *viewport = scroll->viewport();
+    auto *connectedEffect = qobject_cast<QGraphicsOpacityEffect *>(connectedPill->graphicsEffect());
+    auto *welcomeEffect = qobject_cast<QGraphicsOpacityEffect *>(welcomePill->graphicsEffect());
+    if (toast->parentWidget() != viewport || !connectedEffect || !welcomeEffect ||
+        connectedEffect == welcomeEffect ||
+        !toast->testAttribute(Qt::WA_TransparentForMouseEvents)) return 6;
+
+    const auto sendRoom = [&](const QByteArray &kind, const QJsonObject &object) {
+        peer->write("ROOM|" + kind + '|' + QJsonDocument(object).toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    const QString lobby = QStringLiteral("class-room");
+    const QString cppRoom = QStringLiteral("room-cpp");
+    const QString project = QStringLiteral("room-project");
+    const QString longRoom = QStringLiteral("跨平台客户端构建与持续集成讨论组 QtWidgetsIntegrationBuildVerificationReleaseCandidate");
+    const QString unnamed = QStringLiteral("room-unnamed");
+    const auto room = [](const QString &id, const QString &name) {
+        return QJsonObject{{"room_id", id}, {"room_name", name}};
+    };
+    const QJsonArray rooms{room(lobby, QStringLiteral("VChat 大厅")),
+                           room(cppRoom, QStringLiteral("C++ 聊天室")),
+                           room(project, longRoom), room(unnamed, QStringLiteral("  "))};
+    const QJsonObject roomList{{"action", "list_mine"}, {"ok", true}, {"rooms", rooms}};
+    const auto textLabel = [](QWidget *pill) -> QLabel * {
+        for (auto *label : pill->findChildren<QLabel *>())
+            if (!label->text().isEmpty()) return label;
+        return nullptr;
+    };
+    const auto wordOrder = [](QString text) {
+        // Layout can wrap at a space or split a very long word.
+        text.remove(QLatin1Char('\n'));
+        text.remove(QLatin1Char(' '));
+        return text;
+    };
+    const auto showsText = [&](QWidget *pill, const QString &expected, bool multiline) {
+        auto *label = textLabel(pill);
+        if (!label || wordOrder(label->text()) != wordOrder(expected) ||
+            label->text().contains(QLatin1Char('\n')) != multiline ||
+            !pill->rect().contains(label->geometry())) return false;
+        const auto lines = label->text().split(QLatin1Char('\n'));
+        const QFontMetricsF metrics(label->font(), label);
+        for (const QString &line : lines)
+            if (metrics.horizontalAdvance(line) > label->contentsRect().width() + 0.5) return false;
+        if (metrics.height() + (lines.size() - 1) * metrics.lineSpacing() > label->contentsRect().height() + 1)
+            return false;
+        for (auto *icon : pill->findChildren<QLabel *>())
+            if (!icon->pixmap().isNull()) return label->x() - icon->geometry().right() >= 10;
+        return false;
+    };
+    const auto showsConnection = [&] {
+        return connectedPill->isVisible() && !welcomePill->isVisible() && connectedEffect->opacity() > 0.98 &&
+            showsText(connectedPill, QStringLiteral("已连接到聊天室服务器"), false);
+    };
+    const auto showsWelcome = [&](const QString &name, bool multiline = false) {
+        return welcomePill->isVisible() && !connectedPill->isVisible() && welcomeEffect->opacity() > 0.98 &&
+            showsText(welcomePill, QStringLiteral("欢迎来到 %1").arg(name), multiline);
+    };
+    const auto topCentered = [&] {
+        QWidget *pill = connectedPill->isVisible() ? connectedPill : welcomePill;
+        return pill->isVisible() && pill->geometry() == toast->rect() &&
+            qAbs(toast->geometry().center().x() - viewport->rect().center().x()) <= 1 &&
+            toast->y() > 0 && toast->y() <= 24 && viewport->rect().contains(toast->geometry()) &&
+            viewport->childAt(toast->geometry().center()) == scroll->widget();
+    };
+    const auto switchReply = [&](const QString &id) {
+        sendRoom("result", {{"action", "switch"}, {"ok", true}, {"room_id", id}});
+    };
+
+    peer->write(QStringLiteral("[System] Connected to chat server\n[System] Welcome 测试用户\n").toUtf8());
+    waitEvents();
+    if (toast->isVisible() || scroll->widget()->findChild<QLabel *>(QStringLiteral("systemMessageText"))) return 7;
+    peer->write("HISTORY_END\n");
+    waitEvents();
+    if (toast->isVisible()) return 8; // The server's room name hasn't arrived yet.
+    QElapsedTimer shownFor;
+    shownFor.start();
+    sendRoom("result", roomList);
+    if (!waitUntil(showsConnection)) return 9;
+    if (!topCentered()) return 10;
+    auto *composer = window.findChild<QWidget *>(QStringLiteral("composer"));
+    auto *rightPanel = window.findChild<QWidget *>(QStringLiteral("rightPanel"));
+    if (!composer || !rightPanel) return 11;
+    const auto layoutState = [&]() {
+        return QList<QRect>{scroll->geometry(), viewport->geometry(), composer->geometry(),
+                            sidebar->geometry(), rightPanel->geometry()};
+    };
+    const auto visibleLayout = layoutState();
+    bool overlap = false;
+    const auto checkOverlap = [&] { overlap |= connectedPill->isVisible() && welcomePill->isVisible(); };
+    QObject::connect(connectedEffect, &QGraphicsOpacityEffect::opacityChanged, &window, checkOverlap);
+    QObject::connect(welcomeEffect, &QGraphicsOpacityEffect::opacityChanged, &window, checkOverlap);
+    if (!waitUntil([&] {
+        return connectedPill->isVisible() && connectedEffect->opacity() < 0.9 &&
+            !welcomePill->isVisible();
+    }, 2000)) return 23;
+    if (!waitUntil([&] { return showsWelcome(QStringLiteral("VChat 大厅")); }) ||
+        !topCentered() || layoutState() != visibleLayout || overlap) return 24;
+    if (!capturePath.isEmpty() && !window.grab().save(capturePath)) return 12;
+    if (!waitUntil([&] { return toast->isHidden(); }, 3500) || shownFor.elapsed() < 2500 ||
+        connectedEffect->opacity() > 0.02 || welcomeEffect->opacity() > 0.02 || overlap ||
+        layoutState() != visibleLayout) return 13;
+    sendRoom("result", roomList);
+    sendRoom("notice", {{"event", "members_changed"}, {"room_id", lobby}});
+    peer->write("HISTORY_END\n[12:00:00] other: regular message\n");
+    waitEvents(150);
+    if (!toast->isHidden()) return 14;
+
+    sidebar->roomSelected(cppRoom);
+    switchReply(cppRoom);
+    waitEvents();
+    if (!toast->isHidden()) return 15;
+    peer->write("HISTORY_END\n");
+    if (!waitUntil(showsConnection) ||
+        !waitUntil([&] { return showsWelcome(QStringLiteral("C++ 聊天室")) && topCentered(); })) return 16;
+
+    sidebar->roomSelected(lobby);
+    sidebar->roomSelected(project);
+    if (!toast->isHidden()) return 17;
+    switchReply(lobby);
+    peer->write("HISTORY_END\n");
+    waitEvents();
+    if (!toast->isHidden()) return 18;
+    switchReply(project);
+    peer->write("HISTORY_END\n");
+    if (!waitUntil(showsConnection) ||
+        !waitUntil([&] { return showsWelcome(longRoom, true); }) ||
+        window.findChildren<QWidget *>(QStringLiteral("roomWelcomeToast")).size() != 1) return 19;
+    const int wideHeight = toast->height();
+    window.resize(790, 560);
+    if (!waitUntil([&] { return topCentered() && showsWelcome(longRoom, true); }) ||
+        toast->height() < wideHeight) return 20;
+
+    sidebar->roomSelected(unnamed);
+    switchReply(unnamed);
+    peer->write("HISTORY_END\n");
+    if (!waitUntil(showsConnection) ||
+        !waitUntil([&] { return showsWelcome(QStringLiteral("聊天室")); }) || overlap) return 21;
+    qInfo("Room welcome toast verified at device scale %.2f", double(viewport->devicePixelRatioF()));
+    peer->disconnectFromHost();
+    return waitUntil([&] { return toast->isHidden(); }) ? 0 : 22;
+}
+
+static int testMessageNotifications(const QString &capturePath)
+{
+    QTemporaryDir settingsDir;
+    if (!settingsDir.isValid()) return 1;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
+    QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, settingsDir.path());
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 2;
+    const QString address = QStringLiteral("127.0.0.1:%1").arg(server.serverPort());
+    MainWindow window(QStringLiteral("用户B"), address, nullptr, 22, QStringLiteral("test-token"));
+    window.resize(1050, 700);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 3;
+    QTcpSocket *peer = server.nextPendingConnection();
+    QByteArray requests;
+    auto saw = [&](const QByteArray &request) {
+        return waitUntil([&] { requests += peer->readAll(); return requests.contains(request); });
+    };
+    if (!saw("JOIN|")) return 4;
+    auto send = [&](const QByteArray &prefix, const QJsonObject &data) {
+        peer->write(prefix + QJsonDocument(data).toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    auto state = [](const QString &room, int unread, int mentions, qint64 read, qint64 observed) {
+        return QJsonObject{{"room_id", room}, {"unread", unread}, {"mentions", mentions},
+            {"read_sequence_id", QString::number(read)}, {"through_sequence_id", QString::number(observed)}};
+    };
+    auto notify = [&](int sequence, bool mentioned = false, const QString &sender = QStringLiteral("11")) {
+        send("NOTIFY|message|", {{"room_id", "cpp"}, {"message_id", QString::number(sequence)},
+            {"sequence_id", QString::number(sequence)}, {"sender_id", sender}, {"type", "user"}, {"mentioned", mentioned}});
+    };
+    auto expectedRead = [](int sequence) {
+        return "NOTIFY|read|" + QJsonDocument(QJsonObject{{"room_id", "cpp"},
+            {"sequence_id", QString::number(sequence)}}).toJson(QJsonDocument::Compact).toBase64();
+    };
+
+    auto *sound = window.findChild<QAction *>(QStringLiteral("messageSoundSetting"));
+    auto *mentions = window.findChild<QAction *>(QStringLiteral("mentionAlertsSetting"));
+    auto *sidebar = window.findChild<RoomSidebarWidget *>();
+    auto *list = window.findChild<QListWidget *>(QStringLiteral("roomList"));
+    auto *scroll = window.findChild<QScrollArea *>(QStringLiteral("messageScroll"));
+    auto *button = window.findChild<QPushButton *>(QStringLiteral("newMessagesButton"));
+    if (!sound || !mentions || !sound->isChecked() || !mentions->isChecked() || !list || !sidebar || !scroll || !button) {
+        qWarning() << "Notification controls or defaults unavailable" << (sound != nullptr)
+                   << (mentions != nullptr) << (sound && sound->isChecked())
+                   << (mentions && mentions->isChecked()) << (list != nullptr)
+                   << (sidebar != nullptr) << (scroll != nullptr) << (button != nullptr);
+        return 5;
+    }
+    sound->setChecked(false);
+    peer->write("HISTORY_END\n");
+    if (!saw("ROOM|list_mine|")) return 6;
+    send("ROOM|result|", {{"action", "list_mine"}, {"ok", true}, {"notifications_supported", true},
+        {"rooms", QJsonArray{QJsonObject{{"room_id", "class-room"}, {"room_name", "VChat 大厅"}},
+                            QJsonObject{{"room_id", "cpp"}, {"room_name", "C++"}}}}});
+    if (!saw("NOTIFY|sync|")) return 7;
+    send("NOTIFY|snapshot|", {{"rooms", QJsonArray{state("cpp", 0, 0, 0, 0), state("class-room", 0, 0, 0, 0)}}});
+    auto badge = [&](const QString &count, bool mentioned) {
+        for (int i = 0; i < list->count(); ++i) {
+            if (list->item(i)->data(Qt::UserRole).toString() != QStringLiteral("cpp")) continue;
+            QWidget *row = list->itemWidget(list->item(i));
+            auto *number = row->findChild<QLabel *>(QStringLiteral("roomUnreadCount"));
+            auto *mention = row->findChild<QLabel *>(QStringLiteral("roomUnreadMention"));
+            return number && mention && (count.isEmpty() ? number->isHidden() :
+                !number->isHidden() && number->text() == count) && mention->isHidden() != mentioned;
+        }
+        return false;
+    };
+    notify(39);
+    notify(40, true);
+    notify(40, true);
+    if (!waitUntil([&] { return badge(QStringLiteral("2"), true); }) || !button->isHidden()) return 8;
+    mentions->setChecked(false);
+    if (!badge(QStringLiteral("2"), false)) return 9;
+    mentions->setChecked(true);
+    if (!badge(QStringLiteral("2"), true)) return 10;
+    send("NOTIFY|room|", state("cpp", 100, 1, 0, 40));
+    if (!waitUntil([&] { return badge(QStringLiteral("99+"), true); })) return 11;
+    send("NOTIFY|room|", state("cpp", 2, 1, 0, 40));
+
+    sidebar->roomSelected(QStringLiteral("cpp"));
+    if (!saw("ROOM|switch|")) return 12;
+    send("ROOM|result|", {{"action", "switch"}, {"ok", true}, {"room_id", "cpp"}});
+    for (int i = 1; i <= 40; ++i) {
+        send("HISTORY|", {{"room_id", "cpp"}, {"message_id", QString::number(i)},
+            {"sequence_id", QString::number(i)}, {"sender", "用户A"}, {"sender_id", "11"},
+            {"type", "user"}, {"text", QStringLiteral("历史消息 %1").arg(i)}});
+    }
+    auto *bar = scroll->verticalScrollBar();
+    if (!waitUntil([&] { return bar->maximum() > 200; })) return 13;
+    requests += peer->readAll();
+    if (requests.contains("NOTIFY|read|") || !badge(QStringLiteral("2"), true)) return 14;
+    peer->write("HISTORY_END\n");
+    if (!saw(expectedRead(40))) return 15;
+    send("NOTIFY|room|", state("cpp", 0, 0, 40, 40));
+    if (!waitUntil([&] { return badge({}, false); })) return 16;
+
+    bar->setValue(0);
+    auto live = [&](int sequence, const QString &sender = QStringLiteral("11")) {
+        send("CHAT2|", {{"room_id", "cpp"}, {"messageId", QString::number(sequence)},
+            {"senderId", sender}, {"sender", "用户A"}, {"sequence_id", QString::number(sequence)},
+            {"text", QStringLiteral("新消息 %1").arg(sequence)}});
+    };
+    live(41);
+    notify(41, true);
+    live(42);
+    notify(42);
+    notify(43, false, QStringLiteral("22"));
+    if (!waitUntil([&] { return button->isVisible() && button->text().contains(QStringLiteral("2 条新消息")); }) ||
+        bar->value() != 0 || !badge(QStringLiteral("2"), true) || button->parentWidget() != scroll->viewport()) return 17;
+    if (!capturePath.isEmpty() && !window.grab().save(capturePath)) return 21;
+    button->click();
+    if (!saw(expectedRead(42)) || bar->value() != bar->maximum() || !button->isHidden()) return 18;
+    send("NOTIFY|room|", state("cpp", 0, 0, 42, 42));
+    live(44);
+    notify(44);
+    if (!saw(expectedRead(44)) || !button->isHidden()) return 19;
+
+    QSettings(QSettings::IniFormat, QSettings::UserScope,
+              QStringLiteral("VChat"), QStringLiteral("VChatClient")).sync();
+    QProcess reopened;
+    reopened.start(QCoreApplication::applicationFilePath(),
+                   {QStringLiteral("--verify-notification-settings"), settingsDir.path()});
+    return reopened.waitForFinished(5000) && reopened.exitStatus() == QProcess::NormalExit &&
+        reopened.exitCode() == 0 ? 0 : 20;
+}
+
+static int testAllMention()
+{
+    QTemporaryDir settingsDir;
+    if (!settingsDir.isValid()) return 1;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 2;
+    MainWindow window(QStringLiteral("甲"), QStringLiteral("127.0.0.1:%1").arg(server.serverPort()),
+                      nullptr, 11, QStringLiteral("test-token"));
+    window.resize(1050, 700);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 3;
+    QTcpSocket *peer = server.nextPendingConnection();
+    QByteArray requests;
+    auto saw = [&](const QByteArray &request) {
+        return waitUntil([&] { requests += peer->readAll(); return requests.contains(request); });
+    };
+    auto send = [&](const QByteArray &prefix, const QJsonDocument &data) {
+        peer->write(prefix + data.toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    if (!saw("JOIN|")) return 4;
+    send("USERLIST2|", QJsonDocument(QJsonArray{QJsonObject{{"id", "11"}, {"name", "甲"}},
+                                                QJsonObject{{"id", "22"}, {"name", "乙"}}}));
+    peer->write("HISTORY_END\n");
+    if (!saw("ROOM|list_mine|")) return 5;
+    send("ROOM|result|", QJsonDocument(QJsonObject{{"action", "list_mine"}, {"ok", true},
+        {"notifications_supported", true}, {"mention_all_supported", true},
+        {"rooms", QJsonArray{QJsonObject{{"room_id", "class-room"}, {"room_name", "大厅"}}}}}));
+    if (!saw("ROOM|members|")) return 6;
+    auto members = [&](const QString &room, bool third) {
+        QJsonArray roster{QJsonObject{{"user_id", "11"}, {"nickname", "甲"}},
+                          QJsonObject{{"user_id", "22"}, {"nickname", "乙"}}};
+        if (third) roster.append(QJsonObject{{"user_id", "33"}, {"nickname", "丙"}, {"online", false}});
+        send("ROOM|result|", QJsonDocument(QJsonObject{{"action", "members"}, {"ok", true},
+                                                       {"room_id", room}, {"members", roster}}));
+    };
+    auto changedRoster = [&](bool third) {
+        requests.clear();
+        peer->readAll();
+        send("ROOM|notice|", QJsonDocument(QJsonObject{{"event", "members_changed"}, {"room_id", "class-room"}}));
+        if (!saw("ROOM|members|")) return false;
+        members(QStringLiteral("class-room"), third);
+        return true;
+    };
+    members(QStringLiteral("class-room"), false);
+    auto *input = window.findChild<QTextEdit *>(QStringLiteral("messageInput"));
+    auto *list = window.findChild<QListWidget *>(QStringLiteral("mentionList"));
+    auto *sendButton = window.findChild<QPushButton *>(QStringLiteral("sendButton"));
+    if (!input || !list || !sendButton) return 7;
+    auto type = [&](const QString &value) {
+        input->setPlainText(value);
+        input->moveCursor(QTextCursor::End);
+    };
+    auto first = [&](const QString &label) {
+        if (!list->isVisible() || list->count() == 0) return false;
+        QWidget *row = list->itemWidget(list->item(0));
+        if (!row) return false;
+        for (const QLabel *widget : row->findChildren<QLabel *>())
+            if (widget->text() == label) return true;
+        return false;
+    };
+    auto outgoing = [&]() {
+        requests.clear();
+        peer->readAll();
+        sendButton->click();
+        if (!saw("CHAT2|")) return QJsonObject{};
+        const QByteArray line = requests.mid(requests.indexOf("CHAT2|") + 6).split('\n').first();
+        return QJsonDocument::fromJson(QByteArray::fromBase64(line)).object();
+    };
+    const QString token = QStringLiteral("@全体成员");
+    type(QStringLiteral("@"));
+    if (!waitUntil([&] { return first(QStringLiteral("Vivi")) && list->count() == 2; })) return 8;
+    members(QStringLiteral("another-room"), true);
+    waitEvents();
+    if (!first(QStringLiteral("Vivi"))) return 9;
+    if (!changedRoster(true) || !waitUntil([&] { return first(token); })) return 10;
+    list->itemClicked(list->item(0));
+    if (input->toPlainText() != token + QLatin1Char(' ')) return 11;
+    input->insertPlainText(QStringLiteral("请  <b>检查</b>"));
+    const QJsonObject group = outgoing();
+    const auto groupMentions = group.value("mentions").toArray();
+    if (groupMentions.size() != 1) return 12;
+    const QJsonObject marker = groupMentions.first().toObject();
+    if (group.value("text").toString() != token + QStringLiteral(" 请  <b>检查</b>") ||
+        marker.value("type").toString() != QStringLiteral("all") || marker.value("id").toString() != QStringLiteral("all") ||
+        marker.value("start").toInt(-1) != 0 || marker.value("length").toInt() != token.size()) return 12;
+
+    QJsonObject echo = group;
+    echo.insert("room_id", "class-room");
+    echo.insert("senderId", "11");
+    echo.insert("sender", "甲");
+    send("CHAT2|", QJsonDocument(echo));
+    if (!waitUntil([&] {
+        for (const QLabel *label : window.findChildren<QLabel *>()) {
+            if (label->property("plainMessageText").toString() != group.value("text").toString() ||
+                label->textFormat() != Qt::RichText) continue;
+            QTextDocument document;
+            document.setHtml(label->text());
+            return document.toPlainText() == group.value("text").toString() &&
+                document.firstBlock().begin().fragment().charFormat().background().color() == QColor("#694cc1");
+        }
+        return false;
+    })) return 13;
+
+    type(token + QStringLiteral("示例"));
+    const QJsonObject similar = outgoing();
+    if (similar.value("text").toString() != token + QStringLiteral("示例") ||
+        !similar.value("mentions").toArray().isEmpty()) return 14;
+    type(QStringLiteral("@乙"));
+    if (!waitUntil([&] { return first(QStringLiteral("乙")); })) return 15;
+    list->itemClicked(list->item(0));
+    const auto user = outgoing().value("mentions").toArray();
+    if (user.size() != 1 || user.first().toObject().value("id").toString() != QStringLiteral("22")) return 16;
+    type(QStringLiteral("@Vivi"));
+    if (!waitUntil([&] { return first(QStringLiteral("Vivi")); })) return 17;
+    list->itemClicked(list->item(0));
+    const auto ai = outgoing().value("mentions").toArray();
+    if (ai.size() != 1 || ai.first().toObject().value("type").toString() != QStringLiteral("ai")) return 18;
+    type(QStringLiteral("@"));
+    if (!waitUntil([&] { return first(token); }) || !changedRoster(false) ||
+        !waitUntil([&] { return first(QStringLiteral("Vivi")) && list->count() == 2; })) return 19;
+    qInfo("All-member mention popup, roster updates, rendering and existing mention types passed");
+    return 0;
+}
+
+static int testEmptyRoomState(const QString &capturePath)
+{
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 1;
+    const QString address = QStringLiteral("127.0.0.1:%1").arg(server.serverPort());
+    MainWindow window(QStringLiteral("测试用户"), address, nullptr, 9026, QStringLiteral("empty-room-test"));
+    window.resize(1050, 700);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 2;
+    auto *peer = server.nextPendingConnection();
+    QByteArray requests;
+    const auto saw = [&](const QByteArray &command) {
+        return waitUntil([&] { requests += peer->readAll(); return requests.contains(command); });
+    };
+    const auto send = [&](const QByteArray &prefix, const QJsonObject &data) {
+        peer->write(prefix + QJsonDocument(data).toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    const auto room = [](const QString &id, const QString &name) {
+        return QJsonObject{{"room_id", id}, {"room_name", name}};
+    };
+    const auto message = [](const QString &id, const QString &text) {
+        return QJsonObject{{"room_id", id}, {"message_id", QStringLiteral("history-") + id},
+            {"sender_id", "11"}, {"sender", "用户A"}, {"type", "user"}, {"text", text}};
+    };
+    auto *scroll = window.findChild<QScrollArea *>(QStringLiteral("messageScroll"));
+    auto *placeholder = window.findChild<QWidget *>(QStringLiteral("roomMessagePlaceholder"));
+    auto *empty = window.findChild<QWidget *>(QStringLiteral("roomEmptyState"));
+    auto *loading = window.findChild<QLabel *>(QStringLiteral("roomHistoryLoading"));
+    auto *title = window.findChild<QLabel *>(QStringLiteral("roomEmptyTitle"));
+    auto *description = window.findChild<QLabel *>(QStringLiteral("roomEmptyDescription"));
+    auto *illustration = window.findChild<QWidget *>(QStringLiteral("roomEmptyIllustration"));
+    auto *sidebar = window.findChild<RoomSidebarWidget *>();
+    auto *composer = window.findChild<QWidget *>(QStringLiteral("composer"));
+    auto *members = window.findChild<QWidget *>(QStringLiteral("rightPanel"));
+    auto *toast = window.findChild<QWidget *>(QStringLiteral("roomWelcomeToast"));
+    if (!scroll || !placeholder || !empty || !loading || !title || !description || !illustration ||
+        !sidebar || !composer || !members || !toast || !saw("JOIN|")) return 3;
+    if (title->text() != QStringLiteral("开启一场新的交流") ||
+        description->text() != QStringLiteral("这里还没有消息，发送第一条消息，开始你们的讨论吧。") ||
+        placeholder->parentWidget() != scroll->viewport() ||
+        !placeholder->testAttribute(Qt::WA_TransparentForMouseEvents)) return 4;
+    if (!loading->isVisible() || empty->isVisible()) return 5;
+
+    send("HISTORY|", message("class-room", QStringLiteral("大厅历史消息")));
+    waitEvents();
+    if (!loading->isVisible() || empty->isVisible()) return 26;
+    peer->write("HISTORY_END\n");
+    if (!saw("ROOM|list_mine|")) return 6;
+    send("ROOM|result|", {{"action", "list_mine"}, {"ok", true}, {"rooms", QJsonArray{
+        room("class-room", "VChat 大厅"), room("empty-remote", "项目讨论室"), room("empty-ai", "Vivi 体验室"),
+        room("load-failed", "设计协作室")}}});
+    if (!saw("ROOM|members|") || !placeholder->isHidden()) return 7;
+
+    sidebar->createRequested();
+    auto *create = window.findChild<RoomCreateDialog *>();
+    if (!create) return 8;
+    create->createSubmitted(QStringLiteral("C++"), {}, QStringLiteral("invite_only"));
+    if (!saw("ROOM|create|")) return 9;
+    send("ROOM|result|", {{"action", "create"}, {"ok", true}, {"room", room("empty-new", "C++")}});
+    if (!saw("ROOM|switch|")) return 10;
+    const auto acceptSwitch = [&](const QString &id) {
+        send("ROOM|result|", {{"action", "switch"}, {"ok", true}, {"room_id", id}});
+    };
+    acceptSwitch(QStringLiteral("empty-new"));
+    if (!waitUntil([&] { return loading->isVisible(); }) || empty->isVisible()) return 11;
+    const auto geometry = [&] {
+        return QList<QRect>{scroll->geometry(), scroll->viewport()->geometry(), composer->geometry(),
+                            sidebar->geometry(), members->geometry()};
+    };
+    const auto loadingGeometry = geometry();
+    // A delayed history frame from the previous room cannot count against this room.
+    send("HISTORY|", message("class-room", QStringLiteral("旧房间迟到消息")));
+    peer->write("HISTORY_END\n");
+    if (!waitUntil([&] { return empty->isVisible(); }) || loading->isVisible() ||
+        geometry() != loadingGeometry || scroll->verticalScrollBar()->maximum() != 0) return 12;
+    const auto centered = [&] {
+        const QRect viewport = scroll->viewport()->rect();
+        const QPoint delta = empty->geometry().center() - viewport.center();
+        return placeholder->geometry() == viewport && qAbs(delta.x()) <= 1 && qAbs(delta.y()) <= 2 &&
+            viewport.contains(empty->geometry()) && illustration->isVisible() && description->isVisible();
+    };
+    if (!centered()) return 13;
+    window.resize(850, 570);
+    if (!waitUntil(centered)) return 14;
+    if (!capturePath.isEmpty()) {
+        window.resize(1050, 700);
+        if (!waitUntil([&] { return centered() && toast->isHidden(); }, 3500) ||
+            !window.grab().save(capturePath)) return 15;
+    }
+    peer->write(QStringLiteral("[System] 某成员 joined the chat\n").toUtf8());
+    peer->write("USERLIST2|W10=\n");
+    waitEvents();
+    if (!empty->isVisible()) return 27;
+    auto *input = window.findChild<QTextEdit *>(QStringLiteral("messageInput"));
+    auto *sendButton = window.findChild<QPushButton *>(QStringLiteral("sendButton"));
+    if (!input || !sendButton) return 16;
+    input->setPlainText(QStringLiteral("新房间第一条消息"));
+    sendButton->click();
+    if (!saw("CHAT2|") || !placeholder->isHidden()) return 17;
+
+    const auto enterEmpty = [&](const QString &id) {
+        sidebar->roomSelected(id);
+        acceptSwitch(id);
+        if (!waitUntil([&] { return loading->isVisible(); }) || empty->isVisible()) return false;
+        peer->write("HISTORY_END\n");
+        return waitUntil([&] { return empty->isVisible(); });
+    };
+    if (!enterEmpty(QStringLiteral("empty-remote"))) return 18;
+    send("CHAT2|", {{"room_id", "empty-remote"}, {"messageId", "remote-first"},
+        {"sender", "用户A"}, {"senderId", "11"}, {"text", "其他成员的首条消息"}});
+    if (!waitUntil([&] { return placeholder->isHidden(); })) return 19;
+    if (!enterEmpty(QStringLiteral("empty-ai"))) return 20;
+    auto vivi = event("ai_start", 1, "first-vivi", 11, QStringLiteral("用户A"), 0);
+    vivi.insert(QStringLiteral("room_id"), QStringLiteral("empty-ai"));
+    peer->write(frame(vivi));
+    if (!waitUntil([&] { return placeholder->isHidden(); })) return 21;
+    const QString answer = QStringLiteral("Vivi 的首条回复");
+    auto complete = event("ai_complete", 1, "first-vivi", 11, QStringLiteral("用户A"), 1, answer);
+    complete.insert(QStringLiteral("room_id"), QStringLiteral("empty-ai"));
+    peer->write(frame(complete));
+    if (!waitUntil([&] {
+        for (const auto *body : window.findChildren<AiMarkdownWidget *>())
+            if (body->markdownText() == answer) return placeholder->isHidden();
+        return false;
+    })) return 28;
+
+    sidebar->roomSelected(QStringLiteral("class-room"));
+    acceptSwitch(QStringLiteral("class-room"));
+    if (!waitUntil([&] { return loading->isVisible(); })) return 22;
+    send("HISTORY|", message("class-room", QStringLiteral("大厅历史消息")));
+    peer->write("HISTORY_END\n");
+    if (!waitUntil([&] { return placeholder->isHidden(); })) return 23;
+    sidebar->roomSelected(QStringLiteral("load-failed"));
+    acceptSwitch(QStringLiteral("load-failed"));
+    if (!waitUntil([&] { return loading->isVisible(); })) return 24;
+    peer->write(QStringLiteral("[System] 历史消息读取失败\n").toUtf8());
+    return waitUntil([&] { return placeholder->isHidden(); }) ? 0 : 25;
+}
+
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -87,6 +650,20 @@ int main(int argc, char **argv)
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
                        QDir::tempPath() + QStringLiteral("/VChatUiTest"));
     QFontDatabase::addApplicationFont(QStringLiteral("C:/Windows/Fonts/msyh.ttc"));
+    if (app.arguments().value(1) == QStringLiteral("--room-welcome-toast"))
+        return testRoomWelcomeToast(app.arguments().value(2));
+    if (app.arguments().value(1) == QStringLiteral("--message-notifications"))
+        return testMessageNotifications(app.arguments().value(2));
+    if (app.arguments().value(1) == QStringLiteral("--all-mention"))
+        return testAllMention();
+    if (app.arguments().value(1) == QStringLiteral("--empty-room-state"))
+        return testEmptyRoomState(app.arguments().value(2));
+    if (app.arguments().value(1) == QStringLiteral("--verify-notification-settings")) {
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, app.arguments().value(2));
+        MainWindow window(QStringLiteral("用户B"));
+        auto *sound = window.findChild<QAction *>(QStringLiteral("messageSoundSetting"));
+        return sound && !sound->isChecked() ? 0 : 1;
+    }
     if (qEnvironmentVariableIsSet("VCHAT_ROOM_DIALOG_SMOKE")) {
         auto *dialog = new RoomManagementDialog(QStringLiteral("room-smoke"), 11);
         const QString smokeDescription = qEnvironmentVariableIsSet("VCHAT_ROOM_DIALOG_LONG")

@@ -58,3 +58,32 @@ ROOM|result|<base64(UTF-8 JSON object)>\n
 未执行 006 时，新版服务器仍按原有结构返回「我的聊天室」、公开房间及聊天室详情，普通成员权限使用安全默认值；权限设置读取和保存会明确提示先迁移。房间列表 SQL 失败会返回 `ok:false` 与错误，客户端不应将其显示为「尚未加入聊天室」。
 
 回滚服务端时，先停止新版服务器。旧版服务端可以继续使用原 `chat_history`，新表可暂时保留。若必须移除 004，先导出 `room_direct_invites`，再仅删除该新表。若必须移除 003，也要先导出新房间及邀请数据；**不要删除或重建 `chat_history`**。若已创建真实新房间，不应在未导出其数据前删表。
+
+## 新消息提醒
+
+`ROOM|result|…` 的 `list_mine` 成功响应在已部署迁移时带 `notifications_supported: true`。客户端收到该标记后才发送 `NOTIFY`，服务器也只向成功订阅的连接发送此类帧。格式为 `NOTIFY|<action>|<Base64 UTF-8 JSON>`，沿用换行帧边界。
+
+| 方向 | action | JSON 字段及含义 |
+| --- | --- | --- |
+| 客户端 → 服务端 | `sync` | `{}`。按会话身份重新取得全部加入房间的未读状态。登录、重连和房间列表更新后调用。 |
+| 服务端 → 客户端 | `snapshot` | `rooms` 数组，每项含 `room_id`、`unread`、`mentions`、`read_sequence_id`、`through_sequence_id`。数量为整数，序号为十进制字符串。`through_sequence_id` 是已读位置与最后一条未读消息序号的较大值。 |
+| 服务端 → 客户端 | `message` | `room_id`、`message_id`、`sender_id`、`sequence_id`、`type`、`mentioned`、`time`。目前 `type=user`。`mentioned` 只描述当前事件接收账号，`time` 为 UTC ISO 8601，不含聊天正文。 |
+| 客户端 → 服务端 | `read` | `room_id`、`sequence_id`。到达最新消息位置且消息已展示后提交已展示的序号。服务端要求房间是该连接当前活动房间、账号仍是成员且序号属于该房间普通消息；已读位置只能前进。 |
+| 服务端 → 客户端 | `room` | 单房间状态，字段与 `snapshot.rooms` 的一项一致。已读更新后回传给该账号已订阅的连接。 |
+| 服务端 → 客户端 | `retry` | `{}`。本次未读查询或已读更新失败，客户端延迟重新同步。 |
+
+`CHAT2`、`HISTORY` 增加可选 `sequence_id`，供客户端确认哪些消息已展示。其他房间只推送通知元数据。普通成员消息（包括旧式文本消息）计入未读，自己的消息、系统/在线事件、Vivi 回复及总结分享不计入。人类 @ 使用服务端校验过的 `mentions[].type=user` 与账号 ID，目标可以在其他房间或离线，但须是发送房间的成员。客户端用每个房间的已观察序号丢弃重复通知，重连时以服务端快照为准。
+
+支持全体提及的服务端会在 `list_mine` 响应中附带 `mention_all_supported: true`。客户端从现有 `members` 结果确认房间至少有 3 名真人成员后，显示「@全体成员」。选择后沿用 `CHAT2.mentions`，发送 `type=all`、`id=all`、`name=全体成员` 和正文中的 UTF-16 `start`、`length`。纯文本里的同名词不会产生全体提醒。
+
+服务端重新核对当前房间、成员数及正文中的完整提及标识，从成员表取得发送时的接收账号，排除发送者。Vivi 不在真人成员表中，也不会因全体提及而应答。重复选择或与个人提及重叠时，同一账号仅保留一条提及记录。提醒对象和消息在同一事务提交，实时提醒继续使用 `NOTIFY.message.mentioned`，离线时由 `NOTIFY.snapshot` 恢复。全体提及无需新增迁移，依赖现有 009。历史记录保留原始正文。
+
+### 部署 009
+
+备份业务数据库并停止旧服务端，执行 [`009_message_notifications.sql`](migrations/009_message_notifications.sql)，再重启升级后的服务端及客户端。例如在仓库根目录的 Windows `cmd.exe` 运行：
+
+```cmd
+mysql --default-character-set=utf8mb4 -u root -p vchat_demo < ChatServer\migrations\009_message_notifications.sql
+```
+
+脚本为 `room_members` 添加 `last_read_sequence_id`，并新建 `chat_message_mentions`，旧消息正文和序号保持原样。迁移时以各房间当前最后一条普通消息初始化已有成员，避免旧历史被算作新未读。重复迁移保留已建立的读进度。新成员只统计加入后的消息，退出或被移除时已读位置随成员记录删除。兼容旧客户端和未迁移的服务端；回滚旧服务端时可保留这两个存储项，以免丢失已读位置和提及数据。

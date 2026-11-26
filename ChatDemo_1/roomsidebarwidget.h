@@ -2,6 +2,7 @@
 #define ROOMSIDEBARWIDGET_H
 
 #include <QFrame>
+#include <QHash>
 #include <QJsonArray>
 
 class QLabel;
@@ -17,6 +18,7 @@ public:
     void setCurrentRoom(const QString &roomId);
     void setCollapsed(bool collapsed);
     void setNotice(const QString &notice);
+    void setUnread(const QString &roomId, qint64 count, bool mentioned);
     bool isCollapsed() const { return collapsed_; }
 
 signals:
@@ -25,7 +27,11 @@ signals:
     void collapsedChanged(bool collapsed);
 
 private:
+    struct Badges { QLabel *count; QLabel *mention; };
+    void updateBadges(const QString &roomId);
     void rebuild();
+    QHash<QString, QPair<qint64, bool>> unread_;
+    QHash<QString, Badges> badges_;
     QJsonArray rooms_;
     QString currentRoom_;
     bool collapsed_ = false;

@@ -5,11 +5,33 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPainter>
+#include <QResizeEvent>
+#include <QSet>
 #include <QSvgRenderer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 namespace {
+class RoomNameLabel final : public QLabel
+{
+public:
+    RoomNameLabel(const QString &name, QWidget *parent) : QLabel(name, parent), fullName(name)
+    {
+        setTextFormat(Qt::PlainText);
+        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QLabel::resizeEvent(event);
+        setText(fontMetrics().elidedText(fullName, Qt::ElideRight, event->size().width()));
+    }
+
+private:
+    QString fullName;
+};
+
 QIcon sidebarIcon(const QString &path)
 {
     QSvgRenderer renderer(path);
@@ -113,6 +135,12 @@ RoomSidebarWidget::RoomSidebarWidget(QWidget *parent) : QFrame(parent)
 void RoomSidebarWidget::setRooms(const QJsonArray &rooms)
 {
     rooms_ = rooms;
+    QSet<QString> ids;
+    for (const auto &room : rooms) ids.insert(room.toObject().value(QStringLiteral("room_id")).toString());
+    for (auto it = unread_.begin(); it != unread_.end();) {
+        if (!ids.contains(it.key())) it = unread_.erase(it);
+        else ++it;
+    }
     rebuild();
 }
 
@@ -144,8 +172,30 @@ void RoomSidebarWidget::setNotice(const QString &notice)
     notice_->setVisible(!collapsed_ && !notice.isEmpty());
 }
 
+void RoomSidebarWidget::setUnread(const QString &roomId, qint64 count, bool mentioned)
+{
+    if (count <= 0) unread_.remove(roomId);
+    else unread_.insert(roomId, {count, mentioned});
+    updateBadges(roomId);
+}
+
+void RoomSidebarWidget::updateBadges(const QString &roomId)
+{
+    const auto it = badges_.constFind(roomId);
+    if (it == badges_.cend()) return;
+    const auto state = unread_.value(roomId);
+    it->count->setText(state.first > 99 ? QStringLiteral("99+") : QString::number(state.first));
+    it->count->setVisible(state.first > 0);
+    it->mention->setVisible(state.first > 0 && state.second);
+    if (collapsed_) {
+        QWidget *group = it->count->parentWidget();
+        group->resize(group->sizeHint());
+    }
+}
+
 void RoomSidebarWidget::rebuild()
 {
+    badges_.clear();
     list_->clear();
     for (const QJsonValue &value : rooms_) {
         const QJsonObject room = value.toObject();
@@ -169,21 +219,55 @@ void RoomSidebarWidget::rebuild()
         icon->setPixmap(sidebarIcon(QStringLiteral(":/login/room.svg")).pixmap(21, 21));
         icon->setStyleSheet(QStringLiteral("background:#eee5fc; border-radius:16px;"));
         layout->addWidget(icon);
+        QHBoxLayout *titleLine = nullptr;
         if (!collapsed_) {
             auto *texts = new QVBoxLayout;
             texts->setSpacing(2);
-            auto *nameLabel = new QLabel(name, row);
-            nameLabel->setTextFormat(Qt::PlainText);
+            auto *nameLabel = new RoomNameLabel(name, row);
             nameLabel->setStyleSheet(QStringLiteral("color:#292342; font-size:13px; font-weight:600;"));
-            texts->addWidget(nameLabel);
+            titleLine = new QHBoxLayout;
+            titleLine->setContentsMargins(0, 0, 0, 0);
+            titleLine->setSpacing(4);
+            titleLine->addWidget(nameLabel, 1);
+            texts->addLayout(titleLine);
             if (!description.isEmpty()) {
                 auto *descriptionLabel = new QLabel(description, row);
                 descriptionLabel->setTextFormat(Qt::PlainText);
+                descriptionLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
                 descriptionLabel->setStyleSheet(QStringLiteral("color:#837a9a; font-size:11px;"));
                 texts->addWidget(descriptionLabel);
             }
             layout->addLayout(texts, 1);
         }
+        auto *badgeGroup = new QWidget(row);
+        auto *badgeLayout = new QHBoxLayout(badgeGroup);
+        badgeLayout->setContentsMargins(0, 0, 0, 0);
+        badgeLayout->setSpacing(collapsed_ ? 1 : 4);
+        if (!collapsed_) badgeLayout->addStretch();
+        auto *mention = new QLabel(QStringLiteral("@"), badgeGroup);
+        auto *count = new QLabel(badgeGroup);
+        mention->setObjectName(QStringLiteral("roomUnreadMention"));
+        count->setObjectName(QStringLiteral("roomUnreadCount"));
+        for (auto *badge : {mention, count}) {
+            badge->setAlignment(Qt::AlignCenter);
+            badge->setFixedHeight(collapsed_ ? 14 : 20);
+            badge->setMinimumWidth(collapsed_ ? 12 : 20);
+            badgeLayout->addWidget(badge);
+        }
+        mention->setStyleSheet(collapsed_
+            ? QStringLiteral("color:white; background:#7c4ed4; border-radius:7px; font-size:9px;")
+            : QStringLiteral("color:#7342c5; background:#eee1ff; border-radius:10px; font-size:12px; font-weight:700;"));
+        count->setStyleSheet(collapsed_
+            ? QStringLiteral("color:white; background:#8156d5; border-radius:7px; font-size:9px; padding:0 2px;")
+            : QStringLiteral("color:white; background:#8156d5; border-radius:10px; font-size:11px; font-weight:700; padding:0 5px;"));
+        if (collapsed_) badgeGroup->move(0, 33);
+        else {
+            badgeGroup->setFixedWidth(58);
+            badgeGroup->setFixedHeight(20);
+            titleLine->addWidget(badgeGroup);
+        }
+        badges_.insert(id, {count, mention});
+        updateBadges(id);
         list_->setItemWidget(item, row);
     }
     setCurrentRoom(currentRoom_);
