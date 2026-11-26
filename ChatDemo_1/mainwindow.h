@@ -260,6 +260,14 @@ private:
     bool initialHistoryDone = false;
     bool roomHasMessages = false;
     bool roomHistoryLoadFailed = false;
+    bool scopedHistorySupported = false;
+    bool regenerateByMessage = false;
+    bool historyAccepted = false;
+    bool applyingRoomHistory = false;
+    QString historyRequestId;
+    QList<QJsonObject> stagedRoomHistory;
+    QStringList deferredRoomFrames;
+    quint64 messageViewGeneration = 0;
     RoomMessagePlaceholder *roomMessagePlaceholder = nullptr;
     struct UnreadState {
         qint64 count = 0;
@@ -320,6 +328,9 @@ private:
     void handleRoomNotice(const QJsonObject &notice);
     void handleRoomResult(const QJsonObject &result);
     void clearMessageView();
+    void appendHistoryItem(const QJsonObject &item);
+    void finishRoomHistory(bool ok, const QString &error = {});
+    void resetHistoryRequest();
     void updateRoomMessagePlaceholder();
     void noteRoomMessage();
     void updateRoomTitle();

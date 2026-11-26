@@ -105,6 +105,7 @@ bool AiRoom::addUserMessage(qint64 accountId, const QString &nickname, const QSt
         {}, {}, {}, requestId});
     streamOrder.enqueue(requestId);
     latestRequestIds.insert(requestId, requestId);
+    originalIdsByMessage.insert(streams.value(requestId).messageId, requestId);
     broadcast(QStringLiteral("stream_start"), requestId, {});
     broadcast(QStringLiteral("thinking"), requestId, QStringLiteral("Vivi 正在思考…"));
     const HistoryMessage question{sequenceId, replyToMessageId, QStringLiteral("user"), formatted};
@@ -167,14 +168,42 @@ bool AiRoom::addUserMessage(qint64 accountId, const QString &nickname, const QSt
 
 bool AiRoom::regenerate(quint64 originalId, qint64 accountId)
 {
-    if ((activeReplies.size() >= maxActive && pending.size() >= maxPending) ||
-        !requestContexts.contains(originalId) || !latestRequestIds.contains(originalId) ||
-        regenerating.contains(originalId) ||
-        requestTargets.value(originalId).accountId != accountId) return false;
+    const QString messageId = regeneratableMessageId(originalId, accountId);
+    if (messageId.isEmpty() || !requestContexts.contains(originalId)) return false;
+    return regenerate({requestTargets.value(originalId), messageId, {}, {}});
+}
+
+bool AiRoom::regenerate(const PersistedReply &reply)
+{
+    if (reply.messageId.isEmpty() || reply.target.accountId <= 0 ||
+        activeReplies.size() + pending.size() + loadingRequests.size() >= maxActive + maxPending)
+        return false;
+    quint64 originalId = originalIdsByMessage.value(reply.messageId);
+    const bool needsHistory = !requestContexts.contains(originalId);
+    if (needsHistory && (!historyLoader || reply.question.sequenceId <= 0)) return false;
+    if (!originalId) {
+        // Allocate fresh runtime IDs. Persisted numeric request IDs can be
+        // reused by a different message after a server restart.
+        originalId = nextId++;
+        StreamInfo saved;
+        saved.target = reply.target;
+        saved.messageId = reply.messageId;
+        saved.generationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        saved.replyToMessageId = reply.question.messageId;
+        saved.content = reply.content;
+        saved.originalId = originalId;
+        saved.finished = true;
+        saved.state = State::Completed;
+        streams.insert(originalId, saved);
+        requestTargets.insert(originalId, saved.target);
+        latestRequestIds.insert(originalId, originalId);
+        originalIdsByMessage.insert(reply.messageId, originalId);
+        streamOrder.enqueue(originalId);
+    }
+    if (regeneratableMessageId(originalId, reply.target.accountId) != reply.messageId) return false;
     const quint64 previousId = latestRequestIds.value(originalId);
     const StreamInfo previous = streams.value(previousId);
-    if (!previous.finished || !previous.error.isEmpty() || previous.content.isEmpty()) return false;
-    const Pending request{nextId++, requestTargets.value(originalId), {}, requestContexts.value(originalId),
+    Pending request{nextId++, previous.target, {}, requestContexts.value(originalId),
                           previous.replyToMessageId, originalId};
     requestTargets.insert(request.id, request.target);
     streams.insert(request.id, {request.target,
@@ -182,22 +211,45 @@ bool AiRoom::regenerate(quint64 originalId, qint64 accountId)
         request.replyToMessageId, {}, {}, previous.content, originalId, previousId});
     latestRequestIds.insert(originalId, request.id);
     regenerating.insert(originalId);
-    pending.enqueue(request);
+    if (needsHistory) loadingRequests.insert(request.id);
+    else pending.enqueue(request);
     broadcast(QStringLiteral("stream_start"), request.id, {});
-    startNext();
+    if (needsHistory) {
+        const HistoryMessage question = reply.question;
+        historyLoader(question.sequenceId, contextMessageLimit + 1,
+            [this, request, question](HistoryResult loaded) mutable {
+                if (!loadingRequests.remove(request.id)) return;
+                auto &info = streams[request.id];
+                if (!loaded.error.isEmpty()) {
+                    qWarning() << "AI regeneration history load failed:" << loaded.error;
+                    info.finished = true;
+                    info.state = State::Failed;
+                    info.error = QStringLiteral("Vivi 无法读取原提问的上下文，请稍后重试。");
+                    abandonRegeneration(info);
+                    broadcast(QStringLiteral("stream_error"), request.id, info.error);
+                    return;
+                }
+                request.context = makeContext(loaded.messages, question);
+                requestContexts.insert(request.originalId, request.context);
+                pending.enqueue(request);
+                startNext();
+            });
+    } else startNext();
     return true;
 }
 
-bool AiRoom::canRegenerate(quint64 originalId, qint64 accountId,
-                           const QString &messageId) const
+QString AiRoom::regeneratableMessageId(quint64 originalId, qint64 accountId) const
 {
-    if (!originalId || accountId <= 0 || messageId.isEmpty() ||
-        !requestContexts.contains(originalId) || !latestRequestIds.contains(originalId) ||
-        regenerating.contains(originalId) ||
-        requestTargets.value(originalId).accountId != accountId) return false;
+    if (!originalId || accountId <= 0 || regenerating.contains(originalId)) return {};
     const StreamInfo previous = streams.value(latestRequestIds.value(originalId));
-    return previous.messageId == messageId && previous.finished &&
-        previous.error.isEmpty() && !previous.content.isEmpty();
+    return previous.target.accountId == accountId && previous.finished &&
+        previous.error.isEmpty() && !previous.content.trimmed().isEmpty() ? previous.messageId : QString();
+}
+
+void AiRoom::abandonRegeneration(const StreamInfo &info)
+{
+    latestRequestIds.insert(info.originalId, info.previousRequestId);
+    regenerating.remove(info.originalId);
 }
 
 bool AiRoom::cancel(quint64 requestId, qint64 accountId)
@@ -209,8 +261,9 @@ bool AiRoom::cancel(quint64 requestId, qint64 accountId)
         info.finished = true;
         info.state = State::Cancelled;
         info.error = QStringLiteral("已取消 Vivi 生成。");
+        if (info.previousRequestId) abandonRegeneration(info);
         broadcast(QStringLiteral("stream_error"), requestId, info.error);
-        broadcast(QStringLiteral("error"), requestId, info.error);
+        if (!info.previousRequestId) broadcast(QStringLiteral("error"), requestId, info.error);
         return true;
     }
     if (activeReplies.contains(requestId)) {
@@ -227,8 +280,7 @@ bool AiRoom::cancel(quint64 requestId, qint64 accountId)
         info.error = QStringLiteral("已取消 Vivi 生成。");
         broadcast(QStringLiteral("stream_error"), requestId, info.error);
         if (info.originalId != requestId) {
-            latestRequestIds.insert(info.originalId, info.previousRequestId);
-            regenerating.remove(info.originalId);
+            abandonRegeneration(info);
         } else broadcast(QStringLiteral("error"), requestId, info.error);
         startNext();
         return true;
@@ -334,13 +386,13 @@ void AiRoom::startNext()
             if (request.originalId == 0) broadcast(QStringLiteral("error"), request.id, finalError);
             else {
                 // A failed generation never becomes the room's current answer.
-                latestRequestIds.insert(request.originalId, info.previousRequestId);
-                regenerating.remove(request.originalId);
+                abandonRegeneration(info);
             }
         }
         while (streamOrder.size() > 30 && streams.value(latestRequestIds.value(streamOrder.head())).finished) {
             const quint64 oldId = streamOrder.dequeue();
             const QString oldMessageId = streams.value(oldId).messageId;
+            originalIdsByMessage.remove(oldMessageId);
             for (auto it = streams.begin(); it != streams.end();) {
                 if (it.value().messageId == oldMessageId) {
                     requestTargets.remove(it.key());

@@ -47,7 +47,11 @@ ROOM|result|<base64(UTF-8 JSON object)>\n
 
 `room_type` 复用原有房间可见性字段，旧房间的类型不变。新增权限默认全部关闭，房主始终有管理权。`join_policy=approval` 的申请与审核业务尚未实现：客户端禁用该选项，服务端拒绝保存，`join_public` 只接受 `direct`，不允许通过伪造协议绕过审核。公开房间发现页面仍待开发。
 
-普通 `CHAT2`、`AI_CANCEL`、`AI_REGENERATE` 始终作用于服务器记录的**当前活动房间**，不信任请求中的 `room_id`。普通消息和 AI 流事件只广播给当前活动在同一房间的连接。不同房间使用独立 `AiRoom` 上下文及不同的数值请求 ID 区间。实时 `CHAT2`、历史帧和 AI 流事件均包含 `room_id`；客户端切换后以该字段过滤历史和实时消息。`switch` 成功响应后，服务端直接调用与 `history` 操作相同的历史查询，依序发送历史、AI 快照和在线列表；客户端串行处理切换请求，避免快速点击时旧响应覆盖新房间。
+普通 `CHAT2`、`AI_CANCEL`、`AI_REGENERATE` 始终作用于服务器记录的**当前活动房间**，不信任请求中的 `room_id`。普通消息和 AI 流事件只广播给当前活动在同一房间的连接。不同房间使用独立 `AiRoom` 上下文。实时 `CHAT2`、历史帧和 AI 流事件均包含 `room_id`。
+
+`list_mine` 返回 `scoped_history_supported: true` 时，客户端可在每次 `switch` 请求中提交 `scoped_history: true` 和唯一的 UUID `request_id`。成功响应确认房间、请求 ID 和 `scoped_history: true`。服务端在独立线程上读取历史，并在回传前检查连接、账号、房间、成员权限及请求是否仍有效。每条 `HISTORY` 携带 `request_id`，恢复中的 Vivi 流快照携带 `history_request_id`，结尾为 `HISTORY_DONE|<Base64 UTF-8 JSON>`，字段为 `room_id`、`request_id`、`ok` 和 `error`。新切房请求取代尚未完成的旧加载。客户端按房间和请求 ID 暂存并提交历史，同批合并加载期间的实时消息。旧客户端仍使用 `HISTORY_END`。
+
+`ai_regenerate_by_message: true` 表示支持 `AI_REGENERATE|<AI 消息 UUID>`。服务端用登录账号核对当前房间的已完成 AI 回复及关联的原始提问。若对应请求上下文已不在内存，则按原问题的消息序号从 MySQL 恢复上下文。重新生成成功后更新原回复正文。兼容的旧数字请求只能按当前进程的请求记录定位，旧式历史帧额外提供 `can_regenerate_by_message` 表示按 UUID 的权限。
 
 ## 迁移与回滚
 

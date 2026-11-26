@@ -28,6 +28,12 @@ public:
         QList<HistoryMessage> messages;
         QString error;
     };
+    struct PersistedReply {
+        ReplyTarget target;
+        QString messageId;
+        QString content;
+        HistoryMessage question;
+    };
     using HistoryLoader = std::function<void(qint64, int, std::function<void(HistoryResult)>)>;
     explicit AiRoom(AiService *service, Broadcast broadcast, QObject *parent = nullptr,
                     int maxConcurrent = 3, int maxQueued = 12, int timeoutMs = 90000,
@@ -35,9 +41,9 @@ public:
     bool addUserMessage(qint64 accountId, const QString &nickname, const QString &content,
                         bool askVivi, const QString &replyToMessageId = {},
                         qint64 sequenceId = 0, const QString &messageTime = {});
+    bool regenerate(const PersistedReply &reply);
     bool regenerate(quint64 originalId, qint64 accountId);
-    bool canRegenerate(quint64 originalId, qint64 accountId,
-                       const QString &messageId) const;
+    QString regeneratableMessageId(quint64 originalId, qint64 accountId) const;
     bool cancel(quint64 requestId, qint64 accountId);
     void cancelAll();
     ReplyTarget replyTarget(quint64 requestId) const { return requestTargets.value(requestId); }
@@ -73,6 +79,7 @@ private:
         State state = State::Pending;
     };
     void startNext();
+    void abandonRegeneration(const StreamInfo &info);
     static QString stateName(State state);
     void appendHistory(const QString &role, const QString &content, const QString &messageId = {},
                        qint64 sequenceId = 0);
@@ -91,6 +98,7 @@ private:
     QHash<quint64, StreamInfo> streams;
     QQueue<quint64> streamOrder;
     QHash<quint64, quint64> latestRequestIds;
+    QHash<QString, quint64> originalIdsByMessage;
     QSet<quint64> regenerating;
     QHash<quint64, QPointer<QNetworkReply>> activeReplies;
     QHash<quint64, QPointer<QTimer>> activeTimers;

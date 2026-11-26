@@ -13,6 +13,7 @@
 #include <QScrollBar>
 #include <QShowEvent>
 #include <QSizePolicy>
+#include <QStyle>
 #include <QSyntaxHighlighter>
 #include <QTextBrowser>
 #include <QTextBlock>
@@ -29,6 +30,13 @@
 #include <QVBoxLayout>
 
 namespace {
+int scrollBarSpace(const QScrollBar *bar)
+{
+    if (bar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, nullptr, bar) > 0)
+        return 0;
+    return bar->orientation() == Qt::Vertical ? bar->sizeHint().width() : bar->sizeHint().height();
+}
+
 // QTextBrowser must never resolve an image or another resource named by AI text.
 class SafeMarkdownBrowser final : public QTextBrowser
 {
@@ -335,10 +343,37 @@ AiMarkdownWidget::AiMarkdownWidget(const QString &markdown, QWidget *parent, boo
         mono.setPixelSize(13);
         editor->setFont(mono);
         editor->setStyleSheet("QPlainTextEdit { background:transparent; color:#30234e; border:0; padding:0; }");
-        editor->setFixedHeight(qMax(42,
-            editor->document()->blockCount() * editor->fontMetrics().lineSpacing() + 8));
         new CodeHighlighter(editor->document(), language);
         box->addWidget(editor);
+        CodeBlock block{editor};
+        if (compactLayout) {
+            editor->setFixedHeight(qMax(42,
+                editor->document()->blockCount() * editor->fontMetrics().lineSpacing() + 8));
+        } else {
+            editor->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+            editor->ensurePolished();
+            constexpr int visibleCodeLines = 20;
+            QTextDocument *document = editor->document();
+            auto *documentLayout = document->documentLayout();
+            block.limitedHeight = document->blockCount() > visibleCodeLines;
+            // Full-height blocks fit all rows. A premature vertical bar on a
+            // hidden editor would steal width and make both bars stick.
+            if (block.limitedHeight) editor->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            // The last block already includes the bottom document margin.
+            qreal height = document->documentMargin();
+            if (block.limitedHeight) height += document->documentMargin();
+            for (QTextBlock line = document->begin(); line.isValid(); line = line.next()) {
+                const QRectF bounds = documentLayout->blockBoundingRect(line);
+                if (line.blockNumber() < visibleCodeLines) height += bounds.height();
+                const QTextLayout *textLayout = line.layout();
+                for (int i = 0; i < textLayout->lineCount(); ++i)
+                    block.textWidth = qMax(block.textWidth, textLayout->lineAt(i).naturalTextWidth());
+            }
+            block.textWidth += 2 * document->documentMargin();
+            // QPlainTextEdit reserves one logical pixel in its vertical fit check.
+            block.viewportHeight = qCeil(height) + 1;
+        }
+        codeBlocks.append(block);
         connect(copy, &QPushButton::clicked, this, [displayCode]() {
             QGuiApplication::clipboard()->setText(displayCode);
         });
@@ -389,14 +424,22 @@ int AiMarkdownWidget::naturalContentWidth() const
         width = qMax(width, proseNaturalWidths.value(i)
             + browser->width() - browser->viewport()->width());
     }
-    for (QFrame *panel : findChildren<QFrame *>(QString(), Qt::FindDirectChildrenOnly)) {
-        auto *editor = panel->findChild<QPlainTextEdit *>();
-        if (!editor) continue;
-        const QFontMetrics metrics(editor->font());
-        for (const QString &line : editor->toPlainText().split(QLatin1Char('\n')))
-            width = qMax(width, metrics.horizontalAdvance(line) +
-                panel->layout()->contentsMargins().left() +
-                panel->layout()->contentsMargins().right());
+    for (const auto &code : codeBlocks) {
+        const auto *editor = code.editor;
+        const auto *panel = editor->parentWidget();
+        const QMargins layoutInsets = panel->layout()->contentsMargins();
+        if (compactLayout) {
+            const QFontMetrics metrics(editor->font());
+            for (const QString &line : editor->toPlainText().split(QLatin1Char('\n')))
+                width = qMax(width, metrics.horizontalAdvance(line) + layoutInsets.left() + layoutInsets.right());
+            continue;
+        }
+        const int scrollbar = code.limitedHeight ? scrollBarSpace(editor->verticalScrollBar()) : 0;
+        const QMargins editorInsets = editor->contentsMargins();
+        const QMargins panelInsets = panel->contentsMargins() + layoutInsets;
+        const int editorWidth = qCeil(code.textWidth) + scrollbar + editorInsets.left() + editorInsets.right();
+        const int headerWidth = panel->layout()->itemAt(0)->minimumSize().width();
+        width = qMax(width, qMax(editorWidth, headerWidth) + panelInsets.left() + panelInsets.right());
     }
     return qMax(1, width);
 }
@@ -439,8 +482,19 @@ void AiMarkdownWidget::setContentWidth(int width, bool force)
         if (isVisible()) renderedBody->show();
         renderedBody->setContentWidth(width);
     }
-    const auto panels = findChildren<QFrame *>(QString(), Qt::FindDirectChildrenOnly);
-    for (QFrame *panel : panels) panel->setFixedWidth(width);
+    for (const auto &code : codeBlocks) {
+        auto *editor = code.editor;
+        auto *panel = editor->parentWidget();
+        panel->setFixedWidth(width);
+        if (compactLayout) continue;
+        const QMargins editorInsets = editor->contentsMargins();
+        const QMargins insets = panel->contentsMargins() + panel->layout()->contentsMargins() + editorInsets;
+        const int verticalBar = code.limitedHeight ? scrollBarSpace(editor->verticalScrollBar()) : 0;
+        const int viewportWidth = qMax(1, width - insets.left() - insets.right() - verticalBar);
+        const int horizontalBar = qFloor(code.textWidth) > viewportWidth
+            ? scrollBarSpace(editor->horizontalScrollBar()) : 0;
+        editor->setFixedHeight(code.viewportHeight + editorInsets.top() + editorInsets.bottom() + horizontalBar);
+    }
     layout()->invalidate();
     layout()->activate();
     for (QTextBrowser *browser : proseBlocks) {
@@ -458,27 +512,24 @@ void AiMarkdownWidget::setContentWidth(int width, bool force)
             browser->resize(width, needed);
         }
     }
-    for (QFrame *panel : panels) {
-        auto *editor = panel->findChild<QPlainTextEdit *>();
-        if (!editor) continue;
-        panel->layout()->invalidate();
-        panel->layout()->activate();
-        for (int pass = 0; pass < 3; ++pass) {
-            const int chrome = editor->height() - editor->viewport()->height();
-            // QPlainTextDocumentLayout::documentSize() reports only its
-            // margin here, even when there are many unwrapped code lines.
-            const int linesHeight = editor->document()->blockCount()
-                * editor->fontMetrics().lineSpacing();
-            const int needed = qMax(42, linesHeight + chrome
-                + qCeil(editor->document()->documentMargin() * 2) + 4);
-            if (editor->height() < needed) editor->setFixedHeight(needed);
+    // The summary panel keeps its existing compact Markdown layout.
+    if (compactLayout) {
+        for (const auto &code : codeBlocks) {
+            auto *editor = code.editor;
+            auto *panel = editor->parentWidget();
             panel->layout()->invalidate();
             panel->layout()->activate();
-            if (editor->verticalScrollBar()->maximum() == 0) break;
-            // QPlainTextEdit's layout can reserve an extra baseline even
-            // without a trailing blank block; grow only when it actually
-            // reports clipped lines.
-            editor->setFixedHeight(editor->height() + editor->fontMetrics().lineSpacing());
+            for (int pass = 0; pass < 3; ++pass) {
+                const int chrome = editor->height() - editor->viewport()->height();
+                const int linesHeight = editor->document()->blockCount() * editor->fontMetrics().lineSpacing();
+                const int needed = qMax(42, linesHeight + chrome
+                    + qCeil(editor->document()->documentMargin() * 2) + 4);
+                if (editor->height() < needed) editor->setFixedHeight(needed);
+                panel->layout()->invalidate();
+                panel->layout()->activate();
+                if (editor->verticalScrollBar()->maximum() == 0) break;
+                editor->setFixedHeight(editor->height() + editor->fontMetrics().lineSpacing());
+            }
         }
     }
     layout()->invalidate();

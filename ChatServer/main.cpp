@@ -31,9 +31,12 @@
 #include <QStringList>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QThreadPool>
 #include <QUuid>
 #include <QtConcurrent>
 #include <limits>
+#include <atomic>
+#include <memory>
 
 namespace {
 // 服务器监听端口。客户端连接服务器时填写：服务器IP:8080。
@@ -297,7 +300,19 @@ bool saveAiHistory(const QString &roomId, const QJsonObject &event)
     const bool regeneration = event.value(QStringLiteral("regeneration")).toBool();
     // Regeneration keeps the previous persisted answer until a replacement
     // succeeds. Its message_id and sequence_id must never change.
-    if (regeneration && kind != QStringLiteral("ai_complete")) return true;
+    if (regeneration) {
+        if (kind != QStringLiteral("ai_complete")) return true;
+        QSqlQuery update;
+        update.prepare(QStringLiteral("UPDATE chat_history SET content=? WHERE room_id=? AND message_id=? "
+            "AND sender_id=? AND message_type='ai' AND ai_state='completed'"));
+        update.addBindValue(event.value(QStringLiteral("full_text")).toString());
+        update.addBindValue(roomId);
+        update.addBindValue(event.value(QStringLiteral("message_id")).toString());
+        update.addBindValue(event.value(QStringLiteral("user_id")).toString().toLongLong());
+        if (update.exec()) return true;
+        qWarning() << "Regenerated answer update failed:" << update.lastError().text();
+        return false;
+    }
     // A default-constructed QString is null and QMYSQL binds it as SQL NULL.
     // chat_history.content is NOT NULL even for an in-progress AI row.
     QString content = QStringLiteral("");
@@ -339,34 +354,50 @@ bool saveAiHistory(const QString &roomId, const QJsonObject &event)
     return false;
 }
 
-bool hasRegeneratableHistory(const QString &roomId, quint64 originalId,
-                             qint64 accountId, const AiRoom *room)
+AiRoom::PersistedReply readRegenerationTarget(const QString &roomId, const QString &messageId, qint64 accountId)
 {
-    if (!room || originalId == 0 || accountId <= 0) return false;
+    if (messageId.isEmpty() || accountId <= 0) return {};
     QSqlQuery query;
     query.prepare(QStringLiteral(
-        "SELECT message_id FROM chat_history WHERE room_id=? AND original_request_id=? "
-        "AND sender_id=? AND message_type='ai' AND ai_state='completed'"));
+        "SELECT h.content,q.sequence_id,q.message_id,q.sender_name,q.content,q.created_at "
+        "FROM chat_history h JOIN chat_history q ON q.message_id=h.reply_to_message_id "
+        "AND q.room_id=h.room_id AND q.message_type='user' AND q.sender_id=h.sender_id "
+        "WHERE h.room_id=? AND h.message_id=? AND h.sender_id=? "
+        "AND h.message_type='ai' AND h.ai_state='completed' AND TRIM(h.content)<>'' "
+        "AND (h.visibility='team' OR h.recipient_user_id=?) "
+        "AND (q.visibility='team' OR q.recipient_user_id=?)"));
     query.addBindValue(roomId);
-    query.addBindValue(static_cast<qlonglong>(originalId));
+    query.addBindValue(messageId);
+    query.addBindValue(accountId);
+    query.addBindValue(accountId);
     query.addBindValue(accountId);
     if (!query.exec()) {
         qWarning() << "AI regeneration ownership lookup failed:" << query.lastError().text();
-        return false;
+        return {};
     }
-    while (query.next())
-        if (room->canRegenerate(originalId, accountId, query.value(0).toString())) return true;
-    return false;
+    if (!query.next()) return {};
+    const qint64 sequence = query.value(1).toLongLong();
+    const QString nickname = query.value(3).toString();
+    return {{accountId, nickname}, messageId, query.value(0).toString(),
+        {sequence, query.value(2).toString(), QStringLiteral("user"),
+         AiRoom::memberContent(accountId, nickname, query.value(4).toString(),
+                               storedMessageTime(query.value(5)), sequence)}};
 }
 
-bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, AiRoom *aiRoom)
+struct RoomHistoryResult {
+    QList<QJsonObject> messages;
+    QString error;
+};
+
+RoomHistoryResult readRoomHistory(const QSqlDatabase &db, qint64 accountId, const QString &roomId)
 {
-    if (!RoomStore::isMember(roomId, accountId)) return false;
-    QSqlQuery query;
+    RoomHistoryResult result;
+    QSqlQuery query(db);
     query.prepare(QStringLiteral(
         "SELECT h.message_id,h.sender_id,h.sender_name,h.message_type,h.content,"
-        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state,h.original_request_id,h.sequence_id "
+        "h.reply_to_message_id,h.created_at,q.sender_name,h.ai_state,h.original_request_id,h.sequence_id,q.sender_id "
         "FROM chat_history h LEFT JOIN chat_history q ON q.message_id=h.reply_to_message_id "
+        "AND q.room_id=h.room_id AND q.message_type='user' AND (q.visibility='team' OR q.recipient_user_id=?) "
         "WHERE h.room_id=? AND (h.visibility='team' OR "
         "(h.visibility='personal' AND h.recipient_user_id=?)) "
         // Older AI rows were inserted at completion. Anchor them to their
@@ -374,11 +405,12 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, Ai
         "ORDER BY COALESCE(q.sequence_id,h.sequence_id), "
         "CASE WHEN h.message_type='ai' AND q.sequence_id IS NOT NULL THEN 1 ELSE 0 END, "
         "h.sequence_id"));
+    query.addBindValue(accountId);
     query.addBindValue(roomId);
     query.addBindValue(accountId);
     if (!query.exec()) {
-        qWarning() << "History read failed:" << query.lastError().text();
-        return false;
+        result.error = query.lastError().text();
+        return result;
     }
     while (query.next()) {
         const QJsonObject item{{QStringLiteral("room_id"), roomId},
@@ -393,15 +425,62 @@ bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, Ai
             {QStringLiteral("ai_state"), query.value(8).toString()},
             {QStringLiteral("original_request_id"), query.value(9).toString()},
             {QStringLiteral("sequence_id"), query.value(10).toString()},
-            {QStringLiteral("can_regenerate"), aiRoom &&
+            {QStringLiteral("can_regenerate"), accountId > 0 &&
                 query.value(3).toString() == QStringLiteral("ai") &&
-                aiRoom->canRegenerate(query.value(9).toULongLong(), accountId,
-                                      query.value(0).toString())}};
-        sendLine(client, QStringLiteral("HISTORY|%1").arg(QString::fromLatin1(
-            QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64())));
+                query.value(8).toString() == QStringLiteral("completed") &&
+                query.value(1).toLongLong() == accountId && query.value(11).toLongLong() == accountId &&
+                !query.value(4).toString().trimmed().isEmpty()}};
+        result.messages.append(item);
+    }
+    if (query.lastError().isValid()) result.error = query.lastError().text();
+    return result;
+}
+
+void sendHistoryRow(QTcpSocket *client, const QJsonObject &item)
+{
+    sendLine(client, QStringLiteral("HISTORY|%1").arg(QString::fromLatin1(
+        QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64())));
+}
+
+bool sendHistory(QTcpSocket *client, qint64 accountId, const QString &roomId, const AiRoom *room)
+{
+    if (!RoomStore::isMember(roomId, accountId)) return false;
+    const RoomHistoryResult history = readRoomHistory(QSqlDatabase::database(), accountId, roomId);
+    if (!history.error.isEmpty()) {
+        qWarning() << "History read failed:" << history.error;
+        return false;
+    }
+    for (QJsonObject item : history.messages) {
+        if (item.value(QStringLiteral("type")) == QStringLiteral("ai")) {
+            const bool eligible = item.value(QStringLiteral("can_regenerate")).toBool();
+            item.insert(QStringLiteral("can_regenerate_by_message"), eligible);
+            const quint64 id = item.value(QStringLiteral("original_request_id")).toString().toULongLong();
+            item.insert(QStringLiteral("can_regenerate"), eligible &&
+                room->regeneratableMessageId(id, accountId) == item.value(QStringLiteral("message_id")).toString());
+        }
+        sendHistoryRow(client, item);
     }
     sendLine(client, QStringLiteral("HISTORY_END"));
     return true;
+}
+
+RoomHistoryResult readRoomHistoryOnWorker(const QString &databaseName, qint64 accountId, const QString &roomId)
+{
+    const QString connectionName = QStringLiteral("room-history-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    RoomHistoryResult result;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QMYSQL"), connectionName);
+        db.setHostName(kDbHost);
+        db.setPort(kDbPort);
+        db.setDatabaseName(databaseName);
+        db.setUserName(kDbUser);
+        db.setPassword(kDbPassword);
+        db.setConnectOptions(QStringLiteral("MYSQL_OPT_CONNECT_TIMEOUT=5;MYSQL_OPT_READ_TIMEOUT=5"));
+        if (db.open()) result = readRoomHistory(db, accountId, roomId);
+        else result.error = db.lastError().text();
+    }
+    QSqlDatabase::removeDatabase(connectionName);
+    return result;
 }
 
 // 查询 users 表，检查账号密码是否正确。
@@ -678,6 +757,57 @@ int main(int argc, char *argv[])
     // snapshot and writes one separate room message to chat_history.
     QHash<QTcpSocket *, SummaryJob> summaryJobs;
     QHash<QTcpSocket *, CompletedSummary> completedSummaries;
+    QThreadPool roomHistoryPool;
+    roomHistoryPool.setMaxThreadCount(4);
+    using HistoryCancel = std::shared_ptr<std::atomic_bool>;
+    QHash<QTcpSocket *, HistoryCancel> roomHistoryJobs;
+    auto cancelRoomHistory = [&roomHistoryJobs](QTcpSocket *client) {
+        if (const auto job = roomHistoryJobs.take(client)) job->store(true);
+    };
+    auto startRoomHistory = [&](QTcpSocket *client, qint64 actor, const QString &roomId, const QString &requestId) {
+        cancelRoomHistory(client);
+        const auto cancelled = std::make_shared<std::atomic_bool>(false);
+        roomHistoryJobs.insert(client, cancelled);
+        const QPointer<QTcpSocket> peer(client);
+        const QString databaseName = QSqlDatabase::database().databaseName();
+        auto *watcher = new QFutureWatcher<RoomHistoryResult>(&app);
+        QObject::connect(watcher, &QFutureWatcher<RoomHistoryResult>::finished, &app,
+            [&, watcher, peer, actor, roomId, requestId, cancelled] {
+                watcher->deleteLater();
+                if (!peer || cancelled->load() || roomHistoryJobs.value(peer) != cancelled) return;
+                roomHistoryJobs.remove(peer);
+                if (peer->state() != QAbstractSocket::ConnectedState ||
+                    onlineUserIds.value(peer) != actor || activeRooms.value(peer) != roomId) return;
+                const RoomHistoryResult history = watcher->result();
+                const bool allowed = RoomStore::isMember(roomId, actor);
+                const bool ok = allowed && history.error.isEmpty();
+                if (!history.error.isEmpty()) qWarning() << "Room history load failed:" << history.error;
+                if (ok) {
+                    for (QJsonObject item : history.messages) {
+                        item.insert(QStringLiteral("request_id"), requestId);
+                        sendHistoryRow(peer, item);
+                    }
+                    // Resume only unfinished streams; completed replies are in MySQL.
+                    for (QJsonObject event : roomFor(roomId)->snapshots()) {
+                        if (event.value(QStringLiteral("event")) != QStringLiteral("ai_start")) continue;
+                        event.insert(QStringLiteral("room_id"), roomId);
+                        event.insert(QStringLiteral("history_request_id"), requestId);
+                        sendLine(peer, QStringLiteral("AI|stream|%1|%2")
+                            .arg(event.value(QStringLiteral("request_id")).toString(),
+                                 QString::fromLatin1(QJsonDocument(event).toJson(QJsonDocument::Compact).toBase64())));
+                    }
+                }
+                const QJsonObject done{{QStringLiteral("room_id"), roomId},
+                    {QStringLiteral("request_id"), requestId}, {QStringLiteral("ok"), ok},
+                    {QStringLiteral("error"), ok ? QString() : allowed ? QStringLiteral("历史消息读取失败")
+                                                                      : QStringLiteral("已无权读取聊天室历史")}};
+                sendLine(peer, QStringLiteral("HISTORY_DONE|%1").arg(QString::fromLatin1(
+                    QJsonDocument(done).toJson(QJsonDocument::Compact).toBase64())));
+            });
+        watcher->setFuture(QtConcurrent::run(&roomHistoryPool, [databaseName, actor, roomId, cancelled] {
+            return cancelled->load() ? RoomHistoryResult{} : readRoomHistoryOnWorker(databaseName, actor, roomId);
+        }));
+    };
     auto sendSummaryEvent = [](QTcpSocket *client, const QString &requestId,
                                const QString &roomId, const QString &event, QJsonObject details = {}) {
         if (!client || client->state() != QAbstractSocket::ConnectedState) return;
@@ -747,7 +877,7 @@ int main(int argc, char *argv[])
                 &broadcastUserList, &roomFor, &aiRooms, &aiStates, &idleAiState, &activeRooms,
                 &summaryJobs, &completedSummaries, &sendSummaryEvent, &cancelSummary, &aiService, &app,
                 &notificationPeers, notificationsAvailable, &sendNotification, &publishNotification,
-                &notifyActiveRoomMembersChanged]() {
+                &notifyActiveRoomMembersChanged, &cancelRoomHistory, &startRoomHistory]() {
                 // TCP 数据不一定一次收到完整一行，所以先放进该客户端自己的缓存。
                 QByteArray &buffer = buffers[client];
                 buffer.append(client->readAll());
@@ -863,6 +993,7 @@ int main(int argc, char *argv[])
                             completedSummaries.remove(client);
                         }
 
+                        cancelRoomHistory(client);
                         onlineUsers[client] = nickname;
                         onlineUserIds[client] = accountId;
                         activeRooms[client] = QString::fromLatin1(RoomStore::LobbyId);
@@ -949,6 +1080,8 @@ int main(int argc, char *argv[])
                             const QJsonArray rooms = RoomStore::myRooms(actor, &error);
                             if (error.isEmpty()) {
                                 reply.insert(QStringLiteral("rooms"), rooms);
+                                reply.insert(QStringLiteral("scoped_history_supported"), true);
+                                reply.insert(QStringLiteral("ai_regenerate_by_message"), true);
                                 if (notificationsAvailable) {
                                     reply.insert(QStringLiteral("notifications_supported"), true);
                                     reply.insert(QStringLiteral("mention_all_supported"), true);
@@ -1193,21 +1326,28 @@ int main(int argc, char *argv[])
                                 continue;
                             } else error = QStringLiteral("无权读取聊天室历史");
                         } else if (action == QStringLiteral("switch")) {
+                            reply.insert(QStringLiteral("room_id"), roomId);
+                            reply.insert(QStringLiteral("active_room_id"), activeRooms.value(client));
                             if (RoomStore::isMember(roomId, actor)) {
+                                const QString requestId = args.value(QStringLiteral("request_id")).toString();
+                                const bool scoped = args.value(QStringLiteral("scoped_history")).toBool() &&
+                                    requestId.size() == 36 && !QUuid(requestId).isNull();
                                 if (activeRooms.value(client) != roomId) {
                                     cancelSummary(client);
                                     completedSummaries.remove(client);
                                 }
                                 activeRooms[client] = roomId;
-                                reply.insert(QStringLiteral("room_id"), roomId);
                                 reply.insert(QStringLiteral("ok"), true);
+                                if (scoped) reply.insert(QStringLiteral("scoped_history"), true);
                                 respond();
-                                if (!sendHistory(client, actor, roomId, roomFor(roomId)))
+                                cancelRoomHistory(client);
+                                if (scoped) startRoomHistory(client, actor, roomId, requestId);
+                                else if (!sendHistory(client, actor, roomId, roomFor(roomId)))
                                     sendLine(client, QStringLiteral("[System] 历史消息读取失败"));
                                 sendLine(client, QStringLiteral("AI|status|0|%1")
                                     .arg(QString::fromLatin1(aiStates.value(roomId, idleAiState)
                                         .toUtf8().toBase64())));
-                                for (QJsonObject event : roomFor(roomId)->snapshots()) {
+                                if (!scoped) for (QJsonObject event : roomFor(roomId)->snapshots()) {
                                     event.insert(QStringLiteral("room_id"), roomId);
                                     sendLine(client, QStringLiteral("AI|stream|%1|%2")
                                         .arg(event.value(QStringLiteral("request_id")).toString())
@@ -1467,14 +1607,22 @@ int main(int argc, char *argv[])
                     }
 
                     if (text.startsWith(QStringLiteral("AI_REGENERATE|"))) {
-                        bool validId = false;
-                        const quint64 originalId = text.mid(14).toULongLong(&validId);
                         // Only the account that asked the original question may replace its shared answer.
                         const QString roomId = activeRooms.value(client);
-                        if (!onlineUsers.contains(client) || !validId ||
-                            !RoomStore::isMember(roomId, onlineUserIds.value(client)) ||
-                            !hasRegeneratableHistory(roomId, originalId, onlineUserIds.value(client), roomFor(roomId)) ||
-                            !roomFor(roomId)->regenerate(originalId, onlineUserIds.value(client)))
+                        const qint64 account = onlineUserIds.value(client);
+                        bool started = false;
+                        if (onlineUsers.contains(client) && account > 0 && RoomStore::isMember(roomId, account)) {
+                            const QString key = text.mid(14);
+                            AiRoom *room = roomFor(roomId);
+                            bool numeric = false;
+                            const quint64 originalId = key.toULongLong(&numeric);
+                            const QString messageId = numeric ? room->regeneratableMessageId(originalId, account)
+                                : key.size() == 36 && !QUuid(key).isNull() ? key : QString();
+                            const AiRoom::PersistedReply reply = readRegenerationTarget(roomId, messageId, account);
+                            started = !reply.messageId.isEmpty() &&
+                                (numeric ? room->regenerate(originalId, account) : room->regenerate(reply));
+                        }
+                        if (!started)
                             sendLine(client, QStringLiteral("AI|error|0|%1")
                                 .arg(QString::fromLatin1(QStringLiteral("无法重新生成：请求不可用、正在生成或不属于当前账号。")
                                     .toUtf8().toBase64())));
@@ -1701,7 +1849,7 @@ int main(int argc, char *argv[])
             // 客户端断开连接时，清理列表和缓存，并刷新在线用户列表。
             QObject::connect(client, &QTcpSocket::disconnected, [client, &clients, &buffers, &onlineUsers,
                 &onlineUserIds, &modernPeers, &activeRooms, &broadcastUserList, &cancelSummary,
-                &completedSummaries, &notificationPeers]() {
+                &completedSummaries, &notificationPeers, &cancelRoomHistory]() {
                 const QString clientName = socketName(client);
                 const bool wasOnline = onlineUsers.contains(client);
                 const QString nickname = onlineUsers.value(client);
@@ -1709,6 +1857,7 @@ int main(int argc, char *argv[])
                 qDebug() << "Client disconnected:" << clientName;
 
                 cancelSummary(client);
+                cancelRoomHistory(client);
                 completedSummaries.remove(client);
 
                 clients.removeOne(client);

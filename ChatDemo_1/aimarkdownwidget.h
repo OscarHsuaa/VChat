@@ -4,6 +4,7 @@
 #include <QList>
 
 class QTextBrowser;
+class QPlainTextEdit;
 class QLabel;
 class QShowEvent;
 
@@ -29,8 +30,15 @@ protected:
     void showEvent(QShowEvent *event) override;
 
 private:
+    struct CodeBlock {
+        QPlainTextEdit *editor;
+        qreal textWidth = 0;
+        int viewportHeight = 0;
+        bool limitedHeight = false;
+    };
     QList<QTextBrowser *> proseBlocks;
     QList<int> proseNaturalWidths;
+    QList<CodeBlock> codeBlocks;
     QString plain;
     QString sourceMarkdown;
     int contentWidth = 0;

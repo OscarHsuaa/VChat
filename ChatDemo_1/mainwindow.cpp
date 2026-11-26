@@ -2124,8 +2124,10 @@ void MainWindow::appendSharedSummary(const QJsonObject &message)
     summaryCards.append(card);
     ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
     noteRoomMessage();
+    if (applyingRoomHistory) return;
     updateBubbleWidths();
-    QTimer::singleShot(0, this, [this, scroll, followBottom] {
+    QTimer::singleShot(0, this, [this, scroll, followBottom, generation = messageViewGeneration] {
+        if (generation != messageViewGeneration) return;
         updateBubbleWidths();
         if (followBottom) scroll->setValue(scroll->maximum());
     });
@@ -2137,6 +2139,8 @@ void MainWindow::connectSlots()
     // 连接成功后，客户端会立刻发送 JOIN|昵称，让服务器知道这个用户正式进入聊天界面。
     connect(socket, &QTcpSocket::connected, this, [this]() {
         isConnected = true;
+        scopedHistorySupported = regenerateByMessage = false;
+        resetHistoryRequest();
         notificationsSupported = false;
         allMentionSupported = false;
         unreadRooms.clear();
@@ -2168,6 +2172,7 @@ void MainWindow::connectSlots()
     // 断开连接后，界面状态恢复为“未连接”，在线列表也只显示自己。
     connect(socket, &QTcpSocket::disconnected, this, [this]() {
         isConnected = false;
+        resetHistoryRequest();
         updateRoomMessagePlaceholder();
         notificationsSupported = false;
         allMentionSupported = false;
@@ -2291,6 +2296,10 @@ void MainWindow::on_sendButton_clicked()
     }
     if (switchInFlight) {
         roomSidebar->setNotice(QStringLiteral("聊天室正在加载，请稍候"));
+        return;
+    }
+    if (roomHistoryLoadFailed) {
+        roomSidebar->setNotice(QStringLiteral("请先重新加载当前聊天室"));
         return;
     }
     if (!mentionProtocol && message.contains(QLatin1Char('\n'))) {
@@ -2587,7 +2596,7 @@ void MainWindow::refreshUnreadView()
 {
     const auto state = unreadRooms.value(currentRoomId);
     const bool ready = notificationsSupported && roomListLoaded && initialHistoryDone &&
-                       !switchInFlight && !roomHistoryLoading;
+                       !switchInFlight && !roomHistoryLoading && !roomHistoryLoadFailed;
     const bool atBottom = atLatestMessage();
     if (ready && !atBottom && state.count > 0) {
         newMessagesButton->setText(QStringLiteral("↓  %1 条新消息").arg(state.count));
@@ -2656,24 +2665,37 @@ void MainWindow::requestRoomSwitch(const QString &roomId)
     for (const QJsonValue &value : joinedRooms)
         if (value.toObject().value(QStringLiteral("room_id")).toString() == roomId) allowed = true;
     if (!allowed) return;
-    if (switchInFlight) {
+    if (switchInFlight && !scopedHistorySupported) {
         queuedRoomId = roomId;
         return;
     }
-    if (roomId == currentRoomId) return;
+    if (switchInFlight && roomId == pendingRoomId) return;
+    if (roomId == currentRoomId && !switchInFlight && !roomHistoryLoadFailed) return;
     newMessagesButton->hide();
     roomWelcomeToast->dismiss();
     closeViviSummary();
     setViviMenuExpanded(false, false);
     switchInFlight = true;
-    updateRoomMessagePlaceholder();
+    resetHistoryRequest();
+    historyRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     pendingRoomId = roomId;
     queuedRoomId.clear();
+    if (scopedHistorySupported) {
+        roomHistoryLoading = true;
+        clearMessageView();
+    }
+    updateRoomMessagePlaceholder();
     updateRoomTitle();
     ui->messageInput->setEnabled(false);
     ui->sendButton->setEnabled(false);
     roomSidebar->setNotice(QStringLiteral("正在切换聊天室…"));
-    sendRoomRequest(QStringLiteral("switch"), {{QStringLiteral("room_id"), roomId}});
+    sendRoomRequest(QStringLiteral("switch"), {{QStringLiteral("room_id"), roomId},
+        {QStringLiteral("request_id"), historyRequestId},
+        {QStringLiteral("scoped_history"), scopedHistorySupported}});
+    QTimer::singleShot(15000, this, [this, request = historyRequestId] {
+        if (switchInFlight && historyRequestId == request)
+            finishRoomHistory(false, QStringLiteral("加载聊天记录超时，请再次点击聊天室重试。"));
+    });
 }
 
 void MainWindow::openCreateRoomDialog()
@@ -2992,9 +3014,10 @@ void MainWindow::setMembersCollapsed(bool collapsed)
     QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
     settings.setValue(QStringLiteral("members/collapsed/%1").arg(ownAccountId), collapsed);
     if (!collapsed) requestRoomMembers();
-    QTimer::singleShot(0, this, [this, oldPosition, wasAtBottom]() {
+    QTimer::singleShot(0, this, [this, oldPosition, wasAtBottom, generation = messageViewGeneration]() {
         updateBubbleWidths();
         if (!membersCollapsed) updateMemberListHeight();
+        if (generation != messageViewGeneration) return;
         QScrollBar *bar = ui->messageScroll->verticalScrollBar();
         bar->setValue(wasAtBottom ? bar->maximum() : qMin(oldPosition, bar->maximum()));
     });
@@ -3002,6 +3025,7 @@ void MainWindow::setMembersCollapsed(bool collapsed)
 
 void MainWindow::clearMessageView()
 {
+    ++messageViewGeneration;
     roomHasMessages = roomHistoryLoadFailed = false;
     displayedUserSequence = lastLiveUserSequence = requestedReadSequence = 0;
     followedLastLiveMessage = false;
@@ -3031,6 +3055,50 @@ void MainWindow::clearMessageView()
         delete item;
     }
     updateRoomMessagePlaceholder();
+}
+
+void MainWindow::resetHistoryRequest()
+{
+    historyRequestId.clear();
+    historyAccepted = false;
+    stagedRoomHistory.clear();
+    deferredRoomFrames.clear();
+}
+
+void MainWindow::finishRoomHistory(bool ok, const QString &error)
+{
+    const bool switching = switchInFlight;
+    const QString next = queuedRoomId;
+    queuedRoomId.clear();
+    resetHistoryRequest();
+    roomHistoryLoading = switchInFlight = false;
+    pendingRoomId.clear();
+    roomHistoryLoadFailed = !ok;
+    roomWelcomePending = ok;
+    if (!initialHistoryDone) {
+        initialHistoryDone = true;
+        if (!roomListRequested) {
+            roomListRequested = true;
+            sendRoomRequest(QStringLiteral("list_mine"));
+        }
+        refreshPendingInvites();
+    }
+    ui->messageInput->setEnabled(ok);
+    ui->sendButton->setEnabled(ok && !ui->messageInput->toPlainText().trimmed().isEmpty());
+    if (switching) {
+        roomSidebar->setCurrentRoom(currentRoomId);
+        if (ok) {
+            QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
+            settings.setValue(roomSettingsKey, currentRoomId);
+        }
+    }
+    if (switching || !ok) roomSidebar->setNotice(error);
+    updateRoomTitle();
+    updateRoomMessagePlaceholder();
+    if (!ok) appendSystemMessage(error);
+    if (!next.isEmpty() && next != currentRoomId) requestRoomSwitch(next);
+    showRoomWelcomeIfReady();
+    scheduleUnreadViewUpdate();
 }
 
 void MainWindow::updateRoomMessagePlaceholder()
@@ -3233,6 +3301,8 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
         roomListLoaded = true;
         notificationsSupported = result.value(QStringLiteral("notifications_supported")).toBool();
         allMentionSupported = result.value(QStringLiteral("mention_all_supported")).toBool();
+        scopedHistorySupported = result.value(QStringLiteral("scoped_history_supported")).toBool();
+        regenerateByMessage = result.value(QStringLiteral("ai_regenerate_by_message")).toBool();
         roomSidebar->setRooms(joinedRooms);
         roomSidebar->setNotice(joinedRooms.isEmpty() ? QStringLiteral("尚未加入聊天室") : QString());
         roomSidebar->setCurrentRoom(currentRoomId);
@@ -3285,9 +3355,19 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
         return;
     }
     if (action == QStringLiteral("switch")) {
-        if (!switchInFlight || (ok && result.value(QStringLiteral("room_id")).toString() != pendingRoomId))
+        if (!switchInFlight || (ok && result.value(QStringLiteral("room_id")).toString() != pendingRoomId) ||
+            ((scopedHistorySupported || !requestId.isEmpty()) && requestId != historyRequestId))
             return;
         if (!ok) {
+            if (scopedHistorySupported) {
+                const QString active = result.value(QStringLiteral("active_room_id")).toString();
+                if (!active.isEmpty()) currentRoomId = active;
+                finishRoomHistory(false, result.value(QStringLiteral("error"))
+                    .toString(QStringLiteral("切换聊天室失败，请重新选择聊天室。")));
+                requestRoomMembers();
+                return;
+            }
+            resetHistoryRequest();
             switchInFlight = false;
             pendingRoomId.clear();
             ui->messageInput->setEnabled(true);
@@ -3306,6 +3386,7 @@ void MainWindow::handleRoomResult(const QJsonObject &result)
             scheduleUnreadViewUpdate();
             return;
         }
+        historyAccepted = scopedHistorySupported && result.value(QStringLiteral("scoped_history")).toBool();
         currentRoomId = pendingRoomId;
         roomHistoryLoading = true;
         clearMessageView();
@@ -3818,6 +3899,7 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
         });
         retry->setEnabled(!aiRequestId.isEmpty() && mayRegenerate);
         connect(retry, &QToolButton::clicked, this, [this, aiRequestId, streamMessageId]() {
+            if (switchInFlight || roomHistoryLoadFailed) return;
             if (!isConnected || socket->state() != QAbstractSocket::ConnectedState) {
                 appendSystemMessage(QStringLiteral("无法重新生成：服务器未连接。"));
                 return;
@@ -3832,7 +3914,8 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
                 it->retryAwaiting = true;
                 for (QToolButton *button : it->actions) button->setEnabled(false);
             }
-            socket->write(QStringLiteral("AI_REGENERATE|%1\n").arg(originalId).toUtf8());
+            const QString key = regenerateByMessage && !streamMessageId.isEmpty() ? streamMessageId : originalId;
+            socket->write(QStringLiteral("AI_REGENERATE|%1\n").arg(key).toUtf8());
         });
         connect(up, &QToolButton::clicked, this, [down](bool checked) { if (checked) down->setChecked(false); });
         connect(down, &QToolButton::clicked, this, [up](bool checked) { if (checked) up->setChecked(false); });
@@ -3873,16 +3956,18 @@ void MainWindow::appendMessage(const QString &user, const QString &message, bool
     ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
     lastMessageKey = messageKey;
     if (ai || !message.trimmed().isEmpty()) noteRoomMessage();
+    if (applyingRoomHistory) return;
     updateBubbleWidths();
-    QTimer::singleShot(0, this, [this, scroll, followBottom]() {
+    QTimer::singleShot(0, this, [this, scroll, followBottom, generation = messageViewGeneration]() {
+        if (generation != messageViewGeneration) return;
         updateBubbleWidths();
         if (followBottom) {
             ui->messageLayout->activate();
             scroll->setValue(scroll->maximum());
             // QTextDocument reports its final wrapped height after the layout pass.
             const int previousMax = scroll->maximum();
-            QTimer::singleShot(40, this, [scroll, previousMax]() {
-                if (scroll->value() >= previousMax - 24)
+            QTimer::singleShot(40, this, [this, scroll, previousMax, generation]() {
+                if (generation == messageViewGeneration && scroll->value() >= previousMax - 24)
                     scroll->setValue(scroll->maximum());
             });
         }
@@ -3899,8 +3984,8 @@ void MainWindow::flushAiStream(const QString &messageId)
     it->body->setStreamingText(it->displayed);
     updateBubbleWidths();
     ++it->paints;
-    const auto follow = [scroll, oldMax, followBottom]() {
-        if (followBottom && scroll->value() >= oldMax - 24)
+    const auto follow = [this, scroll, oldMax, followBottom, generation = messageViewGeneration]() {
+        if (generation == messageViewGeneration && followBottom && scroll->value() >= oldMax - 24)
             scroll->setValue(scroll->maximum());
     };
     QTimer::singleShot(0, this, follow);
@@ -3972,6 +4057,7 @@ void MainWindow::finalizeAiStream(const QString &messageId)
         }
     }
     if (it->cancel) it->cancel->hide();
+    if (applyingRoomHistory) return;
     updateBubbleWidths();
     // QTextBrowser applies its final font and viewport after the streamed
     // placeholder is replaced. Re-measure once that show/layout pass settles.
@@ -3980,8 +4066,8 @@ void MainWindow::finalizeAiStream(const QString &messageId)
             << "chunk_span_ms=" << (it->lastChunkMs - it->firstChunkMs)
             << "max_chunk_gap_ms=" << it->maxChunkGapMs
             << "bubble_updates=" << it->paints;
-    const auto follow = [scroll, oldMax, followBottom]() {
-        if (followBottom && scroll->value() >= oldMax - 24)
+    const auto follow = [this, scroll, oldMax, followBottom, generation = messageViewGeneration]() {
+        if (generation == messageViewGeneration && followBottom && scroll->value() >= oldMax - 24)
             scroll->setValue(scroll->maximum());
     };
     QTimer::singleShot(0, this, follow);
@@ -4143,8 +4229,8 @@ void MainWindow::appendAiThinking(const QString &id)
     layout->addStretch();
     ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
     aiThinkingRows.insert(id, row);
-    QTimer::singleShot(0, this, [scroll, followBottom]() {
-        if (followBottom) scroll->setValue(scroll->maximum());
+    QTimer::singleShot(0, this, [this, scroll, followBottom, generation = messageViewGeneration]() {
+        if (generation == messageViewGeneration && followBottom) scroll->setValue(scroll->maximum());
     });
 }
 
@@ -4204,7 +4290,8 @@ void MainWindow::appendSystemMessage(const QString &message)
     layout->addWidget(pill);
     layout->addStretch();
     ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
-    QTimer::singleShot(0, this, [this, scroll, followBottom]() {
+    QTimer::singleShot(0, this, [this, scroll, followBottom, generation = messageViewGeneration]() {
+        if (generation != messageViewGeneration) return;
         updateBubbleWidths();
         if (followBottom)
             scroll->setValue(scroll->maximum());
@@ -4250,11 +4337,75 @@ void MainWindow::appendPresenceNotice(const QString &name, bool joined)
     layout->addWidget(pill);
     layout->addStretch();
     ui->messageLayout->insertWidget(ui->messageLayout->count() - 1, row);
-    QTimer::singleShot(0, this, [this, scroll, followBottom]() {
+    QTimer::singleShot(0, this, [this, scroll, followBottom, generation = messageViewGeneration]() {
+        if (generation != messageViewGeneration) return;
         updateBubbleWidths();
         if (followBottom)
             scroll->setValue(scroll->maximum());
     });
+}
+
+void MainWindow::appendHistoryItem(const QJsonObject &item)
+{
+    const QString id = item.value(QStringLiteral("message_id")).toString();
+    if (id.isEmpty()) return;
+    const QString body = item.value(QStringLiteral("text")).toString();
+    if (item.value(QStringLiteral("type")) == QStringLiteral("ai")) {
+        const auto durablePermission = item.value(QStringLiteral("can_regenerate_by_message"));
+        if (durablePermission.isBool()) regenerateByMessage = true;
+        auto existing = aiStreams.find(id);
+        if (existing != aiStreams.end()) {
+            if (existing->finished && existing->raw != body && existing->body) {
+                existing->body->beginStreaming();
+                existing->body->finishStreaming(body);
+                existing->raw = body;
+                existing->displayed = body;
+                updateBubbleWidths();
+            }
+            return;
+        }
+        const QString persistedState = item.value(QStringLiteral("ai_state")).toString();
+        const bool pending = persistedState == QStringLiteral("pending");
+        const bool failed = persistedState == QStringLiteral("failed") ||
+            persistedState == QStringLiteral("cancelled") ||
+            persistedState == QStringLiteral("timed_out");
+        const QJsonObject event{{QStringLiteral("event"), pending ? QStringLiteral("ai_start")
+            : failed ? QStringLiteral("ai_error") : QStringLiteral("ai_complete")},
+            {QStringLiteral("request_id"), QStringLiteral("history:") + id},
+            {QStringLiteral("message_id"), id},
+            {QStringLiteral("generation_id"), QStringLiteral("persisted")},
+            {QStringLiteral("original_request_id"), item.value(QStringLiteral("original_request_id")).toString()},
+            {QStringLiteral("can_regenerate"), durablePermission.isBool() ? durablePermission.toBool()
+                : item.value(QStringLiteral("can_regenerate")).toBool()},
+            {QStringLiteral("user_id"), item.value(QStringLiteral("sender_id")).toString()},
+            {QStringLiteral("nickname"), item.value(QStringLiteral("reply_to_name")).toString()},
+            {QStringLiteral("created_at"), item.value(QStringLiteral("time")).toString()},
+            {QStringLiteral("sequence"), 0}, {QStringLiteral("full_text"), pending ? QString() : body},
+            {QStringLiteral("error"), failed ? body : QString()}};
+        appendAiStreamEvent(event);
+        if (pending) {
+            auto stream = aiStreams.find(id);
+            if (stream != aiStreams.end() && stream->body) {
+                stream->body->setStreamingText(QStringLiteral("Vivi 正在思考…"));
+                if (stream->cancel) stream->cancel->hide();
+            }
+        }
+    } else if (item.value(QStringLiteral("type")) == QStringLiteral("discussion_summary")) {
+        QJsonObject shared = QJsonDocument::fromJson(body.toUtf8()).object();
+        shared.insert(QStringLiteral("room_id"), currentRoomId);
+        shared.insert(QStringLiteral("message_id"), id);
+        shared.insert(QStringLiteral("shared_by_id"), item.value(QStringLiteral("sender_id")));
+        shared.insert(QStringLiteral("shared_by_name"), item.value(QStringLiteral("sender")));
+        shared.insert(QStringLiteral("time"), item.value(QStringLiteral("time")));
+        appendSharedSummary(shared);
+    } else if (item.value(QStringLiteral("type")) == QStringLiteral("user")) {
+        const QString senderId = item.value(QStringLiteral("sender_id")).toString();
+        appendMessage(item.value(QStringLiteral("sender")).toString(), body,
+            !senderId.isEmpty() && senderId == QString::number(ownAccountId),
+            item.value(QStringLiteral("time")).toString(), false, {}, {}, {}, {}, id);
+        displayedUserSequence = qMax(displayedUserSequence,
+            item.value(QStringLiteral("sequence_id")).toString().toLongLong());
+    }
 }
 
 void MainWindow::appendIncomingLine(const QString &line)
@@ -4269,7 +4420,12 @@ void MainWindow::appendIncomingLine(const QString &line)
     if (line.startsWith(QStringLiteral("SUMMARY_SHARE|"))) {
         const QJsonDocument document = QJsonDocument::fromJson(
             QByteArray::fromBase64(line.mid(14).toLatin1()));
-        if (document.isObject()) handleSummaryShare(document.object());
+        if (document.isObject()) {
+            if (scopedHistorySupported && switchInFlight && !applyingRoomHistory) {
+                if (historyAccepted && document.object().value(QStringLiteral("room_id")).toString() == currentRoomId)
+                    deferredRoomFrames.append(line);
+            } else handleSummaryShare(document.object());
+        }
         return;
     }
     if (line.startsWith(QStringLiteral("AI_SUMMARY|"))) {
@@ -4293,97 +4449,47 @@ void MainWindow::appendIncomingLine(const QString &line)
         return;
     }
     if (line.startsWith(QStringLiteral("HISTORY|"))) {
-        const QJsonDocument document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(8).toLatin1()));
+        const auto document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(8).toLatin1()));
         if (!document.isObject()) return;
         const QJsonObject item = document.object();
         if (item.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
-        const QString id = item.value(QStringLiteral("message_id")).toString();
-        if (id.isEmpty()) return;
-        const QString body = item.value(QStringLiteral("text")).toString();
-        if (item.value(QStringLiteral("type")) == QStringLiteral("ai")) {
-            auto existing = aiStreams.find(id);
-            if (existing != aiStreams.end()) {
-                if (existing->finished && existing->raw != body && existing->body) {
-                    existing->body->beginStreaming();
-                    existing->body->finishStreaming(body);
-                    existing->raw = body;
-                    existing->displayed = body;
-                    updateBubbleWidths();
+        const QString request = item.value(QStringLiteral("request_id")).toString();
+        if (!request.isEmpty()) {
+            if (historyAccepted && request == historyRequestId)
+                stagedRoomHistory.append(item);
+        } else if (!(scopedHistorySupported && switchInFlight)) appendHistoryItem(item);
+        return;
+    }
+    if (line.startsWith(QStringLiteral("HISTORY_DONE|"))) {
+        const auto document = QJsonDocument::fromJson(QByteArray::fromBase64(line.mid(13).toLatin1()));
+        const QJsonObject result = document.object();
+        if (!historyAccepted || result.value(QStringLiteral("request_id")).toString() != historyRequestId ||
+            result.value(QStringLiteral("room_id")).toString() != currentRoomId) return;
+        const bool ok = result.value(QStringLiteral("ok")).toBool();
+        if (ok) {
+            ui->messageScroll->setUpdatesEnabled(false);
+            applyingRoomHistory = true;
+            for (const auto &item : std::as_const(stagedRoomHistory)) appendHistoryItem(item);
+            for (const auto &frame : std::as_const(deferredRoomFrames)) appendIncomingLine(frame);
+            applyingRoomHistory = false;
+            updateBubbleWidths();
+            ui->messageLayout->activate();
+            ui->messageScroll->setUpdatesEnabled(true);
+            QTimer::singleShot(0, this, [this, generation = messageViewGeneration] {
+                if (generation == messageViewGeneration) {
+                    auto *scroll = ui->messageScroll->verticalScrollBar();
+                    scroll->setValue(scroll->maximum());
                 }
-                return;
-            }
-            const QString persistedState = item.value(QStringLiteral("ai_state")).toString();
-            const bool pending = persistedState == QStringLiteral("pending");
-            const bool failed = persistedState == QStringLiteral("failed") ||
-                persistedState == QStringLiteral("cancelled") ||
-                persistedState == QStringLiteral("timed_out");
-            const QJsonObject event{{QStringLiteral("event"), pending ? QStringLiteral("ai_start")
-                : failed ? QStringLiteral("ai_error") : QStringLiteral("ai_complete")},
-                {QStringLiteral("request_id"), QStringLiteral("history:") + id},
-                {QStringLiteral("message_id"), id},
-                {QStringLiteral("generation_id"), QStringLiteral("persisted")},
-                {QStringLiteral("original_request_id"), item.value(QStringLiteral("original_request_id")).toString()},
-                {QStringLiteral("can_regenerate"), item.value(QStringLiteral("can_regenerate")).toBool()},
-                {QStringLiteral("user_id"), item.value(QStringLiteral("sender_id")).toString()},
-                {QStringLiteral("nickname"), item.value(QStringLiteral("reply_to_name")).toString()},
-                {QStringLiteral("created_at"), item.value(QStringLiteral("time")).toString()},
-                {QStringLiteral("sequence"), 0}, {QStringLiteral("full_text"), pending ? QString() : body},
-                {QStringLiteral("error"), failed ? body : QString()}};
-            appendAiStreamEvent(event);
-            if (pending) {
-                auto stream = aiStreams.find(id);
-                if (stream != aiStreams.end() && stream->body) {
-                    stream->body->setStreamingText(QStringLiteral("Vivi 正在思考…"));
-                    if (stream->cancel) stream->cancel->hide();
-                }
-            }
-        } else if (item.value(QStringLiteral("type")) == QStringLiteral("discussion_summary")) {
-            QJsonObject shared = QJsonDocument::fromJson(body.toUtf8()).object();
-            shared.insert(QStringLiteral("room_id"), currentRoomId);
-            shared.insert(QStringLiteral("message_id"), id);
-            shared.insert(QStringLiteral("shared_by_id"), item.value(QStringLiteral("sender_id")));
-            shared.insert(QStringLiteral("shared_by_name"), item.value(QStringLiteral("sender")));
-            shared.insert(QStringLiteral("time"), item.value(QStringLiteral("time")));
-            appendSharedSummary(shared);
-        } else if (item.value(QStringLiteral("type")) == QStringLiteral("user")) {
-            const QString senderId = item.value(QStringLiteral("sender_id")).toString();
-            appendMessage(item.value(QStringLiteral("sender")).toString(), body,
-                !senderId.isEmpty() && senderId == QString::number(ownAccountId),
-                item.value(QStringLiteral("time")).toString(), false, {}, {}, {}, {}, id);
-            displayedUserSequence = qMax(displayedUserSequence,
-                item.value(QStringLiteral("sequence_id")).toString().toLongLong());
+            });
         }
+        const QString error = ok ? QString() : result.value(QStringLiteral("error"))
+            .toString(QStringLiteral("历史消息读取失败")) + QStringLiteral("。请再次点击该聊天室重试。");
+        finishRoomHistory(ok, error);
         return;
     }
     if (line == QStringLiteral("HISTORY_END")) {
-        roomHistoryLoadFailed = false;
-        if (roomHistoryLoading) {
-            roomHistoryLoading = false;
-            switchInFlight = false;
-            roomWelcomePending = true;
-            pendingRoomId.clear();
-            ui->messageInput->setEnabled(true);
-            ui->sendButton->setEnabled(!ui->messageInput->toPlainText().trimmed().isEmpty());
-            roomSidebar->setNotice({});
-            QSettings settings(QStringLiteral("VChat"), QStringLiteral("VChatClient"));
-            settings.setValue(roomSettingsKey, currentRoomId);
-            if (!queuedRoomId.isEmpty() && queuedRoomId != currentRoomId) {
-                const QString next = queuedRoomId;
-                queuedRoomId.clear();
-                requestRoomSwitch(next);
-            } else updateRoomTitle();
-            showRoomWelcomeIfReady();
-        } else if (!initialHistoryDone) {
-            initialHistoryDone = true;
-            roomWelcomePending = true;
-            if (!roomListRequested) {
-                roomListRequested = true;
-                sendRoomRequest(QStringLiteral("list_mine"));
-            }
-            refreshPendingInvites();
-        }
-        updateRoomMessagePlaceholder();
-        scheduleUnreadViewUpdate();
+        if (!initialHistoryDone || (roomHistoryLoading && !scopedHistorySupported))
+            finishRoomHistory(true);
         return;
     }
     if (line.startsWith(QStringLiteral("USERLIST2|"))) {
@@ -4414,6 +4520,10 @@ void MainWindow::appendIncomingLine(const QString &line)
         const QString roomId = payload.value(QStringLiteral("room_id")).toString();
         if ((!roomId.isEmpty() && roomId != currentRoomId) ||
             (roomId.isEmpty() && currentRoomId != QStringLiteral("class-room"))) return;
+        if (scopedHistorySupported && switchInFlight && !applyingRoomHistory) {
+            if (historyAccepted && roomId == currentRoomId) deferredRoomFrames.append(line);
+            return;
+        }
         lastLiveUserSequence = payload.value(QStringLiteral("sequence_id")).toString().toLongLong();
         followedLastLiveMessage = atLatestMessage();
         const bool own = ownAccountId > 0 &&
@@ -4435,12 +4545,17 @@ void MainWindow::appendIncomingLine(const QString &line)
         const QString content = QString::fromUtf8(QByteArray::fromBase64(parts.at(3).toLatin1()));
         if (state == QStringLiteral("stream")) {
             const QJsonDocument document = QJsonDocument::fromJson(content.toUtf8());
-            if (document.isObject() &&
-                document.object().value(QStringLiteral("room_id")).toString() == currentRoomId &&
-                document.object().value(QStringLiteral("request_id")).toString() == id)
-                appendAiStreamEvent(document.object());
+            const QJsonObject event = document.object();
+            if (event.value(QStringLiteral("room_id")).toString() != currentRoomId ||
+                event.value(QStringLiteral("request_id")).toString() != id) return;
+            const QString request = event.value(QStringLiteral("history_request_id")).toString();
+            if (!request.isEmpty() && (!historyAccepted || request != historyRequestId)) return;
+            if (scopedHistorySupported && switchInFlight && !applyingRoomHistory) {
+                if (historyAccepted) deferredRoomFrames.append(line);
+            } else appendAiStreamEvent(event);
             return;
         }
+        if (scopedHistorySupported && switchInFlight && state != QStringLiteral("status")) return;
         if (state == QStringLiteral("status")) setAiStatus(content);
         else if (state == QStringLiteral("meta")) {
             const QJsonDocument metadata = QJsonDocument::fromJson(content.toUtf8());
@@ -4481,9 +4596,12 @@ void MainWindow::appendIncomingLine(const QString &line)
         if (notice == QStringLiteral("历史消息读取失败") ||
             notice == QStringLiteral("历史消息读取失败，请联系管理员") ||
             notice == QStringLiteral("身份会话已失效，请重新登录")) {
-            roomHistoryLoadFailed = true;
-            updateRoomMessagePlaceholder();
+            if (!initialHistoryDone || (switchInFlight && !scopedHistorySupported)) {
+                finishRoomHistory(false, notice);
+                return;
+            }
         }
+        if (scopedHistorySupported && switchInFlight) return;
         if (notice == QStringLiteral("Connected to chat server") ||
             notice == QStringLiteral("Welcome %1").arg(nickname)) {
             return; // The room welcome toast handles these notices after entry.
@@ -4685,6 +4803,7 @@ void MainWindow::updateMemberListHeight()
 
 void MainWindow::updateBubbleWidths()
 {
+    if (applyingRoomHistory) return;
     const int limit = qMax(180, int(ui->messageScroll->viewport()->width() * 0.68));
     for (QWidget *column : bubbleColumns)
         column->setMaximumWidth(limit);

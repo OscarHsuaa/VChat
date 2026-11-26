@@ -230,7 +230,8 @@ int main(int argc, char **argv)
                                    prose->viewport()->height() + 2 >= needed, 19)) return result;
         }
         for (QPlainTextEdit *editor : fullHeight.findChildren<QPlainTextEdit *>()) {
-            if (int result = check(editor->verticalScrollBar()->maximum() == 0, 20)) return result;
+            if (int result = check(editor->blockCount() == 40 &&
+                                   editor->verticalScrollBar()->maximum() > 0, 20)) return result;
         }
         for (QWidget *child : fullHeight.findChildren<QWidget *>(
                  QString(), Qt::FindDirectChildrenOnly))

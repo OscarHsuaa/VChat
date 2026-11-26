@@ -643,6 +643,278 @@ static int testEmptyRoomState(const QString &capturePath)
     return waitUntil([&] { return placeholder->isHidden(); }) ? 0 : 25;
 }
 
+static int testScopedRoomHistory()
+{
+    QTemporaryDir settingsDir;
+    if (!settingsDir.isValid()) return 1;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 2;
+    MainWindow window(QStringLiteral("甲"), QStringLiteral("127.0.0.1:%1").arg(server.serverPort()),
+                      nullptr, 11, QStringLiteral("test-token"));
+    window.resize(1030, 700);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 3;
+    auto *peer = server.nextPendingConnection();
+    auto *sidebar = window.findChild<RoomSidebarWidget *>();
+    auto *scroll = window.findChild<QScrollArea *>(QStringLiteral("messageScroll"));
+    auto *loading = window.findChild<QLabel *>(QStringLiteral("roomHistoryLoading"));
+    auto *input = window.findChild<QTextEdit *>(QStringLiteral("messageInput"));
+    if (!sidebar || !scroll || !loading || !input) return 4;
+    QByteArray incoming;
+    const auto saw = [&](const QByteArray &command) {
+        return waitUntil([&] { incoming += peer->readAll(); return incoming.contains(command); });
+    };
+    const auto send = [&](const QByteArray &prefix, const QJsonObject &data) {
+        peer->write(prefix + QJsonDocument(data).toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    const QString a = QStringLiteral("class-room"), b = QStringLiteral("room-b"), c = QStringLiteral("room-c");
+    const auto history = [&](const QString &room, const QString &request, const QString &message, int sequence) {
+        send("HISTORY|", {{"room_id", room}, {"request_id", request}, {"message_id", message},
+            {"sender", "乙"}, {"sender_id", "22"}, {"type", "user"}, {"text", message},
+            {"sequence_id", QString::number(sequence)}});
+    };
+    if (!saw("JOIN|")) return 5;
+    history(a, {}, QStringLiteral("initial-A"), 1);
+    peer->write("HISTORY_END\n");
+    if (!saw("ROOM|list_mine|")) return 6;
+    QJsonArray rooms;
+    for (const QString &room : {a, b, c}) rooms.append(QJsonObject{{"room_id", room}, {"room_name", room}});
+    send("ROOM|result|", {{"action", "list_mine"}, {"ok", true}, {"scoped_history_supported", true},
+        {"ai_regenerate_by_message", true}, {"rooms", rooms}});
+    if (!saw("ROOM|members|")) return 7;
+    const auto choose = [&](const QString &room) {
+        incoming.clear();
+        peer->readAll();
+        sidebar->roomSelected(room);
+        if (!saw("ROOM|switch|")) return QString();
+        const QByteArray frame = incoming.mid(incoming.indexOf("ROOM|switch|") + 12).split('\n').first();
+        const auto fields = QJsonDocument::fromJson(QByteArray::fromBase64(frame)).object();
+        return fields.value("room_id") == room && fields.value("scoped_history").toBool()
+            ? fields.value("request_id").toString() : QString();
+    };
+    const auto ack = [&](const QString &room, const QString &request) {
+        send("ROOM|result|", {{"action", "switch"}, {"ok", true}, {"room_id", room},
+            {"request_id", request}, {"scoped_history", true}});
+    };
+    const auto finish = [&](const QString &room, const QString &request, bool ok = true) {
+        send("HISTORY_DONE|", {{"room_id", room}, {"request_id", request}, {"ok", ok},
+            {"error", ok ? QString() : QStringLiteral("历史读取失败，请重试")}});
+    };
+    const auto visibleIds = [&] {
+        QStringList ids;
+        for (const QWidget *row : scroll->widget()->findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly)) {
+            const QString id = row->property("userMessageId").toString();
+            if (!id.isEmpty()) ids.append(id);
+        }
+        return ids;
+    };
+    const auto latest = [&] {
+        return scroll->verticalScrollBar()->maximum() > 0 &&
+            scroll->verticalScrollBar()->value() == scroll->verticalScrollBar()->maximum();
+    };
+
+    const QString firstB = choose(b);
+    if (firstB.isEmpty() || !loading->isVisible() || !visibleIds().isEmpty()) return 8;
+    ack(b, firstB);
+    history(b, firstB, QStringLiteral("incomplete-B"), 2);
+    waitEvents();
+    if (!loading->isVisible() || !visibleIds().isEmpty()) return 9;
+    const QString firstC = choose(c);
+    if (firstC.isEmpty() || firstB == firstC) return 10;
+    ack(b, firstB);
+    ack(c, firstC);
+    finish(b, firstB);
+    history(c, firstB, QStringLiteral("stale-id-for-C"), 3);
+    finish(c, firstB);
+    peer->write("HISTORY_END\n");
+    waitEvents();
+    if (!loading->isVisible() || !visibleIds().isEmpty()) return 11;
+    QStringList expected;
+    for (int i = 1; i <= 36; ++i) {
+        const QString id = QStringLiteral("C-message-%1").arg(i);
+        expected.append(id);
+        history(c, firstC, id, i);
+    }
+    for (const QString &id : {expected.last(), QStringLiteral("C-live")})
+        send("CHAT2|", {{"room_id", c}, {"messageId", id}, {"sender", "乙"}, {"senderId", "22"},
+            {"text", id}, {"sequence_id", id == expected.last() ? "36" : "37"}});
+    expected.append(QStringLiteral("C-live"));
+    finish(c, firstC);
+    if (!waitUntil([&] { return !loading->isVisible() && visibleIds() == expected && latest(); })) return 12;
+
+    for (int pass = 0; pass < 2; ++pass) {
+        const QString nextA = choose(a), nextB = choose(b), nextC = choose(c);
+        if (nextA.isEmpty() || nextB.isEmpty() || nextC.isEmpty() || nextC == firstC) return 13;
+        ack(a, nextA);
+        history(a, nextA, QStringLiteral("outdated-A"), 1);
+        finish(a, nextA);
+        ack(b, nextB);
+        finish(b, nextB, false);
+        ack(c, nextC);
+        history(c, firstC, QStringLiteral("outdated-C"), 1);
+        history(c, nextC, QStringLiteral("final-C"), 1);
+        finish(c, nextC);
+        if (!waitUntil([&] { return !loading->isVisible() && visibleIds() == QStringList{QStringLiteral("final-C")}; }))
+            return 14;
+    }
+
+    const QString failed = choose(b);
+    if (failed.isEmpty()) return 15;
+    ack(b, failed);
+    history(b, failed, QStringLiteral("partial-B"), 1);
+    finish(b, failed, false);
+    if (!waitUntil([&] {
+        const auto *error = window.findChild<QLabel *>(QStringLiteral("systemMessageText"));
+        return !loading->isVisible() && !input->isEnabled() && visibleIds().isEmpty() && error &&
+            error->text().contains(QStringLiteral("请重试"));
+    })) return 16;
+    const QString retryB = choose(b);
+    if (retryB.isEmpty() || retryB == failed) return 17;
+    ack(b, retryB);
+    history(b, failed, QStringLiteral("failed-request-B"), 1);
+    history(b, retryB, QStringLiteral("reloaded-B"), 2);
+    const QString aiId = QStringLiteral("467762c9-9259-475c-af48-89507c29193d");
+    send("HISTORY|", {{"room_id", b}, {"request_id", retryB}, {"message_id", aiId}, {"sender_id", "11"},
+        {"sender", "Vivi"}, {"type", "ai"}, {"text", "persisted answer"}, {"ai_state", "completed"},
+        {"original_request_id", "1"}, {"can_regenerate", true}});
+    finish(b, retryB);
+    if (!waitUntil([&] {
+        return !loading->isVisible() && input->isEnabled() && visibleIds() == QStringList{QStringLiteral("reloaded-B")};
+    })) return 18;
+    auto *retry = window.findChild<QToolButton *>(QStringLiteral("viviActionRegenerate"));
+    if (!retry || !retry->isVisible() || !retry->isEnabled()) return 19;
+    retry->click();
+    return saw("AI_REGENERATE|" + aiId.toLatin1()) ? 0 : 20;
+}
+
+static int testViviCodeLayout(const QString &capturePath)
+{
+    QTemporaryDir settingsDir;
+    if (!settingsDir.isValid()) return 1;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
+    QTcpServer server;
+    if (!server.listen(QHostAddress::LocalHost, 0)) return 2;
+    MainWindow window(QStringLiteral("甲"), QStringLiteral("127.0.0.1:%1").arg(server.serverPort()),
+                      nullptr, 11, QStringLiteral("test-token"));
+    window.resize(1440, 860);
+    window.show();
+    if (!waitUntil([&] { return server.hasPendingConnections(); })) return 3;
+    auto *peer = server.nextPendingConnection();
+    auto *scroll = window.findChild<QScrollArea *>(QStringLiteral("messageScroll"));
+    if (!scroll || !waitUntil([&] { return peer->bytesAvailable() > 0; })) return 4;
+
+    const QString hello = QStringLiteral("#include <iostream>\n\nint main() {\n"
+                                         "    std::cout << \"hello world\" << std::endl;\n"
+                                         "    return 0;\n}");
+    const QString five = QStringLiteral("int sum(int a, int b) {\n\tint result = a + b;\n\n\treturn result;\n}");
+    const QString medium = QStringList(20, QStringLiteral("int value = 42;")).join(QLatin1Char('\n'));
+    const QString wide = QStringLiteral("    // ") + QString(64, QLatin1Char('x'));
+    const QString large = QStringLiteral("int value = 42;\n").repeated(59) + wide;
+    const auto fenced = [](const QString &body) { return QStringLiteral("```cpp\n%1\n```").arg(body); };
+    const auto sendHistory = [&](const QString &id, const QString &markdown) {
+        const QJsonObject item{{"room_id", "class-room"}, {"message_id", id}, {"sender_id", "11"},
+            {"sender", "Vivi"}, {"type", "ai"}, {"ai_state", "completed"}, {"text", markdown}};
+        peer->write("HISTORY|" + QJsonDocument(item).toJson(QJsonDocument::Compact).toBase64() + '\n');
+    };
+    const auto bubble = [&](const QString &id) -> QFrame * {
+        for (const QWidget *row : scroll->widget()->findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly))
+            if (row->property("aiMessageId").toString() == id)
+                return row->findChild<QFrame *>(QStringLiteral("viviReadingCard"));
+        return nullptr;
+    };
+    sendHistory(QStringLiteral("hello"), fenced(hello));
+    peer->write("HISTORY_END\n");
+    if (!waitUntil([&] { return bubble(QStringLiteral("hello")) && !bubble(QStringLiteral("hello"))
+                        ->findChildren<QPlainTextEdit *>().isEmpty(); })) return 5;
+    auto *helloBubble = bubble(QStringLiteral("hello"));
+    auto *shortEditor = helloBubble->findChild<QPlainTextEdit *>();
+    waitEvents();
+    if (!capturePath.isEmpty() && !window.grab().save(capturePath)) return 6;
+
+    sendHistory(QStringLiteral("multi-code"), fenced(five) + QStringLiteral("\n\n") + fenced(medium)
+                + QStringLiteral("\n\n") + fenced(large) + QStringLiteral("\n\n") + fenced(wide));
+    QFrame *multi = nullptr;
+    if (!waitUntil([&] {
+        multi = bubble(QStringLiteral("multi-code"));
+        return multi && multi->findChildren<QPlainTextEdit *>().size() == 4;
+    })) return 7;
+    const auto editors = multi->findChildren<QPlainTextEdit *>();
+    const auto noScroll = [](const QPlainTextEdit *editor) {
+        return editor->horizontalScrollBar()->maximum() == 0 && editor->verticalScrollBar()->maximum() == 0 &&
+            !editor->horizontalScrollBar()->isVisible() && !editor->verticalScrollBar()->isVisible();
+    };
+    const auto textHeight = [](const QPlainTextEdit *editor, int limit) {
+        auto *doc = editor->document();
+        qreal height = doc->documentMargin();
+        for (QTextBlock block = doc->begin(); block.isValid() && block.blockNumber() < limit; block = block.next())
+            height += doc->documentLayout()->blockBoundingRect(block).height();
+        return qCeil(height);
+    };
+    const auto fits = [&](const QPlainTextEdit *editor) {
+        const int expected = textHeight(editor, editor->blockCount());
+        return editor->viewport()->height() >= expected && editor->viewport()->height() <= expected + 2;
+    };
+    waitEvents();
+    if (!noScroll(shortEditor) || !fits(shortEditor) || shortEditor->toPlainText() != hello ||
+        !noScroll(editors.at(0)) || !fits(editors.at(0)) || editors.at(0)->toPlainText() != five ||
+        !noScroll(editors.at(1)) || !fits(editors.at(1)) || editors.at(1)->toPlainText() != medium) {
+        qWarning("Short/medium code heights: hello=%d/%d, five=%d/%d, medium=%d/%d",
+                 shortEditor->viewport()->height(), textHeight(shortEditor, shortEditor->blockCount()),
+                 editors.at(0)->viewport()->height(), textHeight(editors.at(0), 5),
+                 editors.at(1)->viewport()->height(), textHeight(editors.at(1), 20));
+        for (const QPlainTextEdit *editor : {shortEditor, editors.at(0), editors.at(1)}) {
+            const auto *body = editor->parentWidget()->parentWidget();
+            qWarning() << "Code editor geometry" << editor->size() << editor->viewport()->size()
+                       << editor->document()->documentLayout()->documentSize()
+                       << editor->horizontalScrollBar()->maximum() << editor->verticalScrollBar()->maximum()
+                       << editor->document()->defaultFont() << editor->parentWidget()->size()
+                       << editor->parentWidget()->contentsMargins() << body->width();
+        }
+        return 8;
+    }
+    auto *longEditor = editors.at(2);
+    auto *wideEditor = editors.at(3);
+    if (longEditor->blockCount() != 60 || longEditor->toPlainText() != large ||
+        !longEditor->verticalScrollBar()->isVisible() || longEditor->horizontalScrollBar()->isVisible() ||
+        longEditor->viewport()->height() < textHeight(longEditor, 20) ||
+        longEditor->viewport()->height() >= textHeight(longEditor, 21)) return 9;
+    longEditor->verticalScrollBar()->setValue(longEditor->verticalScrollBar()->maximum());
+    if (longEditor->verticalScrollBar()->value() <= 0) return 10;
+    const auto copies = multi->findChildren<QPushButton *>();
+    if (copies.size() != 4) return 11;
+    copies.at(2)->click();
+    if (QApplication::clipboard()->text() != large) return 12;
+    copies.at(0)->click();
+    if (QApplication::clipboard()->text() != five) return 13;
+    const auto formats = shortEditor->document()->firstBlock().layout()->formats();
+    if (formats.isEmpty() || formats.first().format.foreground().color() != QColor(QStringLiteral("#7956d5")))
+        return 14;
+
+    const int initialWidth = wideEditor->viewport()->width();
+    window.showMaximized();
+    waitEvents();
+    if (!window.isMaximized() || !fits(shortEditor) || shortEditor->verticalScrollBar()->isVisible()) return 15;
+    window.showNormal();
+    window.resize(820, 630);
+    if (!waitUntil([&] { return wideEditor->viewport()->width() < initialWidth &&
+        wideEditor->horizontalScrollBar()->isVisible(); })) return 16;
+    if (!longEditor->horizontalScrollBar()->isVisible() || !longEditor->verticalScrollBar()->isVisible())
+        return 21;
+    if (!fits(wideEditor) || wideEditor->verticalScrollBar()->maximum() != 0 ||
+        wideEditor->toPlainText() != wide || wideEditor->document()->firstBlock().layout()->lineCount() != 1)
+        return 17;
+    wideEditor->horizontalScrollBar()->setValue(wideEditor->horizontalScrollBar()->maximum());
+    if (wideEditor->horizontalScrollBar()->value() <= 0) return 18;
+    const int narrowWidth = multi->width();
+    window.resize(1440, 860);
+    if (!waitUntil([&] { return multi->width() > narrowWidth && noScroll(wideEditor) &&
+        fits(wideEditor) && noScroll(shortEditor) && fits(shortEditor); })) return 19;
+    for (const auto *editor : editors)
+        if (editor->mapTo(multi, QPoint()).x() + editor->width() > multi->width()) return 20;
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -658,6 +930,10 @@ int main(int argc, char **argv)
         return testAllMention();
     if (app.arguments().value(1) == QStringLiteral("--empty-room-state"))
         return testEmptyRoomState(app.arguments().value(2));
+    if (app.arguments().value(1) == QStringLiteral("--scoped-room-history"))
+        return testScopedRoomHistory();
+    if (app.arguments().value(1) == QStringLiteral("--vivi-code-layout"))
+        return testViviCodeLayout(app.arguments().value(2));
     if (app.arguments().value(1) == QStringLiteral("--verify-notification-settings")) {
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, app.arguments().value(2));
         MainWindow window(QStringLiteral("用户B"));
